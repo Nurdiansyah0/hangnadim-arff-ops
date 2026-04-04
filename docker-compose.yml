@@ -36,6 +36,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        - API_URL=http://arff-backend:8000
     container_name: arff-frontend
     ports:
       - "3000:3000"
