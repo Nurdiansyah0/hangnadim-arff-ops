@@ -1,43 +1,5 @@
 # Implementation Plan: Sistem ERP Unit ARFF Hang Nadim
 
-Dokumen ini merincikan tahapan pengembangan sistem ERP untuk Unit ARFF Hang Nadim. Proyek ini dibentuk menjadi beberapa fase prioritas agar dapat dieksekusi secara iteratif (agile) oleh tim developer (junior/programmer AI) tanpa tumpang tindih.
-
-## Fase 1: Inisialisasi Sistem & Manajemen Otoritas (Pondasi Utama)
-**Konteks:** Sistem membutuhkan pondasi yang kuat karena hak akses tiap personil berbeda sesuai dengan RACI Matrix. Matriks di bawah ini menjadi acuan utama *Role-Based Access Control* (RBAC) pada fase ini:
-
-<details>
-<summary><b>Lihat Tabel RACI</b></summary>
-
-| Tugas / Aktivitas | Manager ARFF | Team Leader Shift | Team Leader Performance & Quality | Team Leader Maintenance | Firefighter / Regu Operasional | Watchroom | Admin / Dokumentasi |
-|-----------------|-----------------|-----------------|----------------------------------|---------------------|-------------------------------|-----------|----------------|
-| Kesiapsiagaan shift | A | R | C | C | I | I | I |
-| Penanganan insiden kebakaran | I | A/R | C | C | R | C | I |
-| Evakuasi penumpang & crew | I | A | C | I | R | I | I |
-| Operasi pemadaman & mitigasi bahaya | I | A/R | C | C | R | C | I |
-| Fire Protection: Identifikasi risiko | A | R | C | C | I | I | R |
-| Fire Protection: Inspeksi area & peralatan | I | R | A/R | C | R | I | R |
-| Fire Protection: Pemeliharaan & penerapan standar | A | R | C | A/R | I | C | R |
-| Fire Protection: Pelatihan & sosialisasi | A | R | C | C | I | I | I |
-| Pemeliharaan kendaraan & peralatan PKP-PK | I | C | I | A/R | C | I | I |
-| Monitoring kualitas & evaluasi SOP | A | C | R | C | I | C | I |
-| Audit internal & laporan performa shift | A | C | R | C | I | C | R |
-| Laporan insiden ke regulator / manajemen | A | C | C | I | R | R | R |
-| Update database & arsip dokumentasi | I | I | I | I | I | R | R |
-| Penetapan prosedur & kebijakan baru | A | C | C | C | I | C | I |
-| Koordinasi dengan VP Safety, Security, Airport Rescue | A | C | C | C | I | R | I |
-| Evaluasi kinerja personel per shift | A | R | C | C | I | C | I |
-| Penjadwalan shift & rotasi personel | A | R | C | I | I | C | R |
-| Mitigasi risiko keselamatan & kepatuhan | A | R | C | C | I | C | I |
-| Pemantauan real-time aktivitas bandara | I | I | C | C | I | A/R | I |
-| Pemberitahuan insiden / alarm | I | R | C | C | R | A/R | I |
-
-</details>
-* **Fokus:** Setup infrastruktur dasar, desain database, dan Authentication/Authorization.
-* **Tugas Spesifik:**
-  1. Inisialisasi codebase (contoh: Next.js/React untuk FE, Rust/Axum untuk BE) dan pengerjaan struktur folder aplikasi.
-  2. Implementasi skema Database untuk `Users`, `Roles`, dan `Permissions`.
-  3. Buat fitur Login/Logout dan proteksi Routing berbasis Role.
-  4. Buat halaman CRUD (Create, Read, Update, Delete) sederhana untuk meregistrasi personel berdasarkan perannya (Manager ARFF, TL Shift, TL Maintenance, Watchroom, Firefighter, Admin).
 
 ## Fase 2: Master Data Management & Modul Manajemen Aset
 **Konteks:** Pendataan inventaris kendaraan, peralatan, titik hydrant harus ada terlebih dahulu sebelum modul operasional berjalan.
