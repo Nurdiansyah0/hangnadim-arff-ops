@@ -24,7 +24,7 @@ pub struct User {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String, // User ID string
+    pub sub: String,
     pub role_id: i32,
     pub exp: usize,
 }
