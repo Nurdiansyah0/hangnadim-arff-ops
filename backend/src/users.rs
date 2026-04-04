@@ -11,7 +11,7 @@ use crate::{auth::RequireAuth, models::User, AppState};
 pub fn users_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(list_users).post(create_user))
-        .route("/:id", put(update_user).delete(delete_user))
+        .route("/{id}", put(update_user).delete(delete_user))
         .with_state(state)
 }
 
