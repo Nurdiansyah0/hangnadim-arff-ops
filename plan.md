@@ -1,13 +1,7 @@
 # Implementation Plan: Sistem ERP Unit ARFF Hang Nadim
 
 
-## Fase 2: Master Data Management & Modul Manajemen Aset
-**Konteks:** Pendataan inventaris kendaraan, peralatan, titik hydrant harus ada terlebih dahulu sebelum modul operasional berjalan.
-* **Fokus:** Modul Manajemen Aset & Manajemen Shift dasar.
-* **Tugas Spesifik:**
-  1. Buat master data tabel untuk `Kendaraan`, `Peralatan Pemadam`, `Hydrant`, dan `Foam System`.
-  2. Buat antarmuka CRUD untuk manajemen aset-aset tersebut beserta statusnya (Available, Under Maintenance, Broken).
-  3. Buat fitur Manajemen Shift dasar (mendefinisikan Shift Alpha, Bravo, Charlie) dan menempatkan personel-personel dari Fase 1 ke dalam shift-shift tersebut.
+
 
 ## Fase 3: Modul Operasional Inti (Watchroom & Manajemen Insiden)
 **Konteks:** Watchroom adalah pusat komando. Jika ada alarm/insiden, log kejadian wajib dicatat secara *real-time* dan dieskalasikan dengan cepat.

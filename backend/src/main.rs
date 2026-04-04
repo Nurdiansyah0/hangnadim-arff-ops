@@ -10,12 +10,19 @@ use sqlx::postgres::PgPoolOptions;
 use std::env;
 use tower_http::cors::{Any, CorsLayer};
 
+use handler::asset_handler::asset_routes;
 use handler::auth_handler::auth_routes;
+use handler::shift_handler::shift_routes;
 use handler::user_handler::users_routes;
+use repository::asset_repository::{AssetRepositoryImpl};
+use repository::shift_repository::{ShiftRepositoryImpl};
 use repository::user_repository::UserRepository;
+use service::asset_service::AssetService;
 use service::auth_service::AuthService;
+use service::shift_service::ShiftService;
 use service::user_service::UserService;
 use state::AppState;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
@@ -35,10 +42,15 @@ async fn main() {
         .expect("Failed to run migrations");
     println!("Running SQL migrations...");
 
-    let user_repo = UserRepository::new(pool);
+    let user_repo = UserRepository::new(pool.clone());
+    let asset_repo = Arc::new(AssetRepositoryImpl::new(pool.clone()));
+    let shift_repo = Arc::new(ShiftRepositoryImpl::new(pool.clone()));
+
     let app_state = AppState {
         auth_service: AuthService::new(user_repo.clone()),
-        user_service: UserService::new(user_repo),
+        user_service: UserService::new(user_repo.clone()),
+        asset_service: AssetService::new(asset_repo),
+        shift_service: ShiftService::new(shift_repo, user_repo),
     };
 
     let cors = CorsLayer::new()
@@ -48,10 +60,12 @@ async fn main() {
 
     let api_routes = Router::new()
         .nest("/auth", auth_routes(app_state.clone()))
-        .nest("/users", users_routes(app_state.clone()));
+        .nest("/users", users_routes(app_state.clone()))
+        .nest("/assets", asset_routes(app_state.clone()))
+        .nest("/shifts", shift_routes(app_state.clone()));
 
     let app = Router::new()
-        .nest("/api", api_routes)
+        .nest("/api/v1", api_routes)
         .route("/api/health", axum::routing::get(|| async { "OK" }))
         .layer(cors);
 
