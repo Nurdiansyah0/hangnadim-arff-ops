@@ -23,8 +23,8 @@ export default function UsersPage() {
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
       setUsers(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -46,8 +46,8 @@ export default function UsersPage() {
       if (!res.ok) throw new Error("Failed to add user");
       fetchUsers(); // refresh
       setForm({ name: "", nik: "", email: "", password: "", role_id: 6 });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     }
   };
 
