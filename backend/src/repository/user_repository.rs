@@ -1,5 +1,6 @@
 use crate::domain::models::User;
 use sqlx::{Pool, Postgres, Error};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct UserRepository {
@@ -12,8 +13,15 @@ impl UserRepository {
     }
 
     pub async fn find_by_username_or_email(&self, ident: &str) -> Result<Option<User>, Error> {
+        // Query JOIN untuk mengambil data User + Role ID pertama dari personnel_roles
         sqlx::query_as::<_, User>(
-            "SELECT id, name, username, email, password_hash, role_id, created_at, updated_at FROM users WHERE email = $1 OR username = $2"
+            r#"
+            SELECT 
+                u.id, u.username, u.email, u.password_hash, u.personnel_id, u.created_at, u.updated_at,
+                (SELECT role_id FROM personnel_roles WHERE personnel_id = u.personnel_id LIMIT 1) as role_id
+            FROM users u 
+            WHERE u.email = $1 OR u.username = $2
+            "#
         )
         .bind(ident)
         .bind(ident)
@@ -21,9 +29,29 @@ impl UserRepository {
         .await
     }
 
+    pub async fn get_user_by_id(&self, id: Uuid) -> Result<Option<User>, Error> {
+        sqlx::query_as::<_, User>(
+            r#"
+            SELECT 
+                u.id, u.username, u.email, u.password_hash, u.personnel_id, u.created_at, u.updated_at,
+                (SELECT role_id FROM personnel_roles WHERE personnel_id = u.personnel_id LIMIT 1) as role_id
+            FROM users u 
+            WHERE u.id = $1
+            "#
+        )
+        .bind(id)
+        .fetch_optional(&self.db)
+        .await
+    }
+
     pub async fn get_all_users(&self) -> Result<Vec<User>, Error> {
         sqlx::query_as::<_, User>(
-            "SELECT id, name, username, email, password_hash, role_id, created_at, updated_at FROM users"
+            r#"
+            SELECT 
+                u.id, u.username, u.email, u.password_hash, u.personnel_id, u.created_at, u.updated_at,
+                (SELECT role_id FROM personnel_roles WHERE personnel_id = u.personnel_id LIMIT 1) as role_id
+            FROM users u
+            "#
         )
         .fetch_all(&self.db)
         .await
@@ -31,41 +59,28 @@ impl UserRepository {
 
     pub async fn create_user(
         &self,
-        name: &str,
         username: &str,
         email: &str,
         password_hash: &str,
-        role_id: i32,
+        personnel_id: Option<Uuid>,
     ) -> Result<User, Error> {
         sqlx::query_as::<_, User>(
-            "INSERT INTO users (name, username, email, password_hash, role_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, username, email, password_hash, role_id, created_at, updated_at"
+            r#"
+            INSERT INTO users (username, email, password_hash, personnel_id) 
+            VALUES ($1, $2, $3, $4) 
+            RETURNING id, username, email, password_hash, personnel_id, created_at, updated_at,
+            (SELECT NULL::int) as role_id
+            "#
         )
-        .bind(name)
         .bind(username)
         .bind(email)
         .bind(password_hash)
-        .bind(role_id)
+        .bind(personnel_id)
         .fetch_one(&self.db)
         .await
     }
 
-    pub async fn update_user(
-        &self,
-        id: uuid::Uuid,
-        name: &str,
-        role_id: i32,
-    ) -> Result<User, Error> {
-        sqlx::query_as::<_, User>(
-            "UPDATE users SET name = $1, role_id = $2, updated_at = NOW() WHERE id = $3 RETURNING id, name, username, email, password_hash, role_id, created_at, updated_at"
-        )
-        .bind(name)
-        .bind(role_id)
-        .bind(id)
-        .fetch_one(&self.db)
-        .await
-    }
-
-    pub async fn delete_user(&self, id: uuid::Uuid) -> Result<(), Error> {
+    pub async fn delete_user(&self, id: Uuid) -> Result<(), Error> {
         sqlx::query("DELETE FROM users WHERE id = $1")
             .bind(id)
             .execute(&self.db)

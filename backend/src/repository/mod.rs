@@ -1,1 +1,12 @@
 pub mod user_repository;
+pub mod personnel_repository;
+pub mod shift_repository;
+pub mod vehicle_repository;
+pub mod inspection_repository;
+pub mod watchroom_repository;
+pub mod approval_repository;
+pub mod flight_repository;
+pub mod analytics_repository;
+pub mod certification_repository;
+pub mod compliance_repository;
+pub mod incident_repository;

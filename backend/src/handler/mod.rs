@@ -1,3 +1,14 @@
 pub mod middleware;
 pub mod auth_handler;
 pub mod user_handler;
+pub mod personel_handler;
+pub mod shift_handler;
+pub mod vehicle_handler;
+pub mod inspection_handler;
+pub mod watchroom_handler;
+pub mod approval_handler;
+pub mod flight_handler;
+pub mod analytics_handler;
+pub mod certification_handler;
+pub mod compliance_handler;
+pub mod incident_handler;
