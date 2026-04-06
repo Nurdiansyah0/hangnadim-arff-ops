@@ -3,30 +3,24 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, put},
+    routing::{get},
     Json, Router,
 };
 use serde::Deserialize;
+use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct CreateUserPayload {
-    pub name: String,
     pub username: String,
     pub email: String,
     pub password: String,
-    pub role_id: i32,
-}
-
-#[derive(Deserialize)]
-pub struct UpdateUserPayload {
-    pub name: String,
-    pub role_id: i32,
+    pub personnel_id: Option<Uuid>,
 }
 
 pub fn users_routes(state: AppState) -> Router {
     Router::new()
         .route("/", get(list_users).post(create_user))
-        .route("/{id}", put(update_user).delete(delete_user))
+        .route("/{id}", get(list_users).delete(delete_user)) // Update dipisah nanti
         .with_state(state)
 }
 
@@ -34,7 +28,9 @@ async fn list_users(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<Vec<User>>, (StatusCode, String)> {
-    if claims.role_id != 1 && claims.role_id != 7 && claims.role_id != 2 {
+    // Gunakan .unwrap_or(0) karena role_id sekarang Option
+    let rid = claims.role_id.unwrap_or(0);
+    if rid != 1 && rid != 7 && rid != 2 {
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
@@ -49,41 +45,17 @@ async fn create_user(
     RequireAuth(claims): RequireAuth,
     Json(payload): Json<CreateUserPayload>,
 ) -> Result<Json<User>, (StatusCode, String)> {
-    if claims.role_id != 1 && claims.role_id != 7 {
+    let rid = claims.role_id.unwrap_or(0);
+    if rid != 1 && rid != 7 {
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
-    match state
-        .user_service
-        .create_user(
-            &payload.name,
-            &payload.username,
-            &payload.email,
-            &payload.password,
-            payload.role_id,
-        )
-        .await
-    {
-        Ok(user) => Ok(Json(user)),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
-    }
-}
-
-async fn update_user(
-    State(state): State<AppState>,
-    RequireAuth(claims): RequireAuth,
-    Path(id): Path<uuid::Uuid>,
-    Json(payload): Json<UpdateUserPayload>,
-) -> Result<Json<User>, (StatusCode, String)> {
-    if claims.role_id != 1 && claims.role_id != 7 {
-        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
-    }
-
-    match state
-        .user_service
-        .update_user(id, &payload.name, payload.role_id)
-        .await
-    {
+    match state.user_service.create_user(
+        &payload.username,
+        &payload.email,
+        &payload.password,
+        payload.personnel_id,
+    ).await {
         Ok(user) => Ok(Json(user)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
@@ -92,9 +64,10 @@ async fn update_user(
 async fn delete_user(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
-    Path(id): Path<uuid::Uuid>,
+    Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    if claims.role_id != 1 && claims.role_id != 7 {
+    let rid = claims.role_id.unwrap_or(0);
+    if rid != 1 && rid != 7 {
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 

@@ -1,2 +1,13 @@
 pub mod auth_service;
 pub mod user_service;
+pub mod personnel_service;
+pub mod shift_service;
+pub mod vehicle_service;
+pub mod inspection_service;
+pub mod watchroom_service;
+pub mod approval_service;
+pub mod flight_service;
+pub mod analytics_service;
+pub mod certification_service;
+pub mod compliance_service;
+pub mod incident_service;
