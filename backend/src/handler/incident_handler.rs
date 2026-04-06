@@ -13,8 +13,8 @@ pub struct CreateIncidentPayload {
 pub fn incident_routes(state: AppState) -> Router {
     Router::new()
         .route("/", get(list_incidents).post(create_incident))
-        .route("/:id/arrive", put(mark_arrived))
-        .route("/:id/resolve", put(resolve_incident))
+        .route("/{id}/arrive", put(mark_arrived))
+        .route("/{id}/resolve", put(resolve_incident))
         .with_state(state)
 }
 

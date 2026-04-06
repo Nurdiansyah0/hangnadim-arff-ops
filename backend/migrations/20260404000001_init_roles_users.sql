@@ -282,3 +282,7 @@ INSERT INTO personnels (id, nip_nik, full_name, position_id) VALUES ('d290f1ee-6
 INSERT INTO personnel_roles (personnel_id, role_id) VALUES ('d290f1ee-6c54-4b01-90e6-d701748f0851', 1);
 INSERT INTO users (username, email, password_hash, personnel_id)
 VALUES ('admin123', 'admin@arff.hangnadim.id', '$2b$12$N9u3Pj5T8H8s6ZJ1C6W4POnT.h/F6N0q05iBxDqJ5gXJ2O8N73V9u', 'd290f1ee-6c54-4b01-90e6-d701748f0851');
+
+-- =========================================================
+-- END OF MIGRATION
+-- =========================================================

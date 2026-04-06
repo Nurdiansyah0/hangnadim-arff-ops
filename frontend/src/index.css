@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* 
+  VSCode mungkin menampilkan "Unknown at-rule" untuk @theme dan @apply. 
+  Ini normal di Tailwind v4. Untuk menghilangkan warning, 
+  Anda bisa menginstall extension "Tailwind CSS IntelliSense".
+*/
+
+@theme {
+  --color-background: oklch(0.12 0.02 240);
+  --color-foreground: oklch(0.98 0.01 240);
+
+  --color-card: oklch(0.12 0.02 240);
+  --color-popover: oklch(0.12 0.02 240);
+
+  --color-primary: oklch(0.98 0.01 240);
+  --color-primary-foreground: oklch(0.18 0.02 240);
+
+  --color-secondary: oklch(0.2 0.03 240);
+  --color-secondary-foreground: oklch(0.98 0.01 240);
+
+  --color-muted: oklch(0.2 0.03 240);
+  --color-muted-foreground: oklch(0.7 0.02 240);
+
+  --color-accent: oklch(0.2 0.03 240);
+  --color-accent-foreground: oklch(0.98 0.01 240);
+
+  --color-destructive: oklch(0.3 0.08 0);
+  --color-destructive-foreground: oklch(0.98 0.01 240);
+
+  --color-border: oklch(0.2 0.03 240);
+  --color-input: oklch(0.2 0.03 240);
+}
+
+@layer base {
+  *, ::after, ::before {
+    @apply border-(--color-border);
+  }
+  body {
+    @apply bg-background text-foreground antialiased font-sans;
+  }
+}
+
+

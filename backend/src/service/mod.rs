@@ -11,3 +11,4 @@ pub mod analytics_service;
 pub mod certification_service;
 pub mod compliance_service;
 pub mod incident_service;
+pub mod superuser_service;

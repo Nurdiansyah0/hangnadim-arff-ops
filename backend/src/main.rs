@@ -23,6 +23,7 @@ use handler::analytics_handler::analytics_routes;
 use handler::certification_handler::certification_routes;
 use handler::compliance_handler::compliance_routes;
 use handler::incident_handler::incident_routes;
+use handler::superuser_handler::superuser_routes;
 
 use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
@@ -36,6 +37,7 @@ use repository::analytics_repository::AnalyticsRepository;
 use repository::certification_repository::CertificationRepository;
 use repository::compliance_repository::ComplianceRepository;
 use repository::incident_repository::IncidentRepository;
+use repository::superuser_repository::SuperuserRepository;
 
 use service::auth_service::AuthService;
 use service::user_service::UserService;
@@ -50,6 +52,7 @@ use service::analytics_service::AnalyticsService;
 use service::certification_service::CertificationService;
 use service::compliance_service::ComplianceService;
 use service::incident_service::IncidentService;
+use service::superuser_service::SuperuserService;
 use state::AppState;
 
 #[tokio::main]
@@ -84,6 +87,7 @@ async fn main() {
     let certification_repo = std::sync::Arc::new(CertificationRepository::new(pool.clone()));
     let compliance_repo = std::sync::Arc::new(ComplianceRepository::new(pool.clone()));
     let incident_repo = std::sync::Arc::new(IncidentRepository::new(pool.clone()));
+    let superuser_repo = std::sync::Arc::new(SuperuserRepository::new(pool.clone()));
 
     let app_state = AppState {
         auth_service: AuthService::new(user_repo_shared.clone()),
@@ -99,6 +103,7 @@ async fn main() {
         certification_service: CertificationService::new(certification_repo),
         compliance_service: ComplianceService::new(compliance_repo),
         incident_service: IncidentService::new(incident_repo),
+        superuser_service: SuperuserService::new(superuser_repo),
     };
 
     let cors = CorsLayer::new()
@@ -119,7 +124,8 @@ async fn main() {
         .nest("/analytics", analytics_routes(app_state.clone()))
         .nest("/certifications", certification_routes(app_state.clone()))
         .nest("/compliance", compliance_routes(app_state.clone()))
-        .nest("/incidents", incident_routes(app_state.clone()));
+        .nest("/incidents", incident_routes(app_state.clone()))
+        .nest("/superuser", superuser_routes(app_state.clone()));
 
     let app = Router::new()
         .nest("/api", api_routes)

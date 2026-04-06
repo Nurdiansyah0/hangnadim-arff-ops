@@ -13,11 +13,10 @@ impl UserRepository {
     }
 
     pub async fn find_by_username_or_email(&self, ident: &str) -> Result<Option<User>, Error> {
-        // Query JOIN untuk mengambil data User + Role ID pertama dari personnel_roles
-        sqlx::query_as::<_, User>(
+        let row = sqlx::query(
             r#"
             SELECT 
-                u.id, u.username, u.email, u.password_hash, u.personnel_id, u.created_at, u.updated_at,
+                id, username, email, password_hash, personnel_id, created_at, updated_at,
                 (SELECT role_id FROM personnel_roles WHERE personnel_id = u.personnel_id LIMIT 1) as role_id
             FROM users u 
             WHERE u.email = $1 OR u.username = $2
@@ -26,7 +25,23 @@ impl UserRepository {
         .bind(ident)
         .bind(ident)
         .fetch_optional(&self.db)
-        .await
+        .await?;
+
+        if let Some(r) = row {
+            use sqlx::Row;
+            Ok(Some(User {
+                id: r.get("id"),
+                username: r.get("username"),
+                email: r.get("email"),
+                password_hash: r.get("password_hash"),
+                personnel_id: r.get("personnel_id"),
+                created_at: r.get("created_at"),
+                updated_at: r.get("updated_at"),
+                role_id: r.try_get("role_id").ok(),
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     pub async fn get_user_by_id(&self, id: Uuid) -> Result<Option<User>, Error> {

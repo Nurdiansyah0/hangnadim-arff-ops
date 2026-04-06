@@ -35,7 +35,7 @@ async fn login(
             token_type: "Bearer".to_string(),
         })),
         Err(e) => {
-            let code = if e == "Invalid credentials" {
+            let code = if e.contains("salah") || e == "Invalid credentials" {
                 StatusCode::UNAUTHORIZED
             } else {
                 StatusCode::INTERNAL_SERVER_ERROR

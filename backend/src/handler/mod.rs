@@ -12,3 +12,4 @@ pub mod analytics_handler;
 pub mod certification_handler;
 pub mod compliance_handler;
 pub mod incident_handler;
+pub mod superuser_handler;
