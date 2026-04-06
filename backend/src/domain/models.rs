@@ -122,6 +122,7 @@ pub struct WatchroomLog {
     pub entry_type: Option<String>,
     pub description: String,
     pub payload: Option<serde_json::Value>, 
+    pub photo_url: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -135,6 +136,7 @@ pub struct Incident {
     pub arrival_time: Option<DateTime<Utc>>,
     pub resolved_at: Option<DateTime<Utc>>,
     pub severity: Option<String>, // Maps to severity_enum (LOW, HIGH, etc)
+    pub photo_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]

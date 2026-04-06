@@ -12,9 +12,9 @@ export default defineConfig({
         enabled: true
       },
       manifest: {
-        name: 'ARFF Enterprise Command',
-        short_name: 'ARFF Ops',
-        description: 'Dashboard Operasional Pertolongan Kecelakaan Penerbangan dan Pemadam Kebakaran',
+        name: 'SIOPEL V2.9 Tactical',
+        short_name: 'SIOPEL',
+        description: 'Sistem Informasi Operasional dan Pelaporan ARFF Hang Nadim Batam',
         theme_color: '#020617',
         background_color: '#020617',
         display: 'standalone',

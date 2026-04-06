@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Lock, User } from 'lucide-react';
+import { Lock, User, Loader2, Eye, EyeOff } from 'lucide-react';
 import { api } from '../lib/axios';
 import { useAuth } from '../store/useAuth';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -35,23 +36,36 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden">
-      {/* Dynamic Background Elements */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-600/20 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-screen flex flex-col justify-center items-center p-4 relative overflow-hidden bg-slate-950">
+      {/* Dynamic Background Image with Overlay */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-all duration-1000 scale-105"
+        style={{ backgroundImage: "url('/theme/login-bg.png')" }}
+      />
+      <div className="absolute inset-0 z-0 bg-linear-to-br from-slate-950/90 via-slate-900/60 to-slate-950/90" />
+      
+      {/* Decorative Blur Elements */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] pointer-events-none z-0" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-600/20 rounded-full blur-[120px] pointer-events-none z-0" />
 
       {/* Glassmorphic Card */}
-      <div className="w-full max-w-md relative z-10 bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-blue-600/20 text-blue-500 rounded-2xl flex items-center justify-center mb-4 ring-1 ring-blue-500/50">
-            <ShieldCheck size={32} />
+      <div className="w-full max-w-md relative z-10 bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-[2.5rem] p-10 shadow-2xl">
+        <div className="flex items-center gap-6 mb-10">
+          <div className="w-20 h-20 shrink-0">
+             <img 
+               src="/theme/logo-arff.jpg" 
+               alt="ARFF Logo" 
+               className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,0,0.3)] shadow-2xl rounded-full"
+             />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight text-center">
-            AeroCommand <span className="text-blue-500">V2</span>
-          </h1>
-          <p className="text-slate-400 mt-2 text-sm text-center">
-            ARFF Enterprise Resource Planning
-          </p>
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-black text-white tracking-tight leading-none">
+              SIOPEL <span className="text-blue-500 italic">V2</span>
+            </h1>
+            <p className="text-slate-400 mt-2 text-[10px] font-bold uppercase tracking-widest leading-normal">
+              Sistem Informasi Operasional & Pelaporan
+            </p>
+          </div>
         </div>
 
         {error && (
@@ -63,7 +77,7 @@ export default function Login() {
         <form onSubmit={handleLogin} className="space-y-5">
           <div>
             <label className="text-sm font-medium text-slate-300 block mb-2">
-              Username/NIK
+              Username
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
@@ -73,7 +87,7 @@ export default function Login() {
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="off"
                 className="w-full bg-slate-950/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-10 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-300"
-                placeholder="Masukkan Nomor Induk"
+                placeholder="Masukkan Username"
                 required
               />
             </div>
@@ -86,7 +100,7 @@ export default function Login() {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
@@ -94,6 +108,13 @@ export default function Login() {
                 placeholder="Masukkan Password"
                 required
               />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
@@ -103,16 +124,13 @@ export default function Login() {
             className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition-all duration-300 shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed group flex items-center justify-center gap-2"
           >
             {loading ? (
-              <span className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               'Akses Keamanan'
             )}
           </button>
         </form>
 
-        <div className="mt-8 text-center text-xs text-slate-600">
-          Supervised by System Administrator
-        </div>
       </div>
     </div>
   );

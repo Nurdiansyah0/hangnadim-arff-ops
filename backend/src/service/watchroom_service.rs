@@ -18,15 +18,12 @@ impl WatchroomService {
         self.repo.get_all_logs().await.map_err(|e| e.to_string())
     }
 
-    pub async fn create_log(
-        &self,
-        actor_id: Option<Uuid>,
-        entry_type: Option<&str>,
         description: &str,
         payload: Option<Value>,
+        photo_url: Option<&str>,
     ) -> Result<WatchroomLog, String> {
         self.repo
-            .create_log(actor_id, entry_type, description, payload)
+            .create_log(actor_id, entry_type, description, payload, photo_url)
             .await
             .map_err(|e| e.to_string())
     }
@@ -60,6 +57,7 @@ mod tests {
             t: Option<&str>,
             d: &str,
             p: Option<Value>,
+            ph: Option<&str>,
         ) -> Result<WatchroomLog, sqlx::Error> {
             if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
             Ok(WatchroomLog {
@@ -68,6 +66,7 @@ mod tests {
                 entry_type: t.map(|x| x.to_string()),
                 description: d.to_string(),
                 payload: p,
+                photo_url: ph.map(|x| x.to_string()),
                 created_at: Utc::now(),
             })
         }
@@ -79,7 +78,7 @@ mod tests {
         let service = WatchroomService::new(repo);
         let payload = Some(json!({"event": "shift_change"}));
         
-        let res = service.create_log(Some(Uuid::new_v4()), Some("INFO"), "Testing log", payload).await;
+        let res = service.create_log(Some(Uuid::new_v4()), Some("INFO"), "Testing log", payload, None).await;
         assert!(res.is_ok(), "Harus bisa simpan log ke watchroom");
     }
 

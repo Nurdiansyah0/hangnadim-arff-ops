@@ -8,6 +8,7 @@ pub struct CreateIncidentPayload {
     pub description: String,
     pub location: Option<String>,
     pub severity: Option<String>,
+    pub photo_url: Option<String>,
 }
 
 pub fn incident_routes(state: AppState) -> Router {
@@ -30,10 +31,15 @@ async fn list_incidents(
 
 async fn create_incident(
     State(state): State<AppState>,
-    RequireAuth(_): RequireAuth, // TODO: Extract user info for commander_id
+    RequireAuth(_): RequireAuth, 
     Json(payload): Json<CreateIncidentPayload>,
 ) -> Result<Json<Incident>, (StatusCode, String)> {
-    match state.incident_service.create_incident(&payload.description, payload.location.as_deref(), payload.severity.as_deref()).await {
+    match state.incident_service.create_incident(
+        &payload.description, 
+        payload.location.as_deref(), 
+        payload.severity.as_deref(),
+        payload.photo_url.as_deref()
+    ).await {
         Ok(data) => Ok(Json(data)),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),
     }

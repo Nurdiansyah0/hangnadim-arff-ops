@@ -8,6 +8,7 @@ pub struct CreateLogPayload {
     pub entry_type: Option<String>,
     pub description: String,
     pub payload: Option<Value>,
+    pub photo_url: Option<String>,
 }
 
 pub fn watchroom_routes(state: AppState) -> Router {
@@ -36,7 +37,8 @@ async fn create_log(
         claims.personnel_id, 
         payload.entry_type.as_deref(), 
         &payload.description, 
-        payload.payload
+        payload.payload,
+        payload.photo_url.as_deref()
     ).await {
         Ok(log) => Ok(Json(log)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),

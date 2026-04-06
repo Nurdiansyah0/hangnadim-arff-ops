@@ -9,6 +9,7 @@ use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 
 use handler::auth_handler::auth_routes;
 use handler::user_handler::users_routes;
@@ -24,6 +25,9 @@ use handler::certification_handler::certification_routes;
 use handler::compliance_handler::compliance_routes;
 use handler::incident_handler::incident_routes;
 use handler::superuser_handler::superuser_routes;
+use handler::leave_handler::leave_routes;
+use handler::media_handler::media_routes;
+use handler::email_handler::email_routes;
 
 use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
@@ -38,6 +42,7 @@ use repository::certification_repository::CertificationRepository;
 use repository::compliance_repository::ComplianceRepository;
 use repository::incident_repository::IncidentRepository;
 use repository::superuser_repository::SuperuserRepository;
+use repository::leave_repository::LeaveRepository;
 
 use service::auth_service::AuthService;
 use service::user_service::UserService;
@@ -53,6 +58,8 @@ use service::certification_service::CertificationService;
 use service::compliance_service::ComplianceService;
 use service::incident_service::IncidentService;
 use service::superuser_service::SuperuserService;
+use service::leave_service::LeaveService;
+use service::email_service::LettreEmailService;
 use state::AppState;
 
 #[tokio::main]
@@ -88,6 +95,7 @@ async fn main() {
     let compliance_repo = std::sync::Arc::new(ComplianceRepository::new(pool.clone()));
     let incident_repo = std::sync::Arc::new(IncidentRepository::new(pool.clone()));
     let superuser_repo = std::sync::Arc::new(SuperuserRepository::new(pool.clone()));
+    let leave_repo = std::sync::Arc::new(LeaveRepository::new(pool.clone()));
 
     let app_state = AppState {
         auth_service: AuthService::new(user_repo_shared.clone()),
@@ -104,6 +112,8 @@ async fn main() {
         compliance_service: ComplianceService::new(compliance_repo),
         incident_service: IncidentService::new(incident_repo),
         superuser_service: SuperuserService::new(superuser_repo),
+        leave_service: LeaveService::new(leave_repo),
+        email_service: std::sync::Arc::new(LettreEmailService),
     };
 
     let cors = CorsLayer::new()
@@ -125,10 +135,14 @@ async fn main() {
         .nest("/certifications", certification_routes(app_state.clone()))
         .nest("/compliance", compliance_routes(app_state.clone()))
         .nest("/incidents", incident_routes(app_state.clone()))
-        .nest("/superuser", superuser_routes(app_state.clone()));
+        .nest("/superuser", superuser_routes(app_state.clone()))
+        .nest("/leaves", leave_routes(app_state.clone()))
+        .nest("/media", media_routes(app_state.clone()))
+        .nest("/email", email_routes(app_state.clone()));
 
     let app = Router::new()
         .nest("/api", api_routes)
+        .nest_service("/uploads", ServeDir::new("uploads"))
         .route("/api/health", axum::routing::get(|| async { "OK" }))
         .layer(cors);
 

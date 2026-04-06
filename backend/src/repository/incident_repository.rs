@@ -12,6 +12,7 @@ pub trait IncidentRepoTrait: Send + Sync {
         description: &str,
         location: Option<&str>,
         severity: Option<&str>,
+        photo_url: Option<&str>,
     ) -> Result<Incident, Error>;
     async fn mark_arrived(&self, id: Uuid) -> Result<Incident, Error>;
     async fn resolve_incident(&self, id: Uuid) -> Result<Incident, Error>;
@@ -32,7 +33,7 @@ impl IncidentRepository {
 impl IncidentRepoTrait for IncidentRepository {
     async fn get_all_incidents(&self) -> Result<Vec<Incident>, Error> {
         sqlx::query_as::<_, Incident>(
-            "SELECT id, commander_id, description, location, dispatch_time, arrival_time, resolved_at, severity::TEXT FROM incidents ORDER BY dispatch_time DESC"
+            "SELECT id, commander_id, description, location, dispatch_time, arrival_time, resolved_at, severity::TEXT, photo_url FROM incidents ORDER BY dispatch_time DESC"
         )
         .fetch_all(&self.db)
         .await
@@ -44,13 +45,14 @@ impl IncidentRepoTrait for IncidentRepository {
         description: &str,
         location: Option<&str>,
         severity: Option<&str>,
+        photo_url: Option<&str>,
     ) -> Result<Incident, Error> {
         // Jika severity diberikan, kita cast ke severity_enum, kalau tidak dibiarkan Null agar PostgreSQL pakai DEFAULT 'LOW' (jika di schema di-set gitu)
         // Di query ini kita berasumsi input `severity` adalah text valid (LOW, MEDIUM, HIGH, CRITICAL)
         let query = r#"
-            INSERT INTO incidents (commander_id, description, location, dispatch_time, severity)
-            VALUES ($1, $2, $3, NOW(), COALESCE($4, 'LOW')::severity_enum)
-            RETURNING id, commander_id, description, location, dispatch_time, arrival_time, resolved_at, severity::TEXT
+            INSERT INTO incidents (commander_id, description, location, dispatch_time, severity, photo_url)
+            VALUES ($1, $2, $3, NOW(), COALESCE($4, 'LOW')::severity_enum, $5)
+            RETURNING id, commander_id, description, location, dispatch_time, arrival_time, resolved_at, severity::TEXT, photo_url
         "#;
         
         sqlx::query_as::<_, Incident>(query)
@@ -58,6 +60,7 @@ impl IncidentRepoTrait for IncidentRepository {
             .bind(description)
             .bind(location)
             .bind(severity)
+            .bind(photo_url)
             .fetch_one(&self.db)
             .await
     }
@@ -67,7 +70,7 @@ impl IncidentRepoTrait for IncidentRepository {
             r#"
             UPDATE incidents SET arrival_time = NOW() 
             WHERE id = $1 AND arrival_time IS NULL
-            RETURNING id, commander_id, description, location, dispatch_time, arrival_time, resolved_at, severity::TEXT
+            RETURNING id, commander_id, description, location, dispatch_time, arrival_time, resolved_at, severity::TEXT, photo_url
             "#
         )
         .bind(id)
@@ -80,7 +83,7 @@ impl IncidentRepoTrait for IncidentRepository {
             r#"
             UPDATE incidents SET resolved_at = NOW() 
             WHERE id = $1 AND resolved_at IS NULL
-            RETURNING id, commander_id, description, location, dispatch_time, arrival_time, resolved_at, severity::TEXT
+            RETURNING id, commander_id, description, location, dispatch_time, arrival_time, resolved_at, severity::TEXT, photo_url
             "#
         )
         .bind(id)

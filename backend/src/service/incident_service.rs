@@ -17,16 +17,13 @@ impl IncidentService {
         self.repo.get_all_incidents().await.map_err(|e| e.to_string())
     }
 
-    pub async fn create_incident(
-        &self,
-        description: &str,
-        location: Option<&str>,
         severity: Option<&str>,
+        photo_url: Option<&str>,
     ) -> Result<Incident, String> {
         if description.trim().is_empty() {
             return Err("Deskripsi insiden wajib diisi".to_string());
         }
-        self.repo.create_incident(None, description, location, severity).await.map_err(|e| e.to_string())
+        self.repo.create_incident(None, description, location, severity, photo_url).await.map_err(|e| e.to_string())
     }
 
     pub async fn mark_arrived(&self, id: Uuid) -> Result<Incident, String> {
@@ -62,6 +59,7 @@ mod tests {
             d: &str,
             l: Option<&str>,
             s: Option<&str>,
+            p: Option<&str>,
         ) -> Result<Incident, sqlx::Error> {
             Ok(Incident {
                 id: Uuid::new_v4(),
@@ -72,6 +70,7 @@ mod tests {
                 arrival_time: None,
                 resolved_at: None,
                 severity: s.map(|x| x.to_string()),
+                photo_url: p.map(|x| x.to_string()),
             })
         }
         
@@ -85,6 +84,7 @@ mod tests {
                 arrival_time: Some(Utc::now()),
                 resolved_at: None,
                 severity: Some("LOW".to_string()),
+                photo_url: None,
             })
         }
 
@@ -98,6 +98,7 @@ mod tests {
                 arrival_time: Some(Utc::now()),
                 resolved_at: Some(Utc::now()),
                 severity: Some("LOW".to_string()),
+                photo_url: None,
             })
         }
     }
@@ -106,7 +107,7 @@ mod tests {
     async fn test_create_incident_success() {
         let repo = Arc::new(MockIncidentRepo);
         let service = IncidentService::new(repo);
-        let res = service.create_incident("Fire on RWY 04", Some("RWY 04"), Some("HIGH")).await;
+        let res = service.create_incident("Fire on RWY 04", Some("RWY 04"), Some("HIGH"), None).await;
         assert!(res.is_ok());
     }
 
@@ -114,7 +115,7 @@ mod tests {
     async fn test_create_incident_empty_desc() {
         let repo = Arc::new(MockIncidentRepo);
         let service = IncidentService::new(repo);
-        let res = service.create_incident("   ", Some("RWY 04"), Some("HIGH")).await;
+        let res = service.create_incident("   ", Some("RWY 04"), Some("HIGH"), None).await;
         assert!(res.is_err());
     }
 }
