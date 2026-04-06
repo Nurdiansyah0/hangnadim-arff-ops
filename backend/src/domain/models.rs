@@ -3,17 +3,17 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct Role {
     pub id: i32,
     pub name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct User {
     pub id: Uuid,
     pub name: String,
-    pub nik: String,
+    pub username: String,
     pub email: String,
     #[serde(skip_serializing)]
     pub password_hash: String,

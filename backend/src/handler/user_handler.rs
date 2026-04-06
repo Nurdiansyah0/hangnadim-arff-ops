@@ -11,7 +11,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct CreateUserPayload {
     pub name: String,
-    pub nik: String,
+    pub username: String,
     pub email: String,
     pub password: String,
     pub role_id: i32,
@@ -57,7 +57,7 @@ async fn create_user(
         .user_service
         .create_user(
             &payload.name,
-            &payload.nik,
+            &payload.username,
             &payload.email,
             &payload.password,
             payload.role_id,
