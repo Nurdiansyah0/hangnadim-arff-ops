@@ -1,14 +1,16 @@
 use crate::domain::models::User;
-use crate::repository::user_repository::UserRepository;
+use crate::service::auth_service::UserRepoTrait; // Import Trait dari AuthService
 use bcrypt::{hash, DEFAULT_COST};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct UserService {
-    pub repo: UserRepository,
+    // Ganti UserRepository menjadi Arc<dyn UserRepoTrait>
+    pub repo: Arc<dyn UserRepoTrait>,
 }
 
 impl UserService {
-    pub fn new(repo: UserRepository) -> Self {
+    pub fn new(repo: Arc<dyn UserRepoTrait>) -> Self {
         Self { repo }
     }
 
@@ -19,19 +21,18 @@ impl UserService {
     pub async fn create_user(
         &self,
         name: &str,
-        nik: &str,
+        username: &str,
         email: &str,
         password: &str,
         role_id: i32,
     ) -> Result<User, String> {
         let hashed = hash(password, DEFAULT_COST).map_err(|e| e.to_string())?;
         self.repo
-            .create_user(name, nik, email, &hashed, role_id)
+            .create_user(name, username, email, &hashed, role_id)
             .await
             .map_err(|e| e.to_string())
     }
 
-    // Proxy the update down to repository
     pub async fn update_user(
         &self,
         id: uuid::Uuid,
@@ -44,7 +45,6 @@ impl UserService {
             .map_err(|e| e.to_string())
     }
 
-    // Proxy the delete down to repository
     pub async fn delete_user(&self, id: uuid::Uuid) -> Result<(), String> {
         self.repo.delete_user(id).await.map_err(|e| e.to_string())
     }

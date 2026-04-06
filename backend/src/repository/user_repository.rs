@@ -11,9 +11,9 @@ impl UserRepository {
         Self { db }
     }
 
-    pub async fn find_by_nik_or_email(&self, ident: &str) -> Result<Option<User>, Error> {
+    pub async fn find_by_username_or_email(&self, ident: &str) -> Result<Option<User>, Error> {
         sqlx::query_as::<_, User>(
-            "SELECT id, name, nik, email, password_hash, role_id, created_at, updated_at FROM users WHERE email = $1 OR nik = $2"
+            "SELECT id, name, username, email, password_hash, role_id, created_at, updated_at FROM users WHERE email = $1 OR username = $2"
         )
         .bind(ident)
         .bind(ident)
@@ -23,7 +23,7 @@ impl UserRepository {
 
     pub async fn get_all_users(&self) -> Result<Vec<User>, Error> {
         sqlx::query_as::<_, User>(
-            "SELECT id, name, nik, email, password_hash, role_id, created_at, updated_at FROM users"
+            "SELECT id, name, username, email, password_hash, role_id, created_at, updated_at FROM users"
         )
         .fetch_all(&self.db)
         .await
@@ -32,16 +32,16 @@ impl UserRepository {
     pub async fn create_user(
         &self,
         name: &str,
-        nik: &str,
+        username: &str,
         email: &str,
         password_hash: &str,
         role_id: i32,
     ) -> Result<User, Error> {
         sqlx::query_as::<_, User>(
-            "INSERT INTO users (name, nik, email, password_hash, role_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, nik, email, password_hash, role_id, created_at, updated_at"
+            "INSERT INTO users (name, username, email, password_hash, role_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, username, email, password_hash, role_id, created_at, updated_at"
         )
         .bind(name)
-        .bind(nik)
+        .bind(username)
         .bind(email)
         .bind(password_hash)
         .bind(role_id)
@@ -56,7 +56,7 @@ impl UserRepository {
         role_id: i32,
     ) -> Result<User, Error> {
         sqlx::query_as::<_, User>(
-            "UPDATE users SET name = $1, role_id = $2, updated_at = NOW() WHERE id = $3 RETURNING id, name, nik, email, password_hash, role_id, created_at, updated_at"
+            "UPDATE users SET name = $1, role_id = $2, updated_at = NOW() WHERE id = $3 RETURNING id, name, username, email, password_hash, role_id, created_at, updated_at"
         )
         .bind(name)
         .bind(role_id)

@@ -36,9 +36,10 @@ async fn main() {
     println!("Running SQL migrations...");
 
     let user_repo = UserRepository::new(pool);
+    let user_repo_shared = std::sync::Arc::new(user_repo); // Bungkus dengan Arc
     let app_state = AppState {
-        auth_service: AuthService::new(user_repo.clone()),
-        user_service: UserService::new(user_repo),
+        auth_service: AuthService::new(user_repo_shared.clone()),
+        user_service: UserService::new(user_repo_shared.clone()),
     };
 
     let cors = CorsLayer::new()

@@ -80,6 +80,10 @@ Untuk menjalankan proyek ini di lingkungan lokal Anda, ikuti langkah-langkah di 
     Buka [http://localhost:3000](http://localhost:3000) di browser untuk melihat antarmuka aplikasi.
 
 ## Deployment
+1. PostgreSQL (sebagai database)
+2. Redis (sebagai in-memory cache dan message broker)
 
-Aplikasi Frontend Next.js dapat dengan mudah di-*deploy* menggunakan layanan seperti [Vercel](https://vercel.com).
-Backend Rust dapat di-*deploy* ke berbagai layanan *cloud provider* yang mendukung containerisasi atau aplikasi Rust *native* (AWS, Google Cloud, DigitalOcean, dll.). File `Dockerfile` juga tersedia di direktori `backend/` untuk mempermudah containerisasi backend.
+'''
+sudo apt update
+sudo apt install postgresql redis-server -y
+'''
