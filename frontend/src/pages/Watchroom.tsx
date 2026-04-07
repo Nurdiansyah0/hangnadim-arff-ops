@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react';
 import {
     ShieldAlert,
     Send,
-    Search,
     Info,
     AlertTriangle,
     Activity,
     Clock,
     User,
     Loader2,
-    Filter
 } from 'lucide-react';
 import { api } from '../lib/axios';
 

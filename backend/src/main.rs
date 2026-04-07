@@ -16,6 +16,7 @@ use handler::user_handler::users_routes;
 use handler::personel_handler::personnel_routes;
 use handler::shift_handler::shift_routes;
 use handler::vehicle_handler::vehicle_routes;
+use handler::fire_extinguisher_handler::fire_extinguisher_routes;
 use handler::inspection_handler::inspection_routes;
 use handler::watchroom_handler::watchroom_routes;
 use handler::approval_handler::approval_routes;
@@ -34,6 +35,7 @@ use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
 use repository::shift_repository::ShiftRepository;
 use repository::vehicle_repository::VehicleRepository;
+use repository::fire_extinguisher_repository::FireExtinguisherRepository;
 use repository::inspection_repository::InspectionRepository;
 use repository::watchroom_repository::WatchroomRepository;
 use repository::approval_repository::ApprovalRepository;
@@ -51,6 +53,7 @@ use service::user_service::UserService;
 use service::personnel_service::PersonnelService;
 use service::shift_service::ShiftService;
 use service::vehicle_service::VehicleService;
+use service::fire_extinguisher_service::FireExtinguisherService;
 use service::inspection_service::InspectionService;
 use service::watchroom_service::WatchroomService;
 use service::approval_service::ApprovalService;
@@ -100,6 +103,7 @@ async fn main() {
     let superuser_repo = std::sync::Arc::new(SuperuserRepository::new(pool.clone()));
     let leave_repo = std::sync::Arc::new(LeaveRepository::new(pool.clone()));
     let inventory_repo = std::sync::Arc::new(InventoryRepository::new(pool.clone()));
+    let fire_extinguisher_repo = std::sync::Arc::new(FireExtinguisherRepository::new(pool.clone()));
 
     let app_state = AppState {
         auth_service: AuthService::new(user_repo_shared.clone()),
@@ -107,6 +111,7 @@ async fn main() {
         personnel_service: PersonnelService::new(personnel_repo),
         shift_service: ShiftService::new(shift_repo),
         vehicle_service: VehicleService::new(vehicle_repo),
+        fire_extinguisher_service: FireExtinguisherService::new(fire_extinguisher_repo),
         inspection_service: InspectionService::new(inspection_repo),
         watchroom_service: WatchroomService::new(watchroom_repo),
         approval_service: ApprovalService::new(approval_repo),
@@ -132,6 +137,7 @@ async fn main() {
         .nest("/personnel", personnel_routes(app_state.clone()))
         .nest("/shifts", shift_routes(app_state.clone()))
         .nest("/vehicles", vehicle_routes(app_state.clone()))
+        .nest("/fire-extinguishers", fire_extinguisher_routes(app_state.clone()))
         .nest("/inspections", inspection_routes(app_state.clone()))
         .nest("/watchroom", watchroom_routes(app_state.clone()))
         .nest("/approvals", approval_routes(app_state.clone()))

@@ -1,3 +1,4 @@
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -97,8 +98,74 @@ pub struct Vehicle {
     pub name: String,
     pub vehicle_type: Option<String>,
     pub status: String, // Maps to vehicle_status_enum (READY, etc)
+    pub water_capacity_liters: Option<BigDecimal>,
+    pub foam_capacity_liters: Option<BigDecimal>,
+    pub dcp_capacity_kg: Option<BigDecimal>,
+    pub last_service_date: Option<chrono::NaiveDate>,
+    pub next_service_due: Option<chrono::NaiveDate>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct ExtinguishingAgent {
+    pub id: Uuid,
+    pub name: String,
+    pub brand: Option<String>,
+    pub min_requirement: BigDecimal,
+    pub unit: String,
+    pub inventory_level: BigDecimal,
+    pub last_procurement_year: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct FireExtinguisher {
+    pub id: Uuid,
+    pub serial_number: String,
+    pub agent_type: String,
+    pub capacity_kg: rust_decimal::Decimal,
+    pub location_description: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub floor: Option<String>,
+    pub building: Option<String>,
+    pub expiry_date: chrono::NaiveDate,
+    pub last_inspection_date: Option<chrono::NaiveDate>,
+    pub status: String,
+    pub photo_url: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct InspectionTemplate {
+    pub id: i32,
+    pub name: String,
+    pub target_type: String,
+    pub frequency: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct TemplateItem {
+    pub id: i32,
+    pub template_id: i32,
+    pub category: String,
+    pub item_name: String,
+    pub item_order: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct InspectionResult {
+    pub id: uuid::Uuid,
+    pub inspection_id: uuid::Uuid,
+    pub inspection_date: chrono::NaiveDate,
+    pub template_item_id: i32,
+    pub result: String,
+    pub notes: Option<String>,
+    pub photo_url: Option<String>,
+    pub created_at: DateTime<Utc>,
 }
 
 // =========================================================

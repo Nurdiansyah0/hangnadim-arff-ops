@@ -49,6 +49,7 @@ export default function Sidebar() {
     { path: '/personnel', label: 'Personnel Master', icon: Users },
     { path: '/users', label: 'Force Personnel', icon: Users },
     { path: '/assets', label: 'Asset Fleet', icon: Truck },
+    { path: '/fire-extinguishers', label: 'Fire Extinguishers', icon: Flame },
   ];
 
   return (

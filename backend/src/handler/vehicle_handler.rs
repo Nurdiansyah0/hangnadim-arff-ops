@@ -1,5 +1,6 @@
 use crate::{domain::models::Vehicle, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
+use axum::{extract::{Path, State}, http::StatusCode, routing::{get, put}, Json, Router};
+use bigdecimal::BigDecimal;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -8,11 +9,30 @@ pub struct CreateVehiclePayload {
     pub name: String,
     pub vehicle_type: Option<String>,
     pub status: String,
+    pub water_capacity_liters: Option<BigDecimal>,
+    pub foam_capacity_liters: Option<BigDecimal>,
+    pub dcp_capacity_kg: Option<BigDecimal>,
+    pub last_service_date: Option<chrono::NaiveDate>,
+    pub next_service_due: Option<chrono::NaiveDate>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateVehiclePayload {
+    pub code: Option<String>,
+    pub name: Option<String>,
+    pub vehicle_type: Option<String>,
+    pub status: Option<String>,
+    pub water_capacity_liters: Option<BigDecimal>,
+    pub foam_capacity_liters: Option<BigDecimal>,
+    pub dcp_capacity_kg: Option<BigDecimal>,
+    pub last_service_date: Option<chrono::NaiveDate>,
+    pub next_service_due: Option<chrono::NaiveDate>,
 }
 
 pub fn vehicle_routes(state: AppState) -> Router {
     Router::new()
         .route("/", get(list_vehicles).post(create_vehicle))
+        .route("/{id}", put(update_vehicle))
         .with_state(state)
 }
 
@@ -20,8 +40,8 @@ async fn list_vehicles(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<Vec<Vehicle>>, (StatusCode, String)> {
-    if claims.role_id.is_none() { 
-        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string())); 
+    if claims.role_id.is_none() {
+        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
     match state.vehicle_service.get_all_vehicles().await {
@@ -36,16 +56,48 @@ async fn create_vehicle(
     Json(payload): Json<CreateVehiclePayload>,
 ) -> Result<Json<Vehicle>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
-    // Role 1 (Admin), role 5 (TL), role 7 (HR) -> sementara dibolehkan
     if rid != 1 && rid != 5 && rid != 7 {
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
     match state.vehicle_service.create_vehicle(
-        &payload.code, 
-        &payload.name, 
+        &payload.code,
+        &payload.name,
         payload.vehicle_type.as_deref(),
-        &payload.status
+        &payload.status,
+        payload.water_capacity_liters.as_ref(),
+        payload.foam_capacity_liters.as_ref(),
+        payload.dcp_capacity_kg.as_ref(),
+        payload.last_service_date.as_ref(),
+        payload.next_service_due.as_ref(),
+    ).await {
+        Ok(v) => Ok(Json(v)),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
+    }
+}
+
+async fn update_vehicle(
+    State(state): State<AppState>,
+    RequireAuth(claims): RequireAuth,
+    Path(id): Path<uuid::Uuid>,
+    Json(payload): Json<UpdateVehiclePayload>,
+) -> Result<Json<Vehicle>, (StatusCode, String)> {
+    let rid = claims.role_id.unwrap_or(0);
+    if rid != 1 && rid != 5 && rid != 7 {
+        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
+    }
+
+    match state.vehicle_service.update_vehicle(
+        id,
+        payload.code.as_deref(),
+        payload.name.as_deref(),
+        payload.vehicle_type.as_deref(),
+        payload.status.as_deref(),
+        payload.water_capacity_liters.as_ref(),
+        payload.foam_capacity_liters.as_ref(),
+        payload.dcp_capacity_kg.as_ref(),
+        payload.last_service_date.as_ref(),
+        payload.next_service_due.as_ref(),
     ).await {
         Ok(v) => Ok(Json(v)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),

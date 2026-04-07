@@ -1,6 +1,8 @@
 use crate::domain::models::Vehicle;
 use crate::repository::vehicle_repository::VehicleRepoTrait;
+use bigdecimal::BigDecimal;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct VehicleService {
@@ -22,9 +24,54 @@ impl VehicleService {
         name: &str,
         vehicle_type: Option<&str>,
         status: &str,
+        water_capacity_liters: Option<&BigDecimal>,
+        foam_capacity_liters: Option<&BigDecimal>,
+        dcp_capacity_kg: Option<&BigDecimal>,
+        last_service_date: Option<&chrono::NaiveDate>,
+        next_service_due: Option<&chrono::NaiveDate>,
     ) -> Result<Vehicle, String> {
         self.repo
-            .create_vehicle(code, name, vehicle_type, status)
+            .create_vehicle(
+                code,
+                name,
+                vehicle_type,
+                status,
+                water_capacity_liters,
+                foam_capacity_liters,
+                dcp_capacity_kg,
+                last_service_date,
+                next_service_due,
+            )
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    pub async fn update_vehicle(
+        &self,
+        id: Uuid,
+        code: Option<&str>,
+        name: Option<&str>,
+        vehicle_type: Option<&str>,
+        status: Option<&str>,
+        water_capacity_liters: Option<&BigDecimal>,
+        foam_capacity_liters: Option<&BigDecimal>,
+        dcp_capacity_kg: Option<&BigDecimal>,
+        last_service_date: Option<&chrono::NaiveDate>,
+        next_service_due: Option<&chrono::NaiveDate>,
+    ) -> Result<Vehicle, String> {
+        self.repo
+            .update_vehicle(
+                id,
+                code,
+                name,
+                vehicle_type,
+                status,
+                water_capacity_liters,
+                foam_capacity_liters,
+                dcp_capacity_kg,
+                last_service_date,
+                next_service_due,
+            )
             .await
             .map_err(|e| e.to_string())
     }

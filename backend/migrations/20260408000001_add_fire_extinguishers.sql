@@ -28,4 +28,4 @@ CREATE TABLE fire_extinguishers (
 CREATE TRIGGER update_fire_extinguishers_updated_at
 BEFORE UPDATE ON fire_extinguishers
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+EXECUTE FUNCTION set_updated_at_if_changed();

@@ -4,6 +4,7 @@ pub mod user_handler;
 pub mod personel_handler;
 pub mod shift_handler;
 pub mod vehicle_handler;
+pub mod fire_extinguisher_handler;
 pub mod inspection_handler;
 pub mod watchroom_handler;
 pub mod approval_handler;

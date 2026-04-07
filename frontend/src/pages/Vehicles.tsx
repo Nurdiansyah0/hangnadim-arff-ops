@@ -8,6 +8,11 @@ interface Vehicle {
   name: string;
   vehicle_type: string | null;
   status: string;
+  water_capacity_liters: string | null;
+  foam_capacity_liters: string | null;
+  dcp_capacity_kg: string | null;
+  last_service_date: string | null;
+  next_service_due: string | null;
 }
 
 export default function Vehicles() {
@@ -20,9 +25,15 @@ export default function Vehicles() {
     code: '',
     name: '',
     vehicle_type: 'ARFF_TRUCK',
-    status: 'READY'
+    status: 'READY',
+    water_capacity_liters: '',
+    foam_capacity_liters: '',
+    dcp_capacity_kg: '',
+    last_service_date: '',
+    next_service_due: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchVehicles();
@@ -39,16 +50,69 @@ export default function Vehicles() {
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setForm({
+      code: '',
+      name: '',
+      vehicle_type: 'ARFF_TRUCK',
+      status: 'READY',
+      water_capacity_liters: '',
+      foam_capacity_liters: '',
+      dcp_capacity_kg: '',
+      last_service_date: '',
+      next_service_due: '',
+    });
+    setSelectedVehicleId(null);
+  };
+
+  const openCreateModal = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const openEditModal = (vehicle: Vehicle) => {
+    setSelectedVehicleId(vehicle.id);
+    setForm({
+      code: vehicle.code,
+      name: vehicle.name,
+      vehicle_type: vehicle.vehicle_type ?? 'ARFF_TRUCK',
+      status: vehicle.status,
+      water_capacity_liters: vehicle.water_capacity_liters ?? '',
+      foam_capacity_liters: vehicle.foam_capacity_liters ?? '',
+      dcp_capacity_kg: vehicle.dcp_capacity_kg ?? '',
+      last_service_date: vehicle.last_service_date ?? '',
+      next_service_due: vehicle.next_service_due ?? '',
+    });
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setSubmitting(true);
-      await api.post('/vehicles', form);
+      const payload = {
+        code: form.code,
+        name: form.name,
+        vehicle_type: form.vehicle_type,
+        status: form.status,
+        water_capacity_liters: form.water_capacity_liters || null,
+        foam_capacity_liters: form.foam_capacity_liters || null,
+        dcp_capacity_kg: form.dcp_capacity_kg || null,
+        last_service_date: form.last_service_date || null,
+        next_service_due: form.next_service_due || null,
+      };
+
+      if (selectedVehicleId) {
+        await api.put(`/vehicles/${selectedVehicleId}`, payload);
+      } else {
+        await api.post('/vehicles', payload);
+      }
+
       setShowModal(false);
-      setForm({ code: '', name: '', vehicle_type: 'ARFF_TRUCK', status: 'READY' });
+      resetForm();
       fetchVehicles();
     } catch (err) {
-      alert('Gagal menambah armada baru');
+      alert(selectedVehicleId ? 'Gagal memperbarui armada' : 'Gagal menambah armada baru');
     } finally {
       setSubmitting(false);
     }
@@ -71,7 +135,7 @@ export default function Vehicles() {
         </div>
         
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={openCreateModal}
           className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl transition-all shadow-lg shadow-blue-500/20 font-bold"
         >
           <Plus size={20} />
@@ -103,6 +167,8 @@ export default function Vehicles() {
                 <tr>
                   <th className="px-4 py-4">Unit Identity</th>
                   <th className="px-4 py-4">Type</th>
+                  <th className="px-4 py-4">Capacity</th>
+                  <th className="px-4 py-4">Service Due</th>
                   <th className="px-4 py-4">Status</th>
                   <th className="px-4 py-4 text-right">Actions</th>
                 </tr>
@@ -126,6 +192,14 @@ export default function Vehicles() {
                         {v.vehicle_type || 'N/A'}
                       </span>
                     </td>
+                    <td className="px-4 py-5 text-sm text-slate-300 space-y-1">
+                      <div>Water: {v.water_capacity_liters ?? '—'} L</div>
+                      <div>Foam: {v.foam_capacity_liters ?? '—'} L</div>
+                      <div>DCP: {v.dcp_capacity_kg ?? '—'} kg</div>
+                    </td>
+                    <td className="px-4 py-5 text-slate-300">
+                      {v.next_service_due ?? 'N/A'}
+                    </td>
                     <td className="px-4 py-5">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border ${
                         v.status === 'READY' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
@@ -137,7 +211,7 @@ export default function Vehicles() {
                     </td>
                     <td className="px-4 py-5 text-right">
                        <div className="flex justify-end gap-2 text-slate-500">
-                          <button className="p-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all"><Settings2 size={18}/></button>
+                          <button onClick={() => openEditModal(v)} className="p-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all"><Settings2 size={18}/></button>
                           <button className="p-2 hover:bg-red-500/10 hover:text-red-500 rounded-lg transition-all"><Trash2 size={18}/></button>
                        </div>
                     </td>
@@ -153,8 +227,10 @@ export default function Vehicles() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => !submitting && setShowModal(false)} />
           <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-4xl p-10 shadow-2xl animate-in zoom-in duration-200">
-            <h3 className="text-2xl font-bold text-white mb-8">Register New Fleet Unit</h3>
-            <form onSubmit={handleCreate} className="space-y-6">
+            <h3 className="text-2xl font-bold text-white mb-8">
+              {selectedVehicleId ? 'Edit Fleet Unit' : 'Register New Fleet Unit'}
+            </h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Vehicle Code</label>
@@ -178,6 +254,63 @@ export default function Vehicles() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Water Capacity (L)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.water_capacity_liters}
+                    onChange={e => setForm({...form, water_capacity_liters: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Foam Capacity (L)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.foam_capacity_liters}
+                    onChange={e => setForm({...form, foam_capacity_liters: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">DCP Capacity (kg)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.dcp_capacity_kg}
+                    onChange={e => setForm({...form, dcp_capacity_kg: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Last Service Date</label>
+                  <input
+                    type="date"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.last_service_date}
+                    onChange={e => setForm({...form, last_service_date: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Next Service Due</label>
+                  <input
+                    type="date"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.next_service_due}
+                    onChange={e => setForm({...form, next_service_due: e.target.value})}
+                  />
+                </div>
+              </div>
+
               <div>
                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Initial Status</label>
                  <select 
@@ -194,7 +327,7 @@ export default function Vehicles() {
               <div className="flex gap-4 pt-6">
                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 rounded-xl border border-slate-800 text-slate-500 font-bold uppercase transition-all hover:bg-slate-800">Cancel</button>
                  <button type="submit" disabled={submitting} className="flex-1 py-4 rounded-xl bg-blue-600 text-white font-bold uppercase shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
-                    {submitting ? <Loader2 className="animate-spin" size={20}/> : 'Commit Registry'}
+                    {submitting ? <Loader2 className="animate-spin" size={20}/> : selectedVehicleId ? 'Update Vehicle' : 'Commit Registry'}
                  </button>
               </div>
             </form>

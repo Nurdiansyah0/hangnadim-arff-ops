@@ -74,4 +74,4 @@ INSERT INTO personnel_certifications (personnel_id, training_id, cert_number, is
 ((SELECT id FROM personnels WHERE full_name = 'ROCKY PASARIBU' LIMIT 1), (SELECT id FROM trainings WHERE title = 'Basic' LIMIT 1), 'DHT.489/.04.02/B.05.03/L32/2023', '2023-08-22', '2025-08-22', 'ACTIVE'),
 ((SELECT id FROM personnels WHERE full_name = 'JUHALIDI DESKANDAR' LIMIT 1), (SELECT id FROM trainings WHERE title = 'Basic' LIMIT 1), 'DHT.490/.04.02/B.05.03/L33/2023', '2023-08-22', '2025-08-22', 'ACTIVE'),
 ((SELECT id FROM personnels WHERE full_name = 'SUFRIDANTO SITANGGANG' LIMIT 1), (SELECT id FROM trainings WHERE title = 'Basic' LIMIT 1), 'DHT.491/.04.02/B.05.03/L34/2023', '2023-08-22', '2025-08-22', 'ACTIVE'),
-((SELECT id FROM personnels WHERE full_name = 'MEDIYANTO SAFUTRA' LIMIT 1), (SELECT id FROM trainings WHERE title = 'Basic' LIMIT 1), 'DHT.492/.04.02/B.05.03/L35/2023', '2023-08-22', '2025-08-22', 'ACTIVE');
+((SELECT id FROM personnels WHERE full_name = 'MEDIYANTO SAFUTRA' LIMIT 1), (SELECT id FROM trainings WHERE title = 'Basic' LIMIT 1), 'DHT.492/.04.02/B.05.03/L35/2023', '2023-08-22', '2025-08-22', 'ACTIVE') ON CONFLICT (cert_number) DO NOTHING;

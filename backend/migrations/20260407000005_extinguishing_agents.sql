@@ -2,7 +2,7 @@
 -- MIGRATION: EXTINGUISHING AGENTS & RBAC
 -- =========================================================
 
-CREATE TABLE extinguishing_agents (
+CREATE TABLE IF NOT EXISTS extinguishing_agents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     brand VARCHAR(255),
@@ -14,13 +14,24 @@ CREATE TABLE extinguishing_agents (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TRIGGER trg_extinguishing_agents_updated_at BEFORE UPDATE ON extinguishing_agents FOR EACH ROW EXECUTE FUNCTION set_updated_at_if_changed();
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_extinguishing_agents_updated_at'
+    ) THEN
+        CREATE TRIGGER trg_extinguishing_agents_updated_at
+        BEFORE UPDATE ON extinguishing_agents
+        FOR EACH ROW
+        EXECUTE FUNCTION set_updated_at_if_changed();
+    END IF;
+END $$;
 
 -- Seed Data from CSV
 INSERT INTO extinguishing_agents (name, brand, min_requirement, unit, inventory_level, last_procurement_year) VALUES 
 ('Water', 'none', 97200, 'L', 100000, 'none'),
 ('Aqueous Film Forming Foam (AFFF)', 'FoamTec & Sthamex,monofofex', 2916, 'L', 3100, '2021, 2022'),
-('Dry Chemical Powder (DCP)', 'Combitroxin', 450, 'Kg', 1400, '2017');
+('Dry Chemical Powder (DCP)', 'Combitroxin', 450, 'Kg', 1400, '2017')
+ON CONFLICT DO NOTHING;
 
 -- RBAC: Permissions
 INSERT INTO permissions (name, description) VALUES 

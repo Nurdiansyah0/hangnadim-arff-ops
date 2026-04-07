@@ -9,6 +9,7 @@ import Personnel from './pages/Personnel';
 import Shifts from './pages/Shifts';
 import Compliance from './pages/Compliance';
 import Flights from './pages/Flights';
+import FireExtinguishers from './pages/FireExtinguishers';
 import Analytics from './pages/Analytics';
 import Leave from './pages/Leave';
 import MainLayout from './components/layout/MainLayout';
@@ -60,6 +61,7 @@ function App() {
 
           {/* Master Data */}
           <Route path="/assets" element={<Vehicles />} />
+          <Route path="/fire-extinguishers" element={<FireExtinguishers />} />
           <Route path="/users" element={<Personnel />} />
         </Route>
 

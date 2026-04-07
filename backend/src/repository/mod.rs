@@ -2,6 +2,7 @@ pub mod user_repository;
 pub mod personnel_repository;
 pub mod shift_repository;
 pub mod vehicle_repository;
+pub mod fire_extinguisher_repository;
 pub mod inspection_repository;
 pub mod watchroom_repository;
 pub mod approval_repository;

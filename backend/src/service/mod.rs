@@ -3,6 +3,7 @@ pub mod user_service;
 pub mod personnel_service;
 pub mod shift_service;
 pub mod vehicle_service;
+pub mod fire_extinguisher_service;
 pub mod inspection_service;
 pub mod watchroom_service;
 pub mod approval_service;
