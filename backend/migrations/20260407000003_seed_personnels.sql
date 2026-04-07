@@ -3,10 +3,9 @@
 -- =========================================================
 
 CREATE TYPE employment_status_enum AS ENUM ('PNS', 'PKWT');
-ALTER TABLE personnels ADD COLUMN employment_status employment_status_enum;
-
--- Update existing admin to PNS by default
-UPDATE personnels SET employment_status = 'PNS' WHERE nip_nik = '12345678';
+CREATE TYPE shift_enum AS ENUM ('Alpha', 'Bravo', 'Charlie', 'Normal');
+ALTER TABLE personnels ADD COLUMN IF NOT EXISTS employment_status employment_status_enum;
+ALTER TABLE personnels ADD COLUMN IF NOT EXISTS shift shift_enum;
 
 -- Ensure positions exist
 INSERT INTO positions (name) VALUES 
@@ -15,10 +14,15 @@ INSERT INTO positions (name) VALUES
 ('RFF Maintenance Team Leader'),
 ('Rescue and Fire Fighting Squad Leader'),
 ('Fire Fighting and Rescue Officer'),
-('Rescue and Fire Fighting Officer')
+('Rescue and Fire Fighting Officer'),
+('Airport Rescue & Fire Fighting Manager')
 ON CONFLICT (name) DO NOTHING;
 
-INSERT INTO personnels (id, nip_nik, full_name, position_id, employment_status) VALUES
+-- Clear existing personnels to avoid conflicts
+DELETE FROM personnels WHERE nip_nik != '12345678';
+
+-- Insert personnels from CSV data
+INSERT INTO personnels (id, nip_nik, full_name, position_id, employment_status, shift, status) VALUES
 ('a72d3006-b773-4a6b-ab27-0e7ca27c0e3a', 'PNS005-1722', 'ZULKARNAIN,S.Kom', (SELECT id FROM positions WHERE name = 'Airport Rescue & Fire Fighting Manager'), 'PNS'),
 ('8c9d3ab3-3c27-48fd-a47b-a01779774c83', 'PNS053-1722', 'ESRA PURBA', (SELECT id FROM positions WHERE name = 'RFF Performance Standard Team Leader'), 'PNS'),
 ('45c61f43-4474-45b0-9c4b-e0de7eb5d43f', 'PNS052-1722', 'KHAIRUL BAHRI,ST', (SELECT id FROM positions WHERE name = 'RFF OperationTeam Leader'), 'PNS'),
