@@ -26,7 +26,7 @@ impl LeaveRepository {
     pub async fn get_all_requests(&self) -> Result<Vec<serde_json::Value>, String> {
         let rows = sqlx::query!(
             r#"
-            SELECT lr.*, p.full_name as personnel_name 
+            SELECT lr.id, lr.personnel_id, lr.start_date, lr.end_date, lr.reason, lr.status::text as status, lr.created_at, lr.updated_at, p.full_name as personnel_name 
             FROM leave_requests lr
             JOIN personnels p ON lr.personnel_id = p.id
             ORDER BY lr.created_at DESC
@@ -53,7 +53,7 @@ impl LeaveRepository {
 
     pub async fn update_status(&self, id: Uuid, status: &str) -> Result<(), String> {
         sqlx::query!(
-            "UPDATE leave_requests SET status = $1::leave_status_enum, updated_at = NOW() WHERE id = $2",
+            "UPDATE leave_requests SET status = $1::text::leave_status_enum, updated_at = NOW() WHERE id = $2",
             status, id
         )
         .execute(&self.pool)

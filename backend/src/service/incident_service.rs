@@ -17,6 +17,10 @@ impl IncidentService {
         self.repo.get_all_incidents().await.map_err(|e| e.to_string())
     }
 
+    pub async fn create_incident(
+        &self,
+        description: &str,
+        location: Option<&str>,
         severity: Option<&str>,
         photo_url: Option<&str>,
     ) -> Result<Incident, String> {

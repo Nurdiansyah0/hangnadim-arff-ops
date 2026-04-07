@@ -8,6 +8,7 @@ pub struct CreatePersonnelPayload {
     pub full_name: String,
     pub position_id: Option<i32>,
     pub status: String,
+    pub employment_status: Option<String>,
 }
 
 pub fn personnel_routes(state: AppState) -> Router {
@@ -49,7 +50,11 @@ async fn create_personnel(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
     match state.personnel_service.create_personnel(
-        &payload.nip_nik, &payload.full_name, payload.position_id, &payload.status
+        &payload.nip_nik, 
+        &payload.full_name, 
+        payload.position_id, 
+        &payload.status,
+        payload.employment_status.as_deref()
     ).await {
         Ok(p) => Ok(Json(p)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),

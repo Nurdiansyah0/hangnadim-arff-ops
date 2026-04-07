@@ -18,7 +18,7 @@ pub struct StatusPayload {
 pub fn leave_routes(state: AppState) -> Router {
     Router::new()
         .route("/", get(list_leaves).post(submit_leave))
-        .route("/:id/status", axum::routing::patch(update_leave_status))
+        .route("/{id}/status", axum::routing::patch(update_leave_status))
         .with_state(state)
 }
 

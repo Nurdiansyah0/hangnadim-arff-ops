@@ -28,6 +28,7 @@ use handler::superuser_handler::superuser_routes;
 use handler::leave_handler::leave_routes;
 use handler::media_handler::media_routes;
 use handler::email_handler::email_routes;
+use handler::inventory_handler::inventory_routes;
 
 use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
@@ -43,6 +44,7 @@ use repository::compliance_repository::ComplianceRepository;
 use repository::incident_repository::IncidentRepository;
 use repository::superuser_repository::SuperuserRepository;
 use repository::leave_repository::LeaveRepository;
+use repository::inventory_repository::InventoryRepository;
 
 use service::auth_service::AuthService;
 use service::user_service::UserService;
@@ -59,6 +61,7 @@ use service::compliance_service::ComplianceService;
 use service::incident_service::IncidentService;
 use service::superuser_service::SuperuserService;
 use service::leave_service::LeaveService;
+use service::inventory_service::InventoryService;
 use service::email_service::LettreEmailService;
 use state::AppState;
 
@@ -96,6 +99,7 @@ async fn main() {
     let incident_repo = std::sync::Arc::new(IncidentRepository::new(pool.clone()));
     let superuser_repo = std::sync::Arc::new(SuperuserRepository::new(pool.clone()));
     let leave_repo = std::sync::Arc::new(LeaveRepository::new(pool.clone()));
+    let inventory_repo = std::sync::Arc::new(InventoryRepository::new(pool.clone()));
 
     let app_state = AppState {
         auth_service: AuthService::new(user_repo_shared.clone()),
@@ -113,6 +117,7 @@ async fn main() {
         incident_service: IncidentService::new(incident_repo),
         superuser_service: SuperuserService::new(superuser_repo),
         leave_service: LeaveService::new(leave_repo),
+        inventory_service: InventoryService::new(inventory_repo),
         email_service: std::sync::Arc::new(LettreEmailService),
     };
 
@@ -138,7 +143,8 @@ async fn main() {
         .nest("/superuser", superuser_routes(app_state.clone()))
         .nest("/leaves", leave_routes(app_state.clone()))
         .nest("/media", media_routes(app_state.clone()))
-        .nest("/email", email_routes(app_state.clone()));
+        .nest("/email", email_routes(app_state.clone()))
+        .nest("/inventory", inventory_routes(app_state.clone()));
 
     let app = Router::new()
         .nest("/api", api_routes)

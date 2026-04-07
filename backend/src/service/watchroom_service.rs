@@ -18,6 +18,10 @@ impl WatchroomService {
         self.repo.get_all_logs().await.map_err(|e| e.to_string())
     }
 
+    pub async fn create_log(
+        &self,
+        actor_id: Option<Uuid>,
+        entry_type: Option<&str>,
         description: &str,
         payload: Option<Value>,
         photo_url: Option<&str>,

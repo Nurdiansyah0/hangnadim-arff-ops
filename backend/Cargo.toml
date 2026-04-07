@@ -5,15 +5,17 @@ edition = "2024"
 
 [dependencies]
 async-trait = "0.1.89"
-axum = "0.8.8"
+axum = { version = "0.8.8", features = ["multipart"] }
 bcrypt = "0.19.0"
 chrono = { version = "0.4.44", features = ["serde"] }
 dotenvy = "0.15.7"
 jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono"] }
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "bigdecimal", "rust_decimal"] }
 tokio = { version = "1.51.0", features = ["full"] }
 tower-http = { version = "0.6.8", features = ["cors", "fs"] }
 uuid = { version = "1.23.0", features = ["v4", "serde"] }
-lettre = { version = "0.12.8", features = ["tokio1-native-tls", "hostname", "builder"] }
+lettre = { version = "0.11", features = ["tokio1-native-tls", "hostname", "builder"] }
+bigdecimal = { version = "0.4.10", features = ["serde"] }
+rust_decimal = "1.41.0"

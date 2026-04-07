@@ -26,9 +26,10 @@ impl PersonnelService {
         full_name: &str,
         position_id: Option<i32>,
         status: &str,
+        employment_status: Option<&str>,
     ) -> Result<Personnel, String> {
         self.repo
-            .create_personnel(nip_nik, full_name, position_id, status)
+            .create_personnel(nip_nik, full_name, position_id, status, employment_status)
             .await
             .map_err(|e| e.to_string())
     }

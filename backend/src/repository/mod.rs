@@ -12,3 +12,4 @@ pub mod compliance_repository;
 pub mod incident_repository;
 pub mod superuser_repository;
 pub mod leave_repository;
+pub mod inventory_repository;
