@@ -22,10 +22,11 @@ impl InventoryRepository {
     }
 
     pub async fn update_inventory_level(&self, id: Uuid, new_level: BigDecimal) -> Result<(), Error> {
-        sqlx::query!(
-            "UPDATE extinguishing_agents SET inventory_level = $1, updated_at = NOW() WHERE id = $2",
-            new_level, id
+        sqlx::query(
+            "UPDATE extinguishing_agents SET inventory_level = $1, updated_at = NOW() WHERE id = $2"
         )
+        .bind(new_level)
+        .bind(id)
         .execute(&self.db)
         .await?;
         Ok(())

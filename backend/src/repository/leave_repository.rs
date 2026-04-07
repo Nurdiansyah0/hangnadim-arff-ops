@@ -1,4 +1,4 @@
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Postgres, Row};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -13,10 +13,14 @@ impl LeaveRepository {
 
     pub async fn create_leave_request(&self, personnel_id: Uuid, start_date: chrono::NaiveDate, end_date: chrono::NaiveDate, reason: &str) -> Result<Uuid, String> {
         let id = Uuid::new_v4();
-        sqlx::query!(
-            "INSERT INTO leave_requests (id, personnel_id, start_date, end_date, reason) VALUES ($1, $2, $3, $4, $5)",
-            id, personnel_id, start_date, end_date, reason
+        sqlx::query(
+            "INSERT INTO leave_requests (id, personnel_id, start_date, end_date, reason) VALUES ($1, $2, $3, $4, $5)"
         )
+        .bind(id)
+        .bind(personnel_id)
+        .bind(start_date)
+        .bind(end_date)
+        .bind(reason)
         .execute(&self.pool)
         .await
         .map_err(|e| e.to_string())?;
@@ -24,7 +28,7 @@ impl LeaveRepository {
     }
 
     pub async fn get_all_requests(&self) -> Result<Vec<serde_json::Value>, String> {
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT lr.id, lr.personnel_id, lr.start_date, lr.end_date, lr.reason, lr.status::text as status, lr.created_at, lr.updated_at, p.full_name as personnel_name 
             FROM leave_requests lr
@@ -38,13 +42,13 @@ impl LeaveRepository {
 
         let data = rows.into_iter().map(|r| {
             serde_json::json!({
-                "id": r.id,
-                "personnel_id": r.personnel_id,
-                "personnel_name": r.personnel_name,
-                "start_date": r.start_date,
-                "end_date": r.end_date,
-                "reason": r.reason,
-                "status": format!("{:?}", r.status)
+                "id": r.get::<Uuid, _>("id"),
+                "personnel_id": r.get::<Uuid, _>("personnel_id"),
+                "personnel_name": r.get::<String, _>("personnel_name"),
+                "start_date": r.get::<chrono::NaiveDate, _>("start_date"),
+                "end_date": r.get::<chrono::NaiveDate, _>("end_date"),
+                "reason": r.get::<String, _>("reason"),
+                "status": r.get::<String, _>("status")
             })
         }).collect();
 
@@ -52,10 +56,11 @@ impl LeaveRepository {
     }
 
     pub async fn update_status(&self, id: Uuid, status: &str) -> Result<(), String> {
-        sqlx::query!(
-            "UPDATE leave_requests SET status = $1::text::leave_status_enum, updated_at = NOW() WHERE id = $2",
-            status, id
+        sqlx::query(
+            "UPDATE leave_requests SET status = $1::text::leave_status_enum, updated_at = NOW() WHERE id = $2"
         )
+        .bind(status)
+        .bind(id)
         .execute(&self.pool)
         .await
         .map_err(|e| e.to_string())?;

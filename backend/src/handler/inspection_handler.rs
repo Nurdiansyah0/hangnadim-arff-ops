@@ -44,8 +44,8 @@ pub fn inspection_routes(state: AppState) -> Router {
     Router::new()
         .route("/", get(list_inspections).post(create_inspection))
         .route("/templates", get(list_inspection_templates).post(create_inspection_template))
-        .route("/templates/:template_id/items", get(list_template_items).post(create_template_item))
-        .route("/:id", get(get_inspection_by_id))
+        .route("/templates/{template_id}/items", get(list_template_items).post(create_template_item))
+        .route("/{id}", get(get_inspection_by_id))
         .with_state(state)
 }
 

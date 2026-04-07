@@ -1,4 +1,8 @@
-CREATE TYPE IF NOT EXISTS inspection_result_enum AS ENUM ('PASS', 'FAIL', 'N_A');
+DO $$ BEGIN
+    CREATE TYPE inspection_result_enum AS ENUM ('PASS', 'FAIL', 'N_A');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE inspection_templates (
     id SERIAL PRIMARY KEY,
