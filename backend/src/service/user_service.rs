@@ -79,6 +79,20 @@ mod tests {
             if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
             Ok(())
         }
+
+        async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
+            if self.should_fail { return Err(sqlx::Error::RowNotFound); }
+            Ok(Some(crate::domain::models::UserProfile {
+                id,
+                username: "testuser".to_string(),
+                email: "test@example.com".to_string(),
+                full_name: Some("Test User".to_string()),
+                position_name: Some("Guard".to_string()),
+                role_name: Some("Admin".to_string()),
+                role_id: Some(1),
+                created_at: chrono::Utc::now(),
+            }))
+        }
     }
 
     #[tokio::test]

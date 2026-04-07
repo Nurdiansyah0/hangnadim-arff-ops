@@ -54,6 +54,18 @@ mod tests {
                 }
             ])
         }
+        async fn get_inventory_alerts(&self) -> Result<Vec<InventoryAlert>, sqlx::Error> {
+             Ok(vec![
+                InventoryAlert {
+                    id: Uuid::new_v4(),
+                    name: "Water".to_string(),
+                    inventory_level: rust_decimal::Decimal::from(5000),
+                    min_requirement: rust_decimal::Decimal::from(90000),
+                    deficit: rust_decimal::Decimal::from(85000),
+                    percentage: 5.5,
+                }
+             ])
+        }
     }
 
     #[tokio::test]
@@ -63,5 +75,17 @@ mod tests {
         let res = service.get_sops().await;
         assert!(res.is_ok());
         assert_eq!(res.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_inventory_alerts() {
+        let repo = Arc::new(MockComplianceRepo);
+        let service = ComplianceService::new(repo);
+        let res = service.get_inventory_alerts().await;
+        assert!(res.is_ok());
+        let alerts = res.unwrap();
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].name, "Water");
+        assert!(alerts[0].percentage < 10.0);
     }
 }

@@ -3,16 +3,8 @@
 -- Description: Add audit logging triggers for operational tables
 -- =========================================================
 
--- Create audit_logs table if it doesn't exist
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id SERIAL PRIMARY KEY,
-    table_name TEXT NOT NULL,
-    action TEXT NOT NULL CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),
-    original_data JSONB,
-    new_data JSONB,
-    user_id UUID, -- Optional, set via session variable if available
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- audit_logs table is already created in 000001 as a partitioned table.
+-- We only ensure the triggers and function are set up here.
 
 -- Create the audit trigger function
 CREATE OR REPLACE FUNCTION audit_trigger_func() RETURNS TRIGGER AS $$
@@ -28,16 +20,16 @@ BEGIN
     END;
 
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO audit_logs (table_name, action, original_data, new_data, user_id)
-        VALUES (TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW), user_id_val);
+        INSERT INTO audit_logs (id, table_name, action, original_data, new_data, user_id, created_at)
+        VALUES (gen_random_uuid(), TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW), user_id_val, NOW());
         RETURN NEW;
     ELSIF TG_OP = 'UPDATE' THEN
-        INSERT INTO audit_logs (table_name, action, original_data, new_data, user_id)
-        VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW), user_id_val);
+        INSERT INTO audit_logs (id, table_name, action, original_data, new_data, user_id, created_at)
+        VALUES (gen_random_uuid(), TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW), user_id_val, NOW());
         RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-        INSERT INTO audit_logs (table_name, action, original_data, new_data, user_id)
-        VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL, user_id_val);
+        INSERT INTO audit_logs (id, table_name, action, original_data, new_data, user_id, created_at)
+        VALUES (gen_random_uuid(), TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL, user_id_val, NOW());
         RETURN OLD;
     END IF;
 

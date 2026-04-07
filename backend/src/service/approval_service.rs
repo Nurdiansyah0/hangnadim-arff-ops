@@ -63,7 +63,7 @@ mod tests {
 
     #[async_trait]
     impl ApprovalRepoTrait for MockApprovalRepo {
-        async fn update_inspection_status(&self, _id: Uuid, _s: &str) -> Result<(), Error> {
+        async fn update_inspection_status(&self, _id: Uuid, _s: &str, _u: Option<Uuid>) -> Result<(), Error> {
             if self.should_fail { return Err(Error::PoolTimedOut); }
             Ok(())
         }
@@ -73,7 +73,7 @@ mod tests {
     async fn test_petugas_submit_draft() {
         let repo = Arc::new(MockApprovalRepo { should_fail: false });
         let service = ApprovalService::new(repo);
-        let res = service.transition_inspection(Uuid::new_v4(), "DRAFT", "SUBMITTED", 4).await;
+        let res = service.transition_inspection(Uuid::new_v4(), "DRAFT", "SUBMITTED", 4, Some(Uuid::new_v4())).await;
         assert!(res.is_ok());
     }
 
@@ -81,7 +81,7 @@ mod tests {
     async fn test_petugas_cannot_approve() {
         let repo = Arc::new(MockApprovalRepo { should_fail: false });
         let service = ApprovalService::new(repo);
-        let res = service.transition_inspection(Uuid::new_v4(), "REVIEWED", "APPROVED", 4).await;
+        let res = service.transition_inspection(Uuid::new_v4(), "REVIEWED", "APPROVED", 4, Some(Uuid::new_v4())).await;
         assert!(res.is_err(), "Petugas tidak boleh melakukan approval akhir");
     }
 
@@ -89,7 +89,7 @@ mod tests {
     async fn test_admin_bypass_all() {
         let repo = Arc::new(MockApprovalRepo { should_fail: false });
         let service = ApprovalService::new(repo);
-        let res = service.transition_inspection(Uuid::new_v4(), "SUBMITTED", "APPROVED", 1).await;
+        let res = service.transition_inspection(Uuid::new_v4(), "SUBMITTED", "APPROVED", 1, Some(Uuid::new_v4())).await;
         assert!(res.is_ok(), "Admin harus bisa bypass transisi");
     }
 }

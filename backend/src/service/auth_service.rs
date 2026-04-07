@@ -1,4 +1,4 @@
-use crate::domain::models::{User, Claims};
+use crate::domain::models::{User, Claims, UserProfile, AuthContextResponse, FullProfileResponse, OperationalContextResponse};
 use crate::repository::user_repository::UserRepository;
 use bcrypt::verify;
 use chrono::{Duration, Utc};
@@ -13,6 +13,10 @@ pub trait UserRepoTrait: Send + Sync {
     async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error>;
     async fn create_user(&self, username: &str, email: &str, pw: &str, personnel_id: Option<Uuid>) -> Result<User, sqlx::Error>;
     async fn delete_user(&self, id: Uuid) -> Result<(), sqlx::Error>;
+    async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error>;
+    async fn get_user_permissions(&self, user_id: Uuid) -> Result<Vec<String>, sqlx::Error>;
+    async fn get_full_profile(&self, personnel_id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error>;
+    async fn get_operational_context(&self, personnel_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error>;
 }
 
 #[async_trait]
@@ -28,6 +32,18 @@ impl UserRepoTrait for UserRepository {
     }
     async fn delete_user(&self, id: Uuid) -> Result<(), sqlx::Error> {
         self.delete_user(id).await
+    }
+    async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
+        self.get_user_profile(id).await
+    }
+    async fn get_user_permissions(&self, user_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
+        self.get_user_permissions(user_id).await
+    }
+    async fn get_full_profile(&self, personnel_id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
+        self.get_full_profile(personnel_id).await
+    }
+    async fn get_operational_context(&self, personnel_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
+        self.get_operational_context(personnel_id).await
     }
 }
 #[derive(Clone)] 
@@ -61,6 +77,40 @@ impl AuthService {
         encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_ref()))
             .map_err(|e| format!("Token error: {}", e))
     }
+
+    pub async fn get_user_profile(&self, id: Uuid) -> Result<UserProfile, String> {
+        self.repo.get_user_profile(id).await
+            .map_err(|e| format!("DB Error: {}", e))?
+            .ok_or_else(|| "User profile tidak ditemukan".to_string())
+    }
+
+    pub async fn get_auth_context(&self, user_id: Uuid) -> Result<AuthContextResponse, String> {
+        let profile = self.repo.get_user_profile(user_id).await
+            .map_err(|e| format!("DB Error: {}", e))?
+            .ok_or_else(|| "User profile tidak ditemukan".to_string())?;
+
+        let permissions = self.repo.get_user_permissions(user_id).await
+            .map_err(|e| format!("DB Error: {}", e))?;
+
+        Ok(AuthContextResponse {
+            id: profile.id,
+            username: profile.username,
+            email: profile.email,
+            role: profile.role_name.unwrap_or_else(|| "User".to_string()),
+            permissions,
+        })
+    }
+
+    pub async fn get_full_profile(&self, personnel_id: Uuid) -> Result<FullProfileResponse, String> {
+        self.repo.get_full_profile(personnel_id).await
+            .map_err(|e| format!("DB Error: {}", e))?
+            .ok_or_else(|| "Personnel profile tidak ditemukan".to_string())
+    }
+
+    pub async fn get_operational_context(&self, personnel_id: Uuid) -> Result<OperationalContextResponse, String> {
+        self.repo.get_operational_context(personnel_id).await
+            .map_err(|e| format!("DB Error: {}", e))
+    }
 }
 
 // =========================================================
@@ -87,6 +137,50 @@ mod tests {
         async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error> { Ok(vec![]) }
         async fn create_user(&self, _:&str, _:&str, _:&str, _:Option<Uuid>) -> Result<User, sqlx::Error> { todo!() }
         async fn delete_user(&self, _:Uuid) -> Result<(), sqlx::Error> { Ok(()) }
+        async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
+            Ok(Some(crate::domain::models::UserProfile {
+                id,
+                username: "tester".to_string(),
+                email: "test@mail.com".to_string(),
+                full_name: Some("Test User".to_string()),
+                position_name: Some("Guard".to_string()),
+                role_name: Some("Admin".to_string()),
+                role_id: Some(1),
+                created_at: Utc::now(),
+            }))
+        }
+
+        async fn get_user_permissions(&self, _user_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
+            Ok(vec!["VIEW_DASHBOARD".to_string()])
+        }
+
+        async fn get_full_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
+            Ok(Some(crate::domain::models::FullProfileResponse {
+                personal: crate::domain::models::Personnel {
+                    id,
+                    nip_nik: "123".to_string(),
+                    full_name: "Tester".to_string(),
+                    position_id: Some(1),
+                    status: "ACTIVE".to_string(),
+                    created_at: Utc::now(),
+                    updated_at: Utc::now(),
+                },
+                position: Some("Guard".to_string()),
+                role: Some("Admin".to_string()),
+                certifications: vec![],
+            }))
+        }
+
+        async fn get_operational_context(&self, _id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
+            Ok(crate::domain::models::OperationalContextResponse {
+                shift_name: Some("Normal".to_string()),
+                shift_start: None,
+                shift_end: None,
+                duty_position: Some("WATCHROOM".to_string()),
+                assigned_vehicle: Some("V1".to_string()),
+                duty_status: "ACTIVE".to_string(),
+            })
+        }
     }
 
     // Helper untuk membuat user tiruan

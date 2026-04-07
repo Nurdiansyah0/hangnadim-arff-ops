@@ -36,6 +36,57 @@ pub struct User {
     pub role_id: Option<i32>,
 }
 
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct UserProfile {
+    pub id: Uuid,
+    pub username: String,
+    pub email: String,
+    pub full_name: Option<String>,
+    pub position_name: Option<String>,
+    pub role_name: Option<String>,
+    pub role_id: Option<i32>,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Specialized Responses ---
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AuthContextResponse {
+    pub id: Uuid,
+    pub username: String,
+    pub email: String,
+    pub role: String,
+    pub permissions: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FullProfileResponse {
+    pub personal: Personnel,
+    pub position: Option<String>,
+    pub role: Option<String>,
+    pub certifications: Vec<CertificationDetail>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CertificationDetail {
+    pub title: String,
+    pub category: String,
+    pub cert_number: String,
+    pub issue_date: chrono::NaiveDate,
+    pub expiry_date: chrono::NaiveDate,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OperationalContextResponse {
+    pub shift_name: Option<String>,
+    pub shift_start: Option<chrono::NaiveTime>,
+    pub shift_end: Option<chrono::NaiveTime>,
+    pub duty_position: Option<String>,
+    pub assigned_vehicle: Option<String>,
+    pub duty_status: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,         

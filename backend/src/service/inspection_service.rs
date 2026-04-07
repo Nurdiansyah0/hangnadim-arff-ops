@@ -33,6 +33,17 @@ impl InspectionService {
         status: &str,
         results: Vec<InspectionResultCreate>,
     ) -> Result<Inspection, String> {
+        // Validation: Results cannot be empty
+        if results.is_empty() {
+            return Err("At least one inspection result must be provided".to_string());
+        }
+
+        // Validation: Date cannot be in the future
+        let today = chrono::Local::now().date_naive();
+        if tanggal > today {
+            return Err("Inspection date cannot be in the future".to_string());
+        }
+
         self.repo
             .create_inspection_with_results(vehicle_id, personnel_id, tanggal, status, results)
             .await
@@ -102,6 +113,9 @@ mod tests {
                 personnel_id: None,
                 tanggal: NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(),
                 status: "DRAFT".to_string(),
+                approved_by: None,
+                approved_at: None,
+                updated_at: Some(Utc::now()),
                 created_at: Utc::now(),
             })
         }
@@ -126,6 +140,9 @@ mod tests {
                 personnel_id: None,
                 tanggal: t,
                 status: s.to_string(),
+                approved_by: None,
+                approved_at: None,
+                updated_at: Some(Utc::now()),
                 created_at: Utc::now(),
             })
         }
@@ -163,6 +180,37 @@ mod tests {
             vec![InspectionResultCreate { template_item_id: 1, result: "PASS".to_string(), notes: None, photo_url: None }],
         ).await;
         assert!(res.is_ok(), "Harus berhasil submit inspection dengan hasil checklist");
+    }
+
+    #[tokio::test]
+    async fn test_create_inspection_validation_empty_results() {
+        let repo = Arc::new(MockInspectionRepo { should_fail: false });
+        let service = InspectionService::new(repo);
+        let res = service.create_inspection_with_results(
+            Uuid::new_v4(),
+            None,
+            NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(),
+            "DRAFT",
+            vec![],
+        ).await;
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), "At least one inspection result must be provided");
+    }
+
+    #[tokio::test]
+    async fn test_create_inspection_validation_future_date() {
+        let repo = Arc::new(MockInspectionRepo { should_fail: false });
+        let service = InspectionService::new(repo);
+        let future_date = NaiveDate::from_ymd_opt(2099, 1, 1).unwrap();
+        let res = service.create_inspection_with_results(
+            Uuid::new_v4(),
+            None,
+            future_date,
+            "DRAFT",
+            vec![InspectionResultCreate { template_item_id: 1, result: "PASS".to_string(), notes: None, photo_url: None }],
+        ).await;
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), "Inspection date cannot be in the future");
     }
 
     #[tokio::test]

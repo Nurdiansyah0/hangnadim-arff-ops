@@ -8,7 +8,7 @@ INSERT INTO positions (name) VALUES ('Airport Rescue & Fire Fighting Manager') O
 -- 2. Link Zulkarnain to Manager Position if not already
 UPDATE personnels 
 SET position_id = (SELECT id FROM positions WHERE name = 'Airport Rescue & Fire Fighting Manager' LIMIT 1)
-WHERE full_name = 'ZULKARNAIN,S.Kom';
+WHERE full_name ILIKE 'Zulkarnain%';
 
 -- 3. Clear existing role mappings
 TRUNCATE personnel_roles CASCADE;

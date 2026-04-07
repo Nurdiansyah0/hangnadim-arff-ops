@@ -9,7 +9,6 @@ DECLARE
     v_count INT; 
 BEGIN 
     -- Get default password hash (admin123)
-    -- $2b$12$N9u3Pj5T8H8s6ZJ1C6W4POnT.h/F6N0q05iBxDqJ5gXJ2O8N73V9u
     
     FOR r IN SELECT id, full_name FROM personnels WHERE id NOT IN (SELECT personnel_id FROM users WHERE personnel_id IS NOT NULL) 
     LOOP 
@@ -43,7 +42,7 @@ BEGIN
         v_email := v_username || '@arff.hangnadim.id';
         
         INSERT INTO users (id, username, email, password_hash, personnel_id) 
-        VALUES (uuid_generate_v4(), v_username, v_email, '$2b$12$N9u3Pj5T8H8s6ZJ1C6W4POnT.h/F6N0q05iBxDqJ5gXJ2O8N73V9u', r.id)
+        VALUES (uuid_generate_v4(), v_username, v_email, '$2b$12$f6gY9rjtJiyLxzby/uVAZOT1ZggsGktM42rQ1K3EpaeS14ACA./pe', r.id)
         ON CONFLICT (username) DO NOTHING;
     END LOOP; 
 END $$;
