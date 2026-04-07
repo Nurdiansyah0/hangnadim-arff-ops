@@ -55,7 +55,7 @@ impl InspectionRepository {
 impl InspectionRepoTrait for InspectionRepository {
     async fn get_all_inspections(&self) -> Result<Vec<Inspection>, Error> {
         sqlx::query_as::<_, Inspection>(
-            "SELECT id, vehicle_id, personnel_id, tanggal, status::TEXT, created_at FROM inspections"
+            "SELECT id, vehicle_id, personnel_id, tanggal, status::TEXT, approved_by, approved_at, updated_at, created_at FROM inspections"
         )
         .fetch_all(&self.db)
         .await
@@ -63,7 +63,7 @@ impl InspectionRepoTrait for InspectionRepository {
 
     async fn get_inspection_by_id(&self, id: Uuid) -> Result<Inspection, Error> {
         sqlx::query_as::<_, Inspection>(
-            "SELECT id, vehicle_id, personnel_id, tanggal, status::TEXT, created_at FROM inspections WHERE id = $1"
+            "SELECT id, vehicle_id, personnel_id, tanggal, status::TEXT, approved_by, approved_at, updated_at, created_at FROM inspections WHERE id = $1"
         )
         .bind(id)
         .fetch_one(&self.db)

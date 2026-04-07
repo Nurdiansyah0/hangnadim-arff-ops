@@ -27,7 +27,8 @@ async fn approve_inspection(
         payload.entity_id, 
         &payload.current_status, 
         &payload.target_status, 
-        role_id
+        role_id,
+        Some(claims.sub)
     ).await {
         Ok(_) => Ok(StatusCode::OK),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),

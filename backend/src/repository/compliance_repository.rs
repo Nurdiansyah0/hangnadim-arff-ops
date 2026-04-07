@@ -6,12 +6,12 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct AuditLog {
-    pub id: Uuid,
+    pub id: i32,
     pub table_name: String,
     pub action: String,
-    pub old_data: Option<serde_json::Value>,
+    pub original_data: Option<serde_json::Value>,
     pub new_data: Option<serde_json::Value>,
-    pub changed_by: Option<Uuid>,
+    pub user_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -48,7 +48,7 @@ impl ComplianceRepoTrait for ComplianceRepository {
         // Karena audit_logs dipartisi, kita ambil dari parent table 'audit_logs'
         // Postgres akan otomatis nge-scan partisi yang relevan (atau semua jika limit)
         sqlx::query_as::<_, AuditLog>(
-            "SELECT id, table_name, action, old_data, new_data, changed_by, created_at FROM audit_logs ORDER BY created_at DESC LIMIT $1"
+            "SELECT id, table_name, action, original_data, new_data, user_id, created_at FROM audit_logs ORDER BY created_at DESC LIMIT $1"
         )
         .bind(limit)
         .fetch_all(&self.db)

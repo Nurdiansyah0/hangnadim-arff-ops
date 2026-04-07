@@ -8,6 +8,7 @@ pub trait ApprovalRepoTrait: Send + Sync {
         &self,
         inspection_id: Uuid,
         new_status: &str,
+        user_id: Option<Uuid>,
     ) -> Result<(), Error>;
 }
 
@@ -28,14 +29,27 @@ impl ApprovalRepoTrait for ApprovalRepository {
         &self,
         inspection_id: Uuid,
         new_status: &str,
+        user_id: Option<Uuid>,
     ) -> Result<(), Error> {
-        sqlx::query(
-            "UPDATE inspections SET status = $1::approval_status_enum WHERE id = $2"
-        )
-        .bind(new_status)
-        .bind(inspection_id)
-        .execute(&self.db)
-        .await?;
+        let is_final = new_status == "APPROVED" || new_status == "REJECTED";
+        if is_final {
+            sqlx::query(
+                "UPDATE inspections SET status = $1::approval_status_enum, approved_by = $2, approved_at = NOW(), updated_at = NOW() WHERE id = $3"
+            )
+            .bind(new_status)
+            .bind(user_id)
+            .bind(inspection_id)
+            .execute(&self.db)
+            .await?;
+        } else {
+            sqlx::query(
+                "UPDATE inspections SET status = $1::approval_status_enum, updated_at = NOW() WHERE id = $2"
+            )
+            .bind(new_status)
+            .bind(inspection_id)
+            .execute(&self.db)
+            .await?;
+        }
         Ok(())
     }
 }

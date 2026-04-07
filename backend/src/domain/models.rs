@@ -179,6 +179,9 @@ pub struct Inspection {
     pub personnel_id: Option<Uuid>,
     pub tanggal: chrono::NaiveDate,
     pub status: String, // Maps to approval_status_enum (DRAFT, etc)
+    pub approved_by: Option<Uuid>,
+    pub approved_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }
 

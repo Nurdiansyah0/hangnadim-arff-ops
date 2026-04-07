@@ -23,23 +23,24 @@ impl ApprovalService {
         current_status: &str,
         target_status: &str,
         role_id: i32,
+        user_id: Option<Uuid>,
     ) -> Result<(), String> {
         match (current_status, target_status, role_id) {
             // Petugas menyerahkan laporan
             ("DRAFT", "SUBMITTED", 4) | ("DRAFT", "SUBMITTED", 1) => {
-                self.repo.update_inspection_status(inspection_id, "SUBMITTED").await.map_err(|e| e.to_string())
+                self.repo.update_inspection_status(inspection_id, "SUBMITTED", user_id).await.map_err(|e| e.to_string())
             }
             // TL meriview laporan
             ("SUBMITTED", "REVIEWED", 5) | ("SUBMITTED", "REVIEWED", 1) => {
-                self.repo.update_inspection_status(inspection_id, "REVIEWED").await.map_err(|e| e.to_string())
+                self.repo.update_inspection_status(inspection_id, "REVIEWED", user_id).await.map_err(|e| e.to_string())
             }
             // Kasubsie / Admin menyetujui
             ("REVIEWED", "APPROVED", 6) | ("REVIEWED", "APPROVED", 1) | ("SUBMITTED", "APPROVED", 1) => {
-                self.repo.update_inspection_status(inspection_id, "APPROVED").await.map_err(|e| e.to_string())
+                self.repo.update_inspection_status(inspection_id, "APPROVED", user_id).await.map_err(|e| e.to_string())
             }
             // Penolakan
             (_, "REJECTED", 1) | (_, "REJECTED", 6) | (_, "REJECTED", 5) => {
-                self.repo.update_inspection_status(inspection_id, "REJECTED").await.map_err(|e| e.to_string())
+                self.repo.update_inspection_status(inspection_id, "REJECTED", user_id).await.map_err(|e| e.to_string())
             }
             _ => Err("Transisi status tidak diizinkan untuk Role Anda atau urutan salah".to_string())
         }
