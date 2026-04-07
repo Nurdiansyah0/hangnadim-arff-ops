@@ -1,6 +1,6 @@
 use crate::domain::models::{Inspection, InspectionResult, InspectionTemplate, TemplateItem};
 use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error, Transaction};
+use sqlx::{Pool, Postgres, Error};
 use uuid::Uuid;
 
 pub struct InspectionResultCreate {
@@ -87,22 +87,22 @@ impl InspectionRepoTrait for InspectionRepository {
         status: &str,
         results: Vec<InspectionResultCreate>,
     ) -> Result<Inspection, Error> {
-        let mut tx: Transaction<'_, Postgres> = self.db.begin().await?;
-
+        // Insert inspection
         let inspection: Inspection = sqlx::query_as::<_, Inspection>(
             r#"
             INSERT INTO inspections (id, vehicle_id, personnel_id, tanggal, status)
             VALUES (uuid_generate_v4(), $1, $2, $3, $4::approval_status_enum)
-            RETURNING id, vehicle_id, personnel_id, tanggal, status::TEXT, created_at
+            RETURNING id, vehicle_id, personnel_id, tanggal, status::TEXT, approved_by, approved_at, updated_at, created_at
             "#
         )
         .bind(vehicle_id)
         .bind(personnel_id)
         .bind(tanggal)
         .bind(status)
-        .fetch_one(&mut tx)
+        .fetch_one(&self.db)
         .await?;
 
+        // Insert results
         for result in results {
             sqlx::query(
                 "INSERT INTO inspection_results (inspection_id, inspection_date, template_item_id, result, notes, photo_url) VALUES ($1, $2, $3, $4::inspection_result_enum, $5, $6)"
@@ -113,11 +113,10 @@ impl InspectionRepoTrait for InspectionRepository {
             .bind(result.result)
             .bind(result.notes)
             .bind(result.photo_url)
-            .execute(&mut tx)
+            .execute(&self.db)
             .await?;
         }
 
-        tx.commit().await?;
         Ok(inspection)
     }
 

@@ -1,5 +1,5 @@
 use crate::{domain::models::{Inspection, InspectionResult, InspectionTemplate, TemplateItem}, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::{Path, State}, http::StatusCode, routing::{get, post}, Json, Router};
+use axum::{extract::{Path, State}, http::StatusCode, routing::get, Json, Router};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

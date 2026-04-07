@@ -1,8 +1,9 @@
 use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error, FromRow};
+use sqlx::{Pool, Postgres, Error, FromRow, Row};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct AuditLog {
@@ -25,10 +26,21 @@ pub struct DocumentSOP {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct InventoryAlert {
+    pub id: Uuid,
+    pub name: String,
+    pub inventory_level: Decimal,
+    pub min_requirement: Decimal,
+    pub deficit: Decimal,
+    pub percentage: f64,
+}
+
 #[async_trait]
 pub trait ComplianceRepoTrait: Send + Sync {
     async fn get_audit_logs(&self, limit: i64) -> Result<Vec<AuditLog>, Error>;
     async fn get_sop_documents(&self) -> Result<Vec<DocumentSOP>, Error>;
+    async fn get_inventory_alerts(&self) -> Result<Vec<InventoryAlert>, Error>;
 }
 
 #[derive(Clone)]
@@ -61,5 +73,41 @@ impl ComplianceRepoTrait for ComplianceRepository {
         )
         .fetch_all(&self.db)
         .await
+    }
+
+    async fn get_inventory_alerts(&self) -> Result<Vec<InventoryAlert>, Error> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, name, inventory_level, min_requirement,
+                   (min_requirement - inventory_level) as deficit,
+                   ((inventory_level::numeric / min_requirement::numeric) * 100) as percentage
+            FROM extinguishing_agents
+            WHERE inventory_level < min_requirement
+            ORDER BY percentage ASC
+            "#
+        )
+        .fetch_all(&self.db)
+        .await?;
+
+        let mut alerts = Vec::new();
+        for row in rows {
+            let id: Uuid = row.get("id");
+            let name: String = row.get("name");
+            let inventory_level: Decimal = row.get("inventory_level");
+            let min_requirement: Decimal = row.get("min_requirement");
+            let deficit: Decimal = row.get("deficit");
+            let percentage: f64 = row.get("percentage");
+
+            alerts.push(InventoryAlert {
+                id,
+                name,
+                inventory_level,
+                min_requirement,
+                deficit,
+                percentage,
+            });
+        }
+
+        Ok(alerts)
     }
 }

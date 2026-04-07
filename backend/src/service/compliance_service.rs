@@ -1,4 +1,4 @@
-use crate::repository::compliance_repository::{ComplianceRepoTrait, AuditLog, DocumentSOP};
+use crate::repository::compliance_repository::{ComplianceRepoTrait, AuditLog, DocumentSOP, InventoryAlert};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -17,6 +17,10 @@ impl ComplianceService {
 
     pub async fn get_sops(&self) -> Result<Vec<DocumentSOP>, String> {
         self.repo.get_sop_documents().await.map_err(|e| e.to_string())
+    }
+
+    pub async fn get_inventory_alerts(&self) -> Result<Vec<InventoryAlert>, String> {
+        self.repo.get_inventory_alerts().await.map_err(|e| e.to_string())
     }
 }
 

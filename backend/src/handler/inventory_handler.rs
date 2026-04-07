@@ -1,4 +1,4 @@
-use crate::{domain::models::ExtinguishingAgent, handler::middleware::RequireAuth, state::AppState};
+use crate::{domain::models::ExtinguishingAgent, handler::middleware::RequireAuth, state::AppState, repository::compliance_repository::InventoryAlert};
 use axum::{extract::{Path, State}, http::StatusCode, routing::{get, put}, Json, Router};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -22,6 +22,7 @@ pub struct CreateAgentPayload {
 pub fn inventory_routes(state: AppState) -> Router {
     Router::new()
         .route("/", get(list_agents).post(create_agent))
+        .route("/alerts", get(get_alerts))
         .route("/{id}/level", put(update_level))
         .with_state(state)
 }
@@ -51,6 +52,17 @@ async fn update_level(
 
     match state.inventory_service.update_inventory_level(id, payload.inventory_level).await {
         Ok(_) => Ok(StatusCode::OK),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
+    }
+}
+
+async fn get_alerts(
+    State(state): State<AppState>,
+    RequireAuth(_claims): RequireAuth,
+) -> Result<Json<Vec<InventoryAlert>>, (StatusCode, String)> {
+    // Semua role bisa melihat alerts
+    match state.compliance_service.get_inventory_alerts().await {
+        Ok(alerts) => Ok(Json(alerts)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
 }
