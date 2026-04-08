@@ -162,9 +162,66 @@ else
     echo -e "${RED}Skipping Maintenance: No vehicles found.${NC}"
 fi
 
-# 8. Summary Check
-echo -e "\n${BLUE}--- Verification: List all logs again ---${NC}"
-test_get "All Logs" "/watchroom"
+# 8. Findings & Corrective Actions (AUTO-CREATE & RESOLVE)
+echo -e "\n${BLUE}--- Testing Findings Flow ---${NC}"
+if [ ! -z "$V_ID" ]; then
+    # Create a FAILED inspection item to trigger finding creation
+    FAIL_INSP_BODY='{
+        "vehicle_id": "'$V_ID'",
+        "tanggal": "'$(date +%Y-%m-%d)'",
+        "status": "APPROVED",
+        "latitude": -6.1266,
+        "longitude": 106.6535,
+        "results": [
+            {"template_item_id": '$ITEM_ID', "result": "FAIL", "notes": "Broken indicator light found during test"}
+        ]
+    }'
+    test_post "Create Failed Inspection" "/inspections" "$FAIL_INSP_BODY"
+    
+    echo -e "\nWaiting for trigger to process..."
+    sleep 1
+    
+    # 8.1 Check Open Findings
+    FINDINGS_LIST=$(curl -s -X GET "$BASE_URL/findings/open" \
+         -H "Authorization: Bearer $TOKEN" \
+         -H "Content-Type: application/json")
+    
+    echo -e "\n[GET] Open Findings"
+    echo "$FINDINGS_LIST" | python3 -m json.tool
+    
+    FINDING_ID=$(echo $FINDINGS_LIST | grep -oP '(?<="id":")[^"]*' | head -n 1)
+    
+    if [ ! -z "$FINDING_ID" ]; then
+        # 8.2 Resolve Finding
+        RESOLVE_BODY='{
+            "status": "RESOLVED",
+            "resolution_notes": "Indicator light replaced and verified."
+        }'
+        echo -e "\n[PATCH] Resolve Finding ID: $FINDING_ID"
+        test_patch() {
+            local name=$1
+            local path=$2
+            local body=$3
+            echo -e "${BLUE}[PATCH] $name ($path)${NC}"
+            curl -s -X PATCH "$BASE_URL$path" \
+                 -H "Authorization: Bearer $TOKEN" \
+                 -H "Content-Type: application/json" \
+                 -d "$body" | python3 -m json.tool
+        }
+        test_patch "Resolve Finding" "/findings/$FINDING_ID/resolve" "$RESOLVE_BODY"
+        
+        # 8.3 Verify Resolved
+        test_get "Verify Resolved" "/findings/$FINDING_ID"
+    else
+        echo -e "${RED}FAILED: No finding was automatically created on FAIL result.${NC}"
+    fi
+else
+    echo -e "${RED}Skipping Findings Test: No vehicles found.${NC}"
+fi
+
+# 9. Summary Check
+echo -e "\n${BLUE}--- Verification: Summary ---${NC}"
+test_get "All Findings" "/findings"
 test_get "Recent Inspections" "/inspections"
 
 echo -e "\n${GREEN}=== Full Test Completed ===${NC}"

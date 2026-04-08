@@ -270,6 +270,26 @@ pub struct MaintenanceRecord {
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct Finding {
+    pub id: Uuid,
+    pub inspection_result_id: Uuid,
+    pub severity: String, // LOW, MEDIUM, HIGH, CRITICAL
+    pub description: Option<String>,
+    pub assigned_to: Option<Uuid>,
+    pub status: String, // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub resolution_notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    
+    // Optional joined fields
+    #[sqlx(default)]
+    pub inspector_name: Option<String>,
+    #[sqlx(default)]
+    pub asset_code: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct WatchroomLog {
     pub id: Uuid,
     pub personnel_id: Option<Uuid>,

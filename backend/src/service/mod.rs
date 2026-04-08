@@ -17,3 +17,4 @@ pub mod incident_service;
 pub mod superuser_service;
 pub mod inventory_service;
 pub mod maintenance_service;
+pub mod finding_service;

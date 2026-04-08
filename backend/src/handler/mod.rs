@@ -17,5 +17,6 @@ pub mod superuser_handler;
 pub mod leave_handler;
 pub mod inventory_handler;
 pub mod maintenance_handler;
+pub mod finding_handler;
 pub mod media_handler;
 pub mod email_handler;
