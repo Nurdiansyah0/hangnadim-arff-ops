@@ -2,7 +2,7 @@
 -- SYSTEM AUDIT LOGGING
 -- =========================================================
 
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID NOT NULL,
     actor_id UUID, -- References personnels.id
     table_name VARCHAR(50) NOT NULL,
@@ -42,6 +42,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Example: Audit personnels and users
+DROP TRIGGER IF EXISTS audit_personnels ON personnels;
 CREATE TRIGGER audit_personnels AFTER INSERT OR UPDATE OR DELETE ON personnels FOR EACH ROW EXECUTE FUNCTION process_audit_log();
+
+DROP TRIGGER IF EXISTS audit_users ON users;
 CREATE TRIGGER audit_users AFTER INSERT OR UPDATE OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION process_audit_log();
+
+DROP TRIGGER IF EXISTS audit_vehicles ON vehicles;
 CREATE TRIGGER audit_vehicles AFTER INSERT OR UPDATE OR DELETE ON vehicles FOR EACH ROW EXECUTE FUNCTION process_audit_log();

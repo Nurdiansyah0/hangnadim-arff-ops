@@ -2,7 +2,7 @@
 -- AUTHENTICATION & USER ACCESS
 -- =========================================================
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     personnel_id UUID UNIQUE NOT NULL REFERENCES personnels(id) ON DELETE CASCADE,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -15,10 +15,11 @@ CREATE TABLE users (
 );
 
 -- Index for auth performance
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Trigger for users
+DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION set_updated_at_if_changed();
 
 -- Add comments for clarity

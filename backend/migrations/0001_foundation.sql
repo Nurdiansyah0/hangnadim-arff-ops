@@ -6,18 +6,54 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- =========================================================
 -- 2. SHARED ENUMS
 -- =========================================================
-CREATE TYPE status_enum AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
-CREATE TYPE severity_enum AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
-CREATE TYPE leave_status_enum AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
-CREATE TYPE vehicle_status_enum AS ENUM ('READY', 'MAINTENANCE', 'REPAIR', 'OUT_OF_SERVICE');
-CREATE TYPE approval_status_enum AS ENUM ('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED');
-CREATE TYPE attendance_status_enum AS ENUM ('PRESENT', 'LATE', 'ABSENT', 'ON_LEAVE');
-CREATE TYPE cert_status_enum AS ENUM ('ACTIVE', 'EXPIRED', 'WAITING_RENEWAL');
-CREATE TYPE runway_enum AS ENUM ('04', '22');
-CREATE TYPE employment_status_enum AS ENUM ('PNS', 'PKWT');
-CREATE TYPE shift_enum AS ENUM ('Alpha', 'Bravo', 'Charlie', 'Normal');
-CREATE TYPE duty_position_enum AS ENUM ('DRIVER', 'WATCHROOM', 'NOZZLEMAN', 'AST_NOZZLEMAN', 'RESCUEMAN', 'OSC');
-CREATE TYPE inspection_result_enum AS ENUM ('PASS', 'FAIL', 'N_A');
+
+DO $$ BEGIN
+    CREATE TYPE status_enum AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE severity_enum AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE leave_status_enum AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE vehicle_status_enum AS ENUM ('READY', 'MAINTENANCE', 'REPAIR', 'OUT_OF_SERVICE');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE approval_status_enum AS ENUM ('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE attendance_status_enum AS ENUM ('PRESENT', 'LATE', 'ABSENT', 'ON_LEAVE');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE cert_status_enum AS ENUM ('ACTIVE', 'EXPIRED', 'WAITING_RENEWAL');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE runway_enum AS ENUM ('04', '22');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE employment_status_enum AS ENUM ('PNS', 'PKWT');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE shift_enum AS ENUM ('Alpha', 'Bravo', 'Charlie', 'Normal');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE duty_position_enum AS ENUM ('DRIVER', 'WATCHROOM', 'NOZZLEMAN', 'AST_NOZZLEMAN', 'RESCUEMAN', 'OSC');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE inspection_result_enum AS ENUM ('PASS', 'FAIL', 'N_A');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- =========================================================
 -- 3. GLOBAL AUTOMATION FUNCTIONS

@@ -2,7 +2,7 @@
 -- ASSET MANAGEMENT (VEHICLES & AGENTS)
 -- =========================================================
 
-CREATE TABLE vehicles (
+CREATE TABLE IF NOT EXISTS vehicles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     code VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE vehicles (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE extinguishing_agents (
+CREATE TABLE IF NOT EXISTS extinguishing_agents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) UNIQUE NOT NULL,
     brand VARCHAR(100),
@@ -31,7 +31,7 @@ CREATE TABLE extinguishing_agents (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE fire_extinguishers (
+CREATE TABLE IF NOT EXISTS fire_extinguishers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     code VARCHAR(50) UNIQUE NOT NULL,
     location VARCHAR(255) NOT NULL,
@@ -44,5 +44,8 @@ CREATE TABLE fire_extinguishers (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS trg_vehicles_updated_at ON vehicles;
 CREATE TRIGGER trg_vehicles_updated_at BEFORE UPDATE ON vehicles FOR EACH ROW EXECUTE FUNCTION set_updated_at_if_changed();
+
+DROP TRIGGER IF EXISTS trg_fire_extinguishers_updated_at ON fire_extinguishers;
 CREATE TRIGGER trg_fire_extinguishers_updated_at BEFORE UPDATE ON fire_extinguishers FOR EACH ROW EXECUTE FUNCTION set_updated_at_if_changed();

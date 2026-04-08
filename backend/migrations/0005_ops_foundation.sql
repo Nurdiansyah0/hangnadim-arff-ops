@@ -2,14 +2,14 @@
 -- OPERATIONAL FOUNDATION (SHIFTS & AVIATION)
 -- =========================================================
 
-CREATE TABLE shifts (
+CREATE TABLE IF NOT EXISTS shifts (
     id SERIAL PRIMARY KEY,
     name VARCHAR(10) UNIQUE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL
 );
 
-CREATE TABLE flight_routes (
+CREATE TABLE IF NOT EXISTS flight_routes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     flight_number VARCHAR(20) NOT NULL,
     origin VARCHAR(100),
@@ -19,5 +19,5 @@ CREATE TABLE flight_routes (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_flight_number ON flight_routes(flight_number);
-CREATE INDEX idx_flight_time ON flight_routes(actual_time);
+CREATE INDEX IF NOT EXISTS idx_flight_number ON flight_routes(flight_number);
+CREATE INDEX IF NOT EXISTS idx_flight_time ON flight_routes(actual_time);

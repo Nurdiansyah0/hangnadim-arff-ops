@@ -2,7 +2,7 @@
 -- DAILY OPERATIONS (LOGS, INCIDENTS, ASSIGNMENTS)
 -- =========================================================
 
-CREATE TABLE watchroom_logs (
+CREATE TABLE IF NOT EXISTS watchroom_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     personnel_id UUID REFERENCES personnels(id),
     entry_type VARCHAR(50), -- RADIO_CHECK, STANDBY, etc
@@ -13,7 +13,7 @@ CREATE TABLE watchroom_logs (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE incidents (
+CREATE TABLE IF NOT EXISTS incidents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     commander_id UUID REFERENCES personnels(id),
     description TEXT NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE incidents (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE duty_assignments (
+CREATE TABLE IF NOT EXISTS duty_assignments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     personnel_id UUID NOT NULL REFERENCES personnels(id) ON DELETE CASCADE,
     shift_id INTEGER REFERENCES shifts(id),
@@ -40,7 +40,7 @@ CREATE TABLE duty_assignments (
     UNIQUE(personnel_id, assignment_date)
 );
 
-CREATE TABLE shift_assignments (
+CREATE TABLE IF NOT EXISTS shift_assignments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     personnel_id UUID REFERENCES personnels(id) ON DELETE CASCADE,
     shift_id INT REFERENCES shifts(id),
@@ -48,6 +48,11 @@ CREATE TABLE shift_assignments (
     UNIQUE(personnel_id, assignment_date)
 );
 
+DROP TRIGGER IF EXISTS trg_watchroom_logs_updated_at ON watchroom_logs;
 CREATE TRIGGER trg_watchroom_logs_updated_at BEFORE UPDATE ON watchroom_logs FOR EACH ROW EXECUTE FUNCTION set_updated_at_if_changed();
+
+DROP TRIGGER IF EXISTS trg_incidents_updated_at ON incidents;
 CREATE TRIGGER trg_incidents_updated_at BEFORE UPDATE ON incidents FOR EACH ROW EXECUTE FUNCTION set_updated_at_if_changed();
+
+DROP TRIGGER IF EXISTS trg_duty_assignments_updated_at ON duty_assignments;
 CREATE TRIGGER trg_duty_assignments_updated_at BEFORE UPDATE ON duty_assignments FOR EACH ROW EXECUTE FUNCTION set_updated_at_if_changed();

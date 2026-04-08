@@ -2,14 +2,14 @@
 -- INSPECTION SYSTEM (TEMPLATES & RESULTS)
 -- =========================================================
 
-CREATE TABLE inspection_templates (
+CREATE TABLE IF NOT EXISTS inspection_templates (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     target_type VARCHAR(50) NOT NULL, -- VEHICLE, FIRE_EXTINGUISHER, etc
     frequency VARCHAR(50) NOT NULL
 );
 
-CREATE TABLE template_items (
+CREATE TABLE IF NOT EXISTS template_items (
     id SERIAL PRIMARY KEY,
     template_id INTEGER NOT NULL REFERENCES inspection_templates(id) ON DELETE CASCADE,
     category VARCHAR(100) NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE template_items (
 );
 
 -- Partitioned Inspections Table
-CREATE TABLE inspections (
+CREATE TABLE IF NOT EXISTS inspections (
     id UUID NOT NULL,
     vehicle_id UUID REFERENCES vehicles(id) ON DELETE CASCADE,
     personnel_id UUID REFERENCES personnels(id),
@@ -28,7 +28,7 @@ CREATE TABLE inspections (
     PRIMARY KEY (id, tanggal)
 ) PARTITION BY RANGE (tanggal);
 
-CREATE TABLE inspection_results (
+CREATE TABLE IF NOT EXISTS inspection_results (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     inspection_id UUID NOT NULL,
     inspection_date DATE NOT NULL,
