@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Flame, Plus, Search, Loader2, Settings2, Trash2 } from 'lucide-react';
+import { Flame, Plus, Search, Loader2, Settings2, Trash2, Map as MapIcon, List } from 'lucide-react';
 import { api } from '../lib/axios';
+import AparMap from '../components/gis/AparMap';
 
 interface FireExtinguisher {
   id: string;
@@ -20,6 +21,7 @@ export default function FireExtinguishers() {
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [viewMode, setViewMode] = useState<'TABLE' | 'MAP'>('TABLE');
 
   const [form, setForm] = useState({
     serial_number: '',
@@ -109,7 +111,34 @@ export default function FireExtinguishers() {
         </button>
       </div>
 
-      <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-6 overflow-hidden">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex bg-slate-900/60 p-1 rounded-2xl border border-slate-800 backdrop-blur-md">
+          <button 
+            onClick={() => setViewMode('TABLE')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${viewMode === 'TABLE' ? 'bg-orange-600 text-white shadow-xl shadow-orange-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            <List size={18} />
+            LIST VIEW
+          </button>
+          <button 
+            onClick={() => setViewMode('MAP')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${viewMode === 'MAP' ? 'bg-orange-600 text-white shadow-xl shadow-orange-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            <MapIcon size={18} />
+            GIS MAP
+          </button>
+        </div>
+        
+        <div className="hidden md:flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-900/40 px-4 py-2 rounded-xl border border-slate-800">
+           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+           Live spatial data enabled
+        </div>
+      </div>
+
+      {viewMode === 'MAP' ? (
+        <AparMap />
+      ) : (
+        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-6 overflow-hidden">
         <div className="flex items-center gap-4 mb-8 bg-slate-950/50 p-2 rounded-2xl border border-slate-800">
           <div className="pl-4 text-slate-500"><Search size={20} /></div>
           <input
@@ -186,6 +215,7 @@ export default function FireExtinguishers() {
           </div>
         )}
       </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
