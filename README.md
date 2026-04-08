@@ -42,26 +42,34 @@ Untuk menjalankan proyek ini di lingkungan lokal Anda, ikuti langkah-langkah di 
 -   **Rust** (Instalasi melalui rustup, disarankan versi stable terbaru)
 -   **PostgreSQL** (Dijalankan secara lokal atau melalui Docker)
 
-### Menjalankan Backend (Rust)
+### Menjalankan Backend (Rust) Secara Manual
 
-1.  Masuk ke direktori `backend`:
+1.  **Masuk ke direktori backend**:
     ```bash
     cd backend
     ```
-2.  Konfigurasi *Environment*:
-    Buat file `.env` di direktori `backend` dan sesuaikan koneksi database Anda. Contoh:
+2.  **Konfigurasi Environment**:
+    Buat file `.env` di direktori `backend` (bisa menyontek `.env.example`). Pastikan `DATABASE_URL` sesuai dengan PostgreSQL lokal Anda.
     ```env
-    DATABASE_URL=postgres://user:password@localhost:5432/arff_db
+    DATABASE_URL=postgres://arff_user:arff_pass@localhost:5432/arff_db
+    JWT_SECRET=rahasia_anda_minimal_32_karakter
     ```
-3.  Jalankan server pengembangan (Ini akan secara otomatis menjalankan migrasi dan *build* proyek jika tidak ada *error*):
+3.  **Inisialisasi Database & Migrasi**:
+    Gunakan script [run_migrations.sh](file:///home/nurdiansyah/Nurdiansyah_dev/hangnadim-arff-ops/backend/run_migrations.sh) yang sudah disediakan untuk membersihkan database dan menjalankan 11 migrasi terbaru (termasuk data seed awal).
+    ```bash
+    chmod +x run_migrations.sh
+    ./run_migrations.sh
+    ```
+4.  **Jalankan Server**:
     ```bash
     cargo run
     ```
-    Atau untuk *build* tanpa menjalankan:
-    ```bash
-    cargo build
-    ```
-    Server backend akan berjalan di `http://0.0.0.0:8000`.
+    Server backend akan berjalan di `http://0.0.0.0:8001` (sesuai setting port di `.env`).
+
+5.  **Login Pertama (Admin)**:
+    Setelah database berhasil di-seed, gunakan akun berikut untuk masuk:
+    - **Username**: `admin123`
+    - **Password**: `admin123`
 
 ### Menjalankan Frontend (Next.js)
 

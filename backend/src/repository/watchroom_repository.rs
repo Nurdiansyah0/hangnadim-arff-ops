@@ -9,7 +9,7 @@ pub trait WatchroomRepoTrait: Send + Sync {
     async fn get_all_logs(&self) -> Result<Vec<WatchroomLog>, Error>;
     async fn create_log(
         &self,
-        actor_id: Option<Uuid>,
+        personnel_id: Option<Uuid>,
         entry_type: Option<&str>,
         description: &str,
         payload: Option<Value>,
@@ -32,7 +32,7 @@ impl WatchroomRepository {
 impl WatchroomRepoTrait for WatchroomRepository {
     async fn get_all_logs(&self) -> Result<Vec<WatchroomLog>, Error> {
         sqlx::query_as::<_, WatchroomLog>(
-            "SELECT id, actor_id, entry_type, description, payload, created_at, photo_url FROM watchroom_logs ORDER BY created_at DESC"
+            "SELECT id, personnel_id, entry_type, description, payload, created_at, photo_url FROM watchroom_logs ORDER BY created_at DESC"
         )
         .fetch_all(&self.db)
         .await
@@ -40,7 +40,7 @@ impl WatchroomRepoTrait for WatchroomRepository {
 
     async fn create_log(
         &self,
-        actor_id: Option<Uuid>,
+        personnel_id: Option<Uuid>,
         entry_type: Option<&str>,
         description: &str,
         payload: Option<Value>,
@@ -48,12 +48,12 @@ impl WatchroomRepoTrait for WatchroomRepository {
     ) -> Result<WatchroomLog, Error> {
         sqlx::query_as::<_, WatchroomLog>(
             r#"
-            INSERT INTO watchroom_logs (actor_id, entry_type, description, payload, photo_url) 
+            INSERT INTO watchroom_logs (personnel_id, entry_type, description, payload, photo_url) 
             VALUES ($1, $2, $3, $4, $5) 
-            RETURNING id, actor_id, entry_type, description, payload, created_at, photo_url
+            RETURNING id, personnel_id, entry_type, description, payload, created_at, photo_url
             "#
         )
-        .bind(actor_id)
+        .bind(personnel_id)
         .bind(entry_type)
         .bind(description)
         .bind(payload)

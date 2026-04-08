@@ -50,11 +50,13 @@ async fn create_user(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
+    let personnel_id = payload.personnel_id.ok_or((StatusCode::BAD_REQUEST, "personnel_id is required".to_string()))?;
+
     match state.user_service.create_user(
+        personnel_id,
         &payload.username,
         &payload.email,
         &payload.password,
-        payload.personnel_id,
     ).await {
         Ok(user) => Ok(Json(user)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),

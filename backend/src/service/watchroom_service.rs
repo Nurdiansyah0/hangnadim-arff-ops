@@ -20,14 +20,14 @@ impl WatchroomService {
 
     pub async fn create_log(
         &self,
-        actor_id: Option<Uuid>,
+        personnel_id: Option<Uuid>,
         entry_type: Option<&str>,
         description: &str,
         payload: Option<Value>,
         photo_url: Option<&str>,
     ) -> Result<WatchroomLog, String> {
         self.repo
-            .create_log(actor_id, entry_type, description, payload, photo_url)
+            .create_log(personnel_id, entry_type, description, payload, photo_url)
             .await
             .map_err(|e| e.to_string())
     }
@@ -57,7 +57,7 @@ mod tests {
 
         async fn create_log(
             &self,
-            a: Option<Uuid>,
+            pid: Option<Uuid>,
             t: Option<&str>,
             d: &str,
             p: Option<Value>,
@@ -66,7 +66,7 @@ mod tests {
             if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
             Ok(WatchroomLog {
                 id: Uuid::new_v4(),
-                actor_id: a,
+                personnel_id: pid,
                 entry_type: t.map(|x| x.to_string()),
                 description: d.to_string(),
                 payload: p,

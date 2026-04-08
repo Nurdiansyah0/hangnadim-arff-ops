@@ -20,14 +20,14 @@ impl UserService {
 
     pub async fn create_user(
         &self,
+        personnel_id: Uuid,
         username: &str,
         email: &str,
         password: &str,
-        personnel_id: Option<Uuid>,
     ) -> Result<User, String> {
         let hashed = hash(password, DEFAULT_COST).map_err(|e| e.to_string())?;
         self.repo
-            .create_user(username, email, &hashed, personnel_id)
+            .create_user(personnel_id, username, email, &hashed)
             .await
             .map_err(|e| e.to_string())
     }
@@ -61,17 +61,21 @@ mod tests {
             Ok(vec![])
         }
 
-        async fn create_user(&self, u: &str, e: &str, p: &str, pid: Option<Uuid>) -> Result<User, sqlx::Error> {
+        async fn create_user(&self, pid: Uuid, u: &str, e: &str, p: &str) -> Result<User, sqlx::Error> {
             if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
             Ok(User {
                 id: Uuid::new_v4(),
+                personnel_id: pid,
                 username: u.to_string(),
                 email: e.to_string(),
                 password_hash: p.to_string(),
-                personnel_id: pid,
+                status: Some("ACTIVE".to_string()),
+                last_login_at: None,
+                created_at: Some(Utc::now()),
+                updated_at: Some(Utc::now()),
                 role_id: None,
-                created_at: Utc::now(),
-                updated_at: Utc::now(),
+                full_name: Some("Test User".to_string()),
+                nip_nik: Some("123456".to_string()),
             })
         }
 
@@ -90,8 +94,45 @@ mod tests {
                 position_name: Some("Guard".to_string()),
                 role_name: Some("Admin".to_string()),
                 role_id: Some(1),
-                created_at: chrono::Utc::now(),
+                created_at: Some(chrono::Utc::now()),
             }))
+        }
+
+        async fn get_user_permissions(&self, _user_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
+            Ok(vec![])
+        }
+
+        async fn get_full_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
+            Ok(Some(crate::domain::models::FullProfileResponse {
+                personal: crate::domain::models::User {
+                    id,
+                    personnel_id: Uuid::new_v4(),
+                    username: "tester".to_string(),
+                    email: "test@mail.com".to_string(),
+                    password_hash: "".to_string(),
+                    status: Some("ACTIVE".to_string()),
+                    last_login_at: None,
+                    created_at: Some(Utc::now()),
+                    updated_at: Some(Utc::now()),
+                    role_id: Some(1),
+                    full_name: Some("Tester".to_string()),
+                    nip_nik: Some("123".to_string()),
+                },
+                position: Some("Guard".to_string()),
+                role: Some("Admin".to_string()),
+                certifications: vec![],
+            }))
+        }
+
+        async fn get_operational_context(&self, _id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
+            Ok(crate::domain::models::OperationalContextResponse {
+                shift_name: Some("Normal".to_string()),
+                shift_start: None,
+                shift_end: None,
+                duty_position: Some("WATCHROOM".to_string()),
+                assigned_vehicle: Some("V1".to_string()),
+                duty_status: "ACTIVE".to_string(),
+            })
         }
     }
 
@@ -100,7 +141,7 @@ mod tests {
         let repo = Arc::new(MockUserRepo { should_fail: false });
         let service = UserService::new(repo);
         
-        let res = service.create_user("operator", "ops@mail.com", "pass123", None).await;
+        let res = service.create_user(Uuid::new_v4(), "operator", "ops@mail.com", "pass123").await;
         assert!(res.is_ok(), "Harus berhasil membuat user baru");
     }
 
@@ -109,7 +150,7 @@ mod tests {
         let repo = Arc::new(MockUserRepo { should_fail: true });
         let service = UserService::new(repo);
         
-        let res = service.create_user("operator", "ops@mail.com", "pass123", None).await;
+        let res = service.create_user(Uuid::new_v4(), "operator", "ops@mail.com", "pass123").await;
         assert!(res.is_err(), "Harus gagal jika database error/timeout");
     }
 

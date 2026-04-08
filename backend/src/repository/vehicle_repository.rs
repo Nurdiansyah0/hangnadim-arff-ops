@@ -13,9 +13,9 @@ pub trait VehicleRepoTrait: Send + Sync {
         name: &str,
         vehicle_type: Option<&str>,
         status: &str,
-        water_capacity_liters: Option<&BigDecimal>,
-        foam_capacity_liters: Option<&BigDecimal>,
-        dcp_capacity_kg: Option<&BigDecimal>,
+        water_capacity_l: Option<&BigDecimal>,
+        foam_capacity_l: Option<&BigDecimal>,
+        powder_capacity_kg: Option<&BigDecimal>,
         last_service_date: Option<&chrono::NaiveDate>,
         next_service_due: Option<&chrono::NaiveDate>,
     ) -> Result<Vehicle, Error>;
@@ -26,9 +26,9 @@ pub trait VehicleRepoTrait: Send + Sync {
         name: Option<&str>,
         vehicle_type: Option<&str>,
         status: Option<&str>,
-        water_capacity_liters: Option<&BigDecimal>,
-        foam_capacity_liters: Option<&BigDecimal>,
-        dcp_capacity_kg: Option<&BigDecimal>,
+        water_capacity_l: Option<&BigDecimal>,
+        foam_capacity_l: Option<&BigDecimal>,
+        powder_capacity_kg: Option<&BigDecimal>,
         last_service_date: Option<&chrono::NaiveDate>,
         next_service_due: Option<&chrono::NaiveDate>,
     ) -> Result<Vehicle, Error>;
@@ -49,7 +49,7 @@ impl VehicleRepository {
 impl VehicleRepoTrait for VehicleRepository {
     async fn get_all_vehicles(&self) -> Result<Vec<Vehicle>, Error> {
         sqlx::query_as::<_, Vehicle>(
-            "SELECT id, code, name, vehicle_type, status::TEXT, water_capacity_liters, foam_capacity_liters, dcp_capacity_kg, last_service_date, next_service_due, created_at, updated_at FROM vehicles"
+            "SELECT id, code, name, vehicle_type, status::TEXT, water_capacity_l, foam_capacity_l, powder_capacity_kg, last_service_date, next_service_due, created_at, updated_at FROM vehicles"
         )
         .fetch_all(&self.db)
         .await
@@ -69,9 +69,9 @@ impl VehicleRepoTrait for VehicleRepository {
     ) -> Result<Vehicle, Error> {
         sqlx::query_as::<_, Vehicle>(
             r#"
-            INSERT INTO vehicles (code, name, vehicle_type, status, water_capacity_liters, foam_capacity_liters, dcp_capacity_kg, last_service_date, next_service_due)
+            INSERT INTO vehicles (code, name, vehicle_type, status, water_capacity_l, foam_capacity_l, powder_capacity_kg, last_service_date, next_service_due)
             VALUES ($1, $2, $3, $4::vehicle_status_enum, $5, $6, $7, $8, $9)
-            RETURNING id, code, name, vehicle_type, status::TEXT, water_capacity_liters, foam_capacity_liters, dcp_capacity_kg, last_service_date, next_service_due, created_at, updated_at
+            RETURNING id, code, name, vehicle_type, status::TEXT, water_capacity_l, foam_capacity_l, powder_capacity_kg, last_service_date, next_service_due, created_at, updated_at
             "#
         )
         .bind(code)
@@ -107,13 +107,13 @@ impl VehicleRepoTrait for VehicleRepository {
                 name = COALESCE($3, name),
                 vehicle_type = COALESCE($4, vehicle_type),
                 status = COALESCE($5::vehicle_status_enum, status),
-                water_capacity_liters = COALESCE($6, water_capacity_liters),
-                foam_capacity_liters = COALESCE($7, foam_capacity_liters),
-                dcp_capacity_kg = COALESCE($8, dcp_capacity_kg),
+                water_capacity_l = COALESCE($6, water_capacity_l),
+                foam_capacity_l = COALESCE($7, foam_capacity_l),
+                powder_capacity_kg = COALESCE($8, powder_capacity_kg),
                 last_service_date = COALESCE($9, last_service_date),
                 next_service_due = COALESCE($10, next_service_due)
             WHERE id = $1
-            RETURNING id, code, name, vehicle_type, status::TEXT, water_capacity_liters, foam_capacity_liters, dcp_capacity_kg, last_service_date, next_service_due, created_at, updated_at
+            RETURNING id, code, name, vehicle_type, status::TEXT, water_capacity_l, foam_capacity_l, powder_capacity_kg, last_service_date, next_service_due, created_at, updated_at
             "#
         )
         .bind(id)

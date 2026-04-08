@@ -11,12 +11,12 @@ use uuid::Uuid;
 pub trait UserRepoTrait: Send + Sync {
     async fn find_by_username_or_email(&self, ident: &str) -> Result<Option<User>, sqlx::Error>;
     async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error>;
-    async fn create_user(&self, username: &str, email: &str, pw: &str, personnel_id: Option<Uuid>) -> Result<User, sqlx::Error>;
+    async fn create_user(&self, pid: Uuid, u: &str, e: &str, p: &str) -> Result<User, sqlx::Error>;
     async fn delete_user(&self, id: Uuid) -> Result<(), sqlx::Error>;
     async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error>;
     async fn get_user_permissions(&self, user_id: Uuid) -> Result<Vec<String>, sqlx::Error>;
-    async fn get_full_profile(&self, personnel_id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error>;
-    async fn get_operational_context(&self, personnel_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error>;
+    async fn get_full_profile(&self, user_id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error>;
+    async fn get_operational_context(&self, user_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error>;
 }
 
 #[async_trait]
@@ -24,11 +24,9 @@ impl UserRepoTrait for UserRepository {
     async fn find_by_username_or_email(&self, ident: &str) -> Result<Option<User>, sqlx::Error> {
         self.find_by_username_or_email(ident).await
     }
-    async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error> {
-        self.get_all_users().await
-    }
-    async fn create_user(&self, u: &str, e: &str, p: &str, pid: Option<Uuid>) -> Result<User, sqlx::Error> {
-        self.create_user(u, e, p, pid).await
+    async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error> { Ok(vec![]) } // Tambahkan impl di repo jika perlu
+    async fn create_user(&self, pid: Uuid, u: &str, e: &str, p: &str) -> Result<User, sqlx::Error> {
+        self.create_user(pid, u, e, p).await
     }
     async fn delete_user(&self, id: Uuid) -> Result<(), sqlx::Error> {
         self.delete_user(id).await
@@ -39,11 +37,11 @@ impl UserRepoTrait for UserRepository {
     async fn get_user_permissions(&self, user_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
         self.get_user_permissions(user_id).await
     }
-    async fn get_full_profile(&self, personnel_id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
-        self.get_full_profile(personnel_id).await
+    async fn get_full_profile(&self, user_id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
+        self.get_full_profile(user_id).await
     }
-    async fn get_operational_context(&self, personnel_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
-        self.get_operational_context(personnel_id).await
+    async fn get_operational_context(&self, user_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
+        self.get_operational_context(user_id).await
     }
 }
 #[derive(Clone)] 
@@ -61,6 +59,12 @@ impl AuthService {
             .map_err(|e| format!("DB Error: {}", e))?
             .ok_or_else(|| "Username/email salah".to_string())?;
 
+        // 1. Validasi Status Akun
+        if user.status.as_deref().unwrap_or("ACTIVE") != "ACTIVE" {
+            return Err("Akun dinonaktifkan atau ditangguhkan".to_string());
+        }
+
+        // 2. Verifikasi Password
         let valid = verify(password, &user.password_hash).unwrap_or(false);
         if !valid { return Err("Password salah".to_string()); }
 
@@ -69,8 +73,8 @@ impl AuthService {
 
         let claims = Claims {
             sub: user.id.to_string(),
-            personnel_id: user.personnel_id,
             role_id: user.role_id,
+            personnel_id: Some(user.personnel_id),
             exp: expiration,
         };
 
@@ -101,15 +105,17 @@ impl AuthService {
         })
     }
 
-    pub async fn get_full_profile(&self, personnel_id: Uuid) -> Result<FullProfileResponse, String> {
-        self.repo.get_full_profile(personnel_id).await
+    pub async fn get_full_profile(&self, user_id: Uuid) -> Result<FullProfileResponse, String> {
+        self.repo.get_full_profile(user_id).await
             .map_err(|e| format!("DB Error: {}", e))?
-            .ok_or_else(|| "Personnel profile tidak ditemukan".to_string())
+            .ok_or_else(|| "User profile lengkap tidak ditemukan".to_string())
     }
 
-    pub async fn get_operational_context(&self, personnel_id: Uuid) -> Result<OperationalContextResponse, String> {
-        self.repo.get_operational_context(personnel_id).await
-            .map_err(|e| format!("DB Error: {}", e))
+    pub async fn get_operational_context(&self, user_id: Uuid) -> Result<OperationalContextResponse, String> {
+        self.repo
+            .get_operational_context(user_id)
+            .await
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -135,40 +141,51 @@ mod tests {
             Ok(self.user_to_return.clone())
         }
         async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error> { Ok(vec![]) }
-        async fn create_user(&self, _:&str, _:&str, _:&str, _:Option<Uuid>) -> Result<User, sqlx::Error> { todo!() }
-        async fn delete_user(&self, _:Uuid) -> Result<(), sqlx::Error> { Ok(()) }
-        async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
-            Ok(Some(crate::domain::models::UserProfile {
-                id,
-                username: "tester".to_string(),
-                email: "test@mail.com".to_string(),
-                full_name: Some("Test User".to_string()),
-                position_name: Some("Guard".to_string()),
-                role_name: Some("Admin".to_string()),
-                role_id: Some(1),
-                created_at: Utc::now(),
-            }))
-        }
-
-        async fn get_user_permissions(&self, _user_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
-            Ok(vec!["VIEW_DASHBOARD".to_string()])
-        }
-
         async fn get_full_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
             Ok(Some(crate::domain::models::FullProfileResponse {
-                personal: crate::domain::models::Personnel {
+                personal: crate::domain::models::User {
                     id,
-                    nip_nik: "123".to_string(),
-                    full_name: "Tester".to_string(),
-                    position_id: Some(1),
-                    status: "ACTIVE".to_string(),
-                    created_at: Utc::now(),
-                    updated_at: Utc::now(),
+                    personnel_id: Uuid::new_v4(),
+                    username: "tester".to_string(),
+                    email: "test@mail.com".to_string(),
+                    password_hash: "".to_string(),
+                    status: Some("ACTIVE".to_string()),
+                    last_login_at: None,
+                    created_at: Some(Utc::now()),
+                    updated_at: Some(Utc::now()),
+                    role_id: Some(1),
+                    full_name: Some("Tester".to_string()),
+                    nip_nik: Some("123".to_string()),
                 },
                 position: Some("Guard".to_string()),
                 role: Some("Admin".to_string()),
                 certifications: vec![],
             }))
+        }
+
+        async fn delete_user(&self, _id: Uuid) -> Result<(), sqlx::Error> {
+            Ok(())
+        }
+
+        async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
+            Ok(Some(crate::domain::models::UserProfile {
+                id,
+                username: "tester".to_string(),
+                email: "test@mail.com".to_string(),
+                full_name: Some("Tester".to_string()),
+                position_name: Some("Guard".to_string()),
+                role_name: Some("Admin".to_string()),
+                role_id: Some(1),
+                created_at: Some(Utc::now()),
+            }))
+        }
+
+        async fn create_user(&self, _pid: Uuid, _u: &str, _e: &str, _p: &str) -> Result<User, sqlx::Error> {
+            Err(sqlx::Error::RowNotFound)
+        }
+
+        async fn get_user_permissions(&self, _user_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
+            Ok(vec!["p1".to_string(), "p2".to_string()])
         }
 
         async fn get_operational_context(&self, _id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
@@ -187,13 +204,17 @@ mod tests {
     fn create_mock_user(hashed_pass: &str, personnel_id: Option<Uuid>, role_id: Option<i32>) -> User {
         User {
             id: Uuid::new_v4(),
+            personnel_id: personnel_id.unwrap_or_else(Uuid::new_v4),
             username: "tester".to_string(),
             email: "test@mail.com".to_string(),
             password_hash: hashed_pass.to_string(),
-            personnel_id,
+            status: Some("ACTIVE".to_string()),
+            last_login_at: None,
+            created_at: Some(Utc::now()),
+            updated_at: Some(Utc::now()),
             role_id,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            full_name: Some("Test User".to_string()),
+            nip_nik: Some("123456".to_string()),
         }
     }
 

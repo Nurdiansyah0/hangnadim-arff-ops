@@ -24,21 +24,21 @@ impl VehicleService {
         name: &str,
         vehicle_type: Option<&str>,
         status: &str,
-        water_capacity_liters: Option<&BigDecimal>,
-        foam_capacity_liters: Option<&BigDecimal>,
-        dcp_capacity_kg: Option<&BigDecimal>,
+        water_capacity_l: Option<&BigDecimal>,
+        foam_capacity_l: Option<&BigDecimal>,
+        powder_capacity_kg: Option<&BigDecimal>,
         last_service_date: Option<&chrono::NaiveDate>,
         next_service_due: Option<&chrono::NaiveDate>,
     ) -> Result<Vehicle, String> {
         // Validation: Capacities must be non-negative
-        if let Some(w) = water_capacity_liters {
+        if let Some(w) = water_capacity_l {
             if w < &BigDecimal::from(0) { return Err("Water capacity cannot be negative".to_string()); }
         }
-        if let Some(f) = foam_capacity_liters {
+        if let Some(f) = foam_capacity_l {
             if f < &BigDecimal::from(0) { return Err("Foam capacity cannot be negative".to_string()); }
         }
-        if let Some(d) = dcp_capacity_kg {
-            if d < &BigDecimal::from(0) { return Err("DCP capacity cannot be negative".to_string()); }
+        if let Some(p) = powder_capacity_kg {
+            if p < &BigDecimal::from(0) { return Err("Powder capacity cannot be negative".to_string()); }
         }
 
         // Validation: Service dates
@@ -54,9 +54,9 @@ impl VehicleService {
                 name,
                 vehicle_type,
                 status,
-                water_capacity_liters,
-                foam_capacity_liters,
-                dcp_capacity_kg,
+                water_capacity_l,
+                foam_capacity_l,
+                powder_capacity_kg,
                 last_service_date,
                 next_service_due,
             )
@@ -71,9 +71,9 @@ impl VehicleService {
         name: Option<&str>,
         vehicle_type: Option<&str>,
         status: Option<&str>,
-        water_capacity_liters: Option<&BigDecimal>,
-        foam_capacity_liters: Option<&BigDecimal>,
-        dcp_capacity_kg: Option<&BigDecimal>,
+        water_capacity_l: Option<&BigDecimal>,
+        foam_capacity_l: Option<&BigDecimal>,
+        powder_capacity_kg: Option<&BigDecimal>,
         last_service_date: Option<&chrono::NaiveDate>,
         next_service_due: Option<&chrono::NaiveDate>,
     ) -> Result<Vehicle, String> {
@@ -84,9 +84,9 @@ impl VehicleService {
                 name,
                 vehicle_type,
                 status,
-                water_capacity_liters,
-                foam_capacity_liters,
-                dcp_capacity_kg,
+                water_capacity_l,
+                foam_capacity_l,
+                powder_capacity_kg,
                 last_service_date,
                 next_service_due,
             )
@@ -125,7 +125,7 @@ mod tests {
             s: &str,
             w: Option<&BigDecimal>,
             f: Option<&BigDecimal>,
-            d: Option<&BigDecimal>,
+            p: Option<&BigDecimal>,
             ls: Option<&chrono::NaiveDate>,
             ns: Option<&chrono::NaiveDate>,
         ) -> Result<Vehicle, sqlx::Error> {
@@ -136,9 +136,9 @@ mod tests {
                 name: n.to_string(),
                 vehicle_type: v.map(|x| x.to_string()),
                 status: s.to_string(),
-                water_capacity_liters: w.cloned(),
-                foam_capacity_liters: f.cloned(),
-                dcp_capacity_kg: d.cloned(),
+                water_capacity_l: w.cloned(),
+                foam_capacity_l: f.cloned(),
+                powder_capacity_kg: p.cloned(),
                 last_service_date: ls.cloned(),
                 next_service_due: ns.cloned(),
                 created_at: Utc::now(),
@@ -155,7 +155,7 @@ mod tests {
             status: Option<&str>,
             w: Option<&BigDecimal>,
             f: Option<&BigDecimal>,
-            d: Option<&BigDecimal>,
+            p: Option<&BigDecimal>,
             ls: Option<&chrono::NaiveDate>,
             ns: Option<&chrono::NaiveDate>,
         ) -> Result<Vehicle, sqlx::Error> {
@@ -166,9 +166,9 @@ mod tests {
                 name: name.unwrap_or("Mock Vehicle").to_string(),
                 vehicle_type: vehicle_type.map(|x| x.to_string()),
                 status: status.unwrap_or("READY").to_string(),
-                water_capacity_liters: w.cloned(),
-                foam_capacity_liters: f.cloned(),
-                dcp_capacity_kg: d.cloned(),
+                water_capacity_l: w.cloned(),
+                foam_capacity_l: f.cloned(),
+                powder_capacity_kg: p.cloned(),
                 last_service_date: ls.cloned(),
                 next_service_due: ns.cloned(),
                 created_at: Utc::now(),
@@ -191,7 +191,7 @@ mod tests {
         assert!(res.is_ok(), "Harus berhasil mendaftarkan vehicle baru dengan data kapasitas");
         let v = res.unwrap();
         assert_eq!(v.code, "FOAM-01");
-        assert_eq!(v.water_capacity_liters, Some(water));
+        assert_eq!(v.water_capacity_l, Some(water));
     }
 
     #[tokio::test]
@@ -221,7 +221,7 @@ mod tests {
         let v = res.unwrap();
         assert_eq!(v.name, "Updated Name");
         assert_eq!(v.status, "MAINTENANCE");
-        assert_eq!(v.foam_capacity_liters, Some(foam));
+        assert_eq!(v.foam_capacity_l, Some(foam));
     }
 
     #[tokio::test]

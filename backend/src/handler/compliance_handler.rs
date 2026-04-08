@@ -10,7 +10,7 @@ pub struct AuditQuery {
 pub fn compliance_routes(state: AppState) -> Router {
     Router::new()
         .route("/audit", get(list_audit_logs))
-        .route("/sops", get(list_sops))
+        // .route("/sops", get(list_sops)) // Table 'documents' missing in current migration
         .with_state(state)
 }
 
@@ -31,12 +31,12 @@ async fn list_audit_logs(
     }
 }
 
-async fn list_sops(
-    State(state): State<AppState>,
-    RequireAuth(_): RequireAuth,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    match state.compliance_service.get_sops().await {
-        Ok(sops) => Ok(Json(serde_json::json!(sops))),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
-    }
-}
+// async fn list_sops(
+//     State(state): State<AppState>,
+//     RequireAuth(_): RequireAuth,
+// ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+//     match state.compliance_service.get_sops().await {
+//         Ok(sops) => Ok(Json(serde_json::json!(sops))),
+//         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
+//     }
+// }

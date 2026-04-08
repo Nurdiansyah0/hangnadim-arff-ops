@@ -75,10 +75,10 @@ async fn get_full_profile(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<FullProfileResponse>, (StatusCode, Json<AuthError>)> {
-    let personnel_id = claims.personnel_id
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, Json(AuthError { message: "User has no personnel record".to_string() })))?;
+    let user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| (StatusCode::BAD_REQUEST, Json(AuthError { message: "Invalid user ID in token".to_string() })))?;
 
-    match state.auth_service.get_full_profile(personnel_id).await {
+    match state.auth_service.get_full_profile(user_id).await {
         Ok(profile) => Ok(Json(profile)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(AuthError { message: e })))
     }
@@ -88,10 +88,10 @@ async fn get_ops_context(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<OperationalContextResponse>, (StatusCode, Json<AuthError>)> {
-    let personnel_id = claims.personnel_id
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, Json(AuthError { message: "User has no personnel record".to_string() })))?;
+    let user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| (StatusCode::BAD_REQUEST, Json(AuthError { message: "Invalid user ID in token".to_string() })))?;
 
-    match state.auth_service.get_operational_context(personnel_id).await {
+    match state.auth_service.get_operational_context(user_id).await {
         Ok(context) => Ok(Json(context)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(AuthError { message: e })))
     }

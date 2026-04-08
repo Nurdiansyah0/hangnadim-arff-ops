@@ -22,18 +22,37 @@ pub struct Permission {
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct Personnel {
+    pub id: Uuid,
+    pub nip_nik: String,
+    pub full_name: String,
+    pub position_id: Option<i32>,
+    pub employment_status: Option<String>,
+    pub shift: Option<String>,
+    pub status: Option<String>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct User {
     pub id: Uuid,
+    pub personnel_id: Uuid,
     pub username: String,
     pub email: String,
     #[serde(skip_serializing)]
     pub password_hash: String,
-    pub personnel_id: Option<Uuid>, 
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub status: Option<String>,
+    pub last_login_at: Option<DateTime<Utc>>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
     
     #[sqlx(default)]
     pub role_id: Option<i32>,
+    
+    // Optional joined fields for convenience in some queries
+    pub full_name: Option<String>,
+    pub nip_nik: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
@@ -45,7 +64,7 @@ pub struct UserProfile {
     pub position_name: Option<String>,
     pub role_name: Option<String>,
     pub role_id: Option<i32>,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Option<DateTime<Utc>>, // Made optional for safety
 }
 
 // --- Specialized Responses ---
@@ -61,20 +80,20 @@ pub struct AuthContextResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FullProfileResponse {
-    pub personal: Personnel,
+    pub personal: User,
     pub position: Option<String>,
     pub role: Option<String>,
     pub certifications: Vec<CertificationDetail>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct CertificationDetail {
     pub title: String,
-    pub category: String,
-    pub cert_number: String,
-    pub issue_date: chrono::NaiveDate,
-    pub expiry_date: chrono::NaiveDate,
-    pub status: String,
+    pub category: Option<String>,
+    pub cert_number: Option<String>,
+    pub issue_date: Option<chrono::NaiveDate>,
+    pub expiry_date: Option<chrono::NaiveDate>,
+    pub status: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -90,8 +109,8 @@ pub struct OperationalContextResponse {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,         
+    pub role_id: Option<i32>, 
     pub personnel_id: Option<Uuid>,
-    pub role_id: Option<i32>, // Ditambahkan untuk autorisasi di handler
     pub exp: usize,
 }
 
@@ -105,16 +124,7 @@ pub struct Position {
     pub name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
-pub struct Personnel {
-    pub id: Uuid,
-    pub nip_nik: String,
-    pub full_name: String,
-    pub position_id: Option<i32>,
-    pub status: String, // Maps to status_enum (ACTIVE, etc)
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
+// Personnel struct is now defined above for better modularity
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct PersonnelCertification {
@@ -124,7 +134,7 @@ pub struct PersonnelCertification {
     pub cert_number: String,
     pub issue_date: chrono::NaiveDate,
     pub expiry_date: chrono::NaiveDate,
-    pub status: String, // ACTIVE, EXPIRED, etc
+    pub status: String, 
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -149,9 +159,9 @@ pub struct Vehicle {
     pub name: String,
     pub vehicle_type: Option<String>,
     pub status: String, // Maps to vehicle_status_enum (READY, etc)
-    pub water_capacity_liters: Option<BigDecimal>,
-    pub foam_capacity_liters: Option<BigDecimal>,
-    pub dcp_capacity_kg: Option<BigDecimal>,
+    pub water_capacity_l: Option<BigDecimal>,
+    pub foam_capacity_l: Option<BigDecimal>,
+    pub powder_capacity_kg: Option<BigDecimal>,
     pub last_service_date: Option<chrono::NaiveDate>,
     pub next_service_due: Option<chrono::NaiveDate>,
     pub created_at: DateTime<Utc>,
@@ -229,7 +239,7 @@ pub struct Inspection {
     pub vehicle_id: Uuid,
     pub personnel_id: Option<Uuid>,
     pub tanggal: chrono::NaiveDate,
-    pub status: String, // Maps to approval_status_enum (DRAFT, etc)
+    pub status: String, 
     pub approved_by: Option<Uuid>,
     pub approved_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
@@ -239,7 +249,7 @@ pub struct Inspection {
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct WatchroomLog {
     pub id: Uuid,
-    pub actor_id: Option<Uuid>,
+    pub personnel_id: Option<Uuid>,
     pub entry_type: Option<String>,
     pub description: String,
     pub payload: Option<serde_json::Value>, 
