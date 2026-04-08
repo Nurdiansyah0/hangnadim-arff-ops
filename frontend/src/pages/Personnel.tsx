@@ -4,10 +4,12 @@ import { api } from '../lib/axios';
 
 interface Personnel {
   id: string;
-  nip_nik: string;
-  full_name: string;
+  nip_nik: string | null;
+  full_name: string | null;
   position_id: number | null;
-  status: string;
+  status: string | null;
+  shift?: string | null;
+  employment_status?: string | null;
 }
 
 interface Position {
@@ -26,7 +28,9 @@ export default function Personnel() {
     nip_nik: '',
     full_name: '',
     position_id: '',
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    shift: '',
+    employment_status: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,8 +44,8 @@ export default function Personnel() {
         api.get('/personnel'),
         api.get('/personnel/positions')
       ]);
-      setStaff(pRes.data);
-      setPositions(posRes.data);
+      setStaff(Array.isArray(pRes.data) ? pRes.data : []);
+      setPositions(Array.isArray(posRes.data) ? posRes.data : []);
     } catch (err) {
       console.error('Failed to fetch personnel data');
     } finally {
@@ -55,10 +59,12 @@ export default function Personnel() {
       setSubmitting(true);
       await api.post('/personnel', {
         ...form,
-        position_id: form.position_id ? parseInt(form.position_id) : null
+        position_id: form.position_id ? parseInt(form.position_id) : null,
+        shift: form.shift || null,
+        employment_status: form.employment_status || null
       });
       setShowModal(false);
-      setForm({ nip_nik: '', full_name: '', position_id: '', status: 'ACTIVE' });
+      setForm({ nip_nik: '', full_name: '', position_id: '', status: 'ACTIVE', shift: '', employment_status: '' });
       fetchData();
     } catch (err) {
       alert('Gagal menambah personil baru');
@@ -72,8 +78,8 @@ export default function Personnel() {
   };
 
   const filteredStaff = staff.filter(s => 
-    s.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.nip_nik.toLowerCase().includes(searchTerm.toLowerCase())
+    (s.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
+    (s.nip_nik?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -120,19 +126,24 @@ export default function Personnel() {
                     {filteredStaff.map(s => (
                       <div key={s.id} className="bg-slate-950/50 border border-slate-800 p-5 rounded-2xl hover:border-blue-500/50 transition-all flex items-start gap-4 group">
                         <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-blue-400 font-black">
-                          {s.full_name[0]}
+                          {s.full_name ? s.full_name[0] : '?'}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-white font-bold truncate group-hover:text-blue-400 transition-colors">{s.full_name}</h3>
-                          <p className="text-xs text-slate-500 font-mono mt-0.5">NIP: {s.nip_nik}</p>
-                          <div className="mt-4 flex items-center gap-2">
+                          <h3 className="text-white font-bold truncate group-hover:text-blue-400 transition-colors">{s.full_name || 'Anonymous'}</h3>
+                          <p className="text-xs text-slate-500 font-mono mt-0.5">NIP: {s.nip_nik || 'N/A'}</p>
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
                              <span className="px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-500 text-[10px] font-bold uppercase tracking-wider">
                                 {getPositionName(s.position_id)}
                              </span>
+                             {s.shift && (
+                               <span className="px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 text-[10px] font-bold uppercase tracking-wider">
+                                 {s.shift}
+                               </span>
+                             )}
                              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
-                               s.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'
+                                s.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'
                              }`}>
-                                {s.status}
+                                {s.status || 'UNKNOWN'}
                              </span>
                           </div>
                         </div>

@@ -9,10 +9,10 @@ pub trait MaintenanceRepository: Send + Sync {
     async fn create_record(
         &self,
         vehicle_id: Uuid,
-        maintenance_type: &str,
+        maintenance_type: Option<&str>,
         description: &str,
         performed_by: Uuid,
-        performed_at: chrono::NaiveDate,
+        performed_at: Option<chrono::NaiveDate>,
         cost: Option<BigDecimal>,
         next_due: Option<chrono::NaiveDate>,
     ) -> Result<MaintenanceRecord, Error>;
@@ -36,10 +36,10 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
     async fn create_record(
         &self,
         vehicle_id: Uuid,
-        maintenance_type: &str,
+        maintenance_type: Option<&str>,
         description: &str,
         performed_by: Uuid,
-        performed_at: chrono::NaiveDate,
+        performed_at: Option<chrono::NaiveDate>,
         cost: Option<BigDecimal>,
         next_due: Option<chrono::NaiveDate>,
     ) -> Result<MaintenanceRecord, Error> {
@@ -47,7 +47,7 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
             r#"
             INSERT INTO maintenance_records (vehicle_id, maintenance_type, description, performed_by, performed_at, cost, next_due)
             VALUES ($1, $2::maintenance_type_enum, $3, $4, $5, $6, $7)
-            RETURNING id, vehicle_id, maintenance_type::TEXT, description, performed_by, performed_at, cost, next_due, created_at, updated_at, NULL as vehicle_code, NULL as personnel_name
+            RETURNING id, vehicle_id, maintenance_type::TEXT, description, performed_by, performed_at, cost, next_due, status::TEXT, created_at, updated_at, NULL as vehicle_code, NULL as personnel_name
             "#
         )
         .bind(vehicle_id)
@@ -66,14 +66,14 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
             r#"
             SELECT 
                 mr.id, mr.vehicle_id, mr.maintenance_type::TEXT, mr.description, 
-                mr.performed_by, mr.performed_at, mr.cost, mr.next_due, mr.created_at, mr.updated_at,
+                mr.performed_by, mr.performed_at, mr.cost, mr.next_due, mr.status::TEXT, mr.created_at, mr.updated_at,
                 v.code as vehicle_code,
                 p.full_name as personnel_name
             FROM maintenance_records mr
             JOIN vehicles v ON v.id = mr.vehicle_id
             JOIN personnels p ON p.id = mr.performed_by
             WHERE mr.vehicle_id = $1
-            ORDER BY mr.performed_at DESC
+            ORDER BY mr.created_at DESC
             "#
         )
         .bind(vehicle_id)
@@ -86,7 +86,7 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
             r#"
             SELECT 
                 mr.id, mr.vehicle_id, mr.maintenance_type::TEXT, mr.description, 
-                mr.performed_by, mr.performed_at, mr.cost, mr.next_due, mr.created_at, mr.updated_at,
+                mr.performed_by, mr.performed_at, mr.cost, mr.next_due, mr.status::TEXT, mr.created_at, mr.updated_at,
                 v.code as vehicle_code,
                 p.full_name as personnel_name
             FROM maintenance_records mr
@@ -100,3 +100,4 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
         .await
     }
 }
+

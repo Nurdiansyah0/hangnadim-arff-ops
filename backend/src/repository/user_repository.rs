@@ -177,7 +177,7 @@ impl UserRepository {
             FROM users u
             JOIN shift_assignments sa ON u.personnel_id = sa.personnel_id
             JOIN shifts s ON sa.shift_id = s.id
-            WHERE u.id = $1 AND sa.assignment_date = CURRENT_DATE
+            WHERE u.id = $1 AND sa.assignment_date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::DATE
             LIMIT 1
             "#,
         )
@@ -190,11 +190,12 @@ impl UserRepository {
             SELECT 
                 da.position::text as position, 
                 da.status as status, 
-                v.code as vehicle_code
+                v.code as vehicle_code,
+                v.id as vehicle_id
             FROM users u
             JOIN duty_assignments da ON u.personnel_id = da.personnel_id
             LEFT JOIN vehicles v ON da.vehicle_id = v.id
-            WHERE u.id = $1 AND da.assignment_date = CURRENT_DATE
+            WHERE u.id = $1 AND da.assignment_date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::DATE
             ORDER BY da.created_at DESC LIMIT 1
             "#,
         )
@@ -209,6 +210,7 @@ impl UserRepository {
             shift_end: shift_info.as_ref().map(|s| s.get("end_time")),
             duty_position: duty_info.as_ref().map(|d| d.get("position")),
             assigned_vehicle: duty_info.as_ref().map(|d| d.get("vehicle_code")),
+            assigned_vehicle_id: duty_info.as_ref().and_then(|d| d.get("vehicle_id")),
             duty_status: duty_info.as_ref().and_then(|d| d.get::<Option<String>, _>("status")).unwrap_or_else(|| "OFF_DUTY".to_string()),
         })
     }

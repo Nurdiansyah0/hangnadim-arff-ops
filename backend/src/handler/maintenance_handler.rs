@@ -14,10 +14,10 @@ use crate::state::AppState;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CreateMaintenancePayload {
     pub vehicle_id: Uuid,
-    pub maintenance_type: String, // SCHEDULED, UNSCHEDULED, REPAIR
+    pub maintenance_type: Option<String>, // SCHEDULED, UNSCHEDULED, REPAIR
     pub description: String,
     pub performed_by: Uuid,
-    pub performed_at: chrono::NaiveDate,
+    pub performed_at: Option<chrono::NaiveDate>,
     pub cost: Option<BigDecimal>,
     pub next_due: Option<chrono::NaiveDate>,
 }
@@ -36,7 +36,7 @@ pub async fn create_maintenance(
 ) -> impl IntoResponse {
     match state.maintenance_service.create_maintenance_record(
         payload.vehicle_id,
-        &payload.maintenance_type,
+        payload.maintenance_type,
         &payload.description,
         payload.performed_by,
         payload.performed_at,

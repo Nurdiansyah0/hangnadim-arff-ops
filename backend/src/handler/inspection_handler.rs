@@ -56,11 +56,17 @@ async fn list_inspections(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<Vec<Inspection>>, (StatusCode, String)> {
-    if claims.role_id.is_none() {
-        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
-    }
+    let rid = claims.role_id.unwrap_or(0);
+    
+    // Admin (1), Manager (3), VP (2) see everything.
+    // Others (Staff, squad leaders) see only their own.
+    let filter_id = if rid == 1 || rid == 2 || rid == 3 {
+        None
+    } else {
+        claims.personnel_id
+    };
 
-    match state.inspection_service.get_all_inspections().await {
+    match state.inspection_service.get_all_inspections(filter_id).await {
         Ok(data) => Ok(Json(data)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
@@ -161,7 +167,7 @@ async fn create_inspection(
     Json(payload): Json<CreateInspectionPayload>,
 ) -> Result<Json<Inspection>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
-    if rid != 1 && rid != 5 && rid != 4 {
+    if rid != 1 && rid != 5 && rid != 4 && rid != 8 && rid != 9 {
         return Err((StatusCode::FORBIDDEN, "Role tidak memiliki izin melakukan inspeksi".to_string()));
     }
 
@@ -176,10 +182,23 @@ async fn create_inspection(
         })
         .collect();
 
+    // Backend Deep Sync: If user has an active assignment, enforce that vehicle
+    let mut final_vehicle_id = payload.vehicle_id;
+    let user_id = Uuid::parse_str(&claims.sub).unwrap_or_default();
+    
+    if let Ok(context) = state.auth_service.get_operational_context(user_id).await {
+        if let Some(assigned_id) = context.assigned_vehicle_id {
+            // Force the vehicle_id to match the assignment for non-admins
+            if rid != 1 && rid != 2 && rid != 3 {
+                final_vehicle_id = Some(assigned_id);
+            }
+        }
+    }
+
     match state
         .inspection_service
         .create_inspection_with_results(
-            payload.vehicle_id,
+            final_vehicle_id,
             payload.fire_extinguisher_id,
             claims.personnel_id,
             payload.tanggal,

@@ -64,7 +64,7 @@ Untuk menjalankan proyek ini di lingkungan lokal Anda, ikuti langkah-langkah di 
     ```bash
     cargo run
     ```
-    Server backend akan berjalan di `http://0.0.0.0:8001` (sesuai setting port di `.env`).
+    Server backend akan berjalan di `http://0.0.0.0:8000` (sesuai setting port di `.env`).
 
 5.  **Login Pertama (Admin)**:
     Setelah database berhasil di-seed, gunakan akun berikut untuk masuk:

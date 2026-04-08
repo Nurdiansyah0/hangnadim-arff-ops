@@ -23,11 +23,36 @@ export default function Login() {
       const response = await api.post('/auth/login', { ident: username, password });
       
       const { access_token } = response.data;
-      // Ambil data user dari token atau buat simulasi data sementara jika backend belum return user object
-      const mockUser = { id: 'admin-id', username, email: 'admin@arff.id', personnel_id: null, role_id: 1 };
-      setAuth(mockUser, access_token);
       
-      navigate('/dashboard');
+      // Simpan token sementara di localStorage agar interceptor bisa menggunakannya
+      localStorage.setItem('arff-token-temp', access_token);
+      
+      // Ambil data user asli dari profile me
+      const profileRes = await api.get('/auth/profile/me', {
+        headers: { Authorization: `Bearer ${access_token}` }
+      });
+      
+      const profile = profileRes.data;
+      const user = {
+        id: profile.personal.id,
+        username: profile.personal.username,
+        email: profile.personal.email,
+        full_name: profile.personal.full_name,
+        role: profile.role,
+        nip_nik: profile.personal.nip_nik,
+        personnel_id: profile.personal.personnel_id,
+        role_id: profile.personal.role_id
+      };
+
+      setAuth(user, access_token);
+      localStorage.removeItem('arff-token-temp');
+      
+      // Redirect berdasarkan role
+      if (user.role_id === 9 || user.role_id === 8) {
+        navigate('/staff/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Kredensial tidak valid atau server terputus.');
     } finally {

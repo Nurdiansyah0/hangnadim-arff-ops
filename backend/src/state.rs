@@ -42,4 +42,6 @@ pub struct AppState {
     pub email_service: Arc<dyn EmailService>,
     pub maintenance_service: MaintenanceService,
     pub finding_service: FindingService,
+    pub fitness_service: crate::service::fitness_service::FitnessService,
+    pub audit_repo: std::sync::Arc<dyn crate::repository::audit_repository::AuditRepoTrait>,
 }

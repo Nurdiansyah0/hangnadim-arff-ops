@@ -5,6 +5,9 @@ interface User {
   id: string;
   username: string;
   email: string;
+  full_name?: string;
+  role?: string;
+  nip_nik?: string;
   personnel_id: string | null;
   role_id: number | null;
 }

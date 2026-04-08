@@ -9,6 +9,7 @@ pub struct CreatePersonnelPayload {
     pub position_id: Option<i32>,
     pub status: String,
     pub employment_status: Option<String>,
+    pub shift: Option<String>,
 }
 
 pub fn personnel_routes(state: AppState) -> Router {
@@ -36,7 +37,10 @@ async fn list_personnels(
     if claims.role_id.is_none() { return Err((StatusCode::FORBIDDEN, "Forbidden".to_string())); }
     match state.personnel_service.get_all_personnels().await {
         Ok(p) => Ok(Json(p)),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
+        Err(e) => {
+            eprintln!("Error fetching personnels: {:?}", e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, e))
+        },
     }
 }
 
@@ -54,7 +58,8 @@ async fn create_personnel(
         &payload.full_name, 
         payload.position_id, 
         &payload.status,
-        payload.employment_status.as_deref()
+        payload.employment_status.as_deref(),
+        payload.shift.as_deref()
     ).await {
         Ok(p) => Ok(Json(p)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),

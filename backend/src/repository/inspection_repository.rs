@@ -12,7 +12,7 @@ pub struct InspectionResultCreate {
 
 #[async_trait]
 pub trait InspectionRepoTrait: Send + Sync {
-    async fn get_all_inspections(&self) -> Result<Vec<Inspection>, Error>;
+    async fn get_all_inspections(&self, personnel_id: Option<Uuid>) -> Result<Vec<Inspection>, Error>;
     async fn get_inspection_by_id(&self, id: Uuid) -> Result<Inspection, Error>;
     async fn get_inspection_results(&self, inspection_id: Uuid) -> Result<Vec<InspectionResult>, Error>;
     async fn create_inspection_with_results(
@@ -56,17 +56,49 @@ impl InspectionRepository {
 
 #[async_trait]
 impl InspectionRepoTrait for InspectionRepository {
-    async fn get_all_inspections(&self) -> Result<Vec<Inspection>, Error> {
-        sqlx::query_as::<_, Inspection>(
-            "SELECT id, vehicle_id, fire_extinguisher_id, personnel_id, tanggal, status::TEXT, latitude, longitude, approved_by, approved_at, updated_at, created_at FROM inspections"
-        )
-        .fetch_all(&self.db)
-        .await
+    async fn get_all_inspections(&self, personnel_id: Option<Uuid>) -> Result<Vec<Inspection>, Error> {
+        let mut query = String::from(r#"
+            SELECT 
+                i.*, 
+                i.status::TEXT as status,
+                p.full_name as inspector_name,
+                v.code as vehicle_code,
+                fe.serial_number as fire_extinguisher_serial
+            FROM inspections i
+            LEFT JOIN personnels p ON p.id = i.personnel_id
+            LEFT JOIN vehicles v ON v.id = i.vehicle_id
+            LEFT JOIN fire_extinguishers fe ON fe.id = i.fire_extinguisher_id
+        "#);
+
+        if personnel_id.is_some() {
+            query.push_str(" WHERE i.personnel_id = $1 ");
+        }
+
+        query.push_str(" ORDER BY i.tanggal DESC, i.created_at DESC");
+
+        let mut q = sqlx::query_as::<_, Inspection>(&query);
+        if let Some(pid) = personnel_id {
+            q = q.bind(pid);
+        }
+
+        q.fetch_all(&self.db).await
     }
 
     async fn get_inspection_by_id(&self, id: Uuid) -> Result<Inspection, Error> {
         sqlx::query_as::<_, Inspection>(
-            "SELECT id, vehicle_id, fire_extinguisher_id, personnel_id, tanggal, status::TEXT, latitude, longitude, approved_by, approved_at, updated_at, created_at FROM inspections WHERE id = $1"
+            r#"
+            SELECT 
+                i.*, 
+                i.status::TEXT as status,
+                p.full_name as inspector_name,
+                v.code as vehicle_code,
+                fe.serial_number as fire_extinguisher_serial
+            FROM inspections i
+            LEFT JOIN personnels p ON p.id = i.personnel_id
+            LEFT JOIN vehicles v ON v.id = i.vehicle_id
+            LEFT JOIN fire_extinguishers fe ON fe.id = i.fire_extinguisher_id
+            WHERE i.id = $1
+            "#
         )
         .bind(id)
         .fetch_one(&self.db)
@@ -75,7 +107,17 @@ impl InspectionRepoTrait for InspectionRepository {
 
     async fn get_inspection_results(&self, inspection_id: Uuid) -> Result<Vec<InspectionResult>, Error> {
         sqlx::query_as::<_, InspectionResult>(
-            "SELECT id, inspection_id, inspection_date, template_item_id, result::TEXT, notes, photo_url, created_at FROM inspection_results WHERE inspection_id = $1 ORDER BY template_item_id"
+            r#"
+            SELECT 
+                ir.*, 
+                ir.result::TEXT as result,
+                ti.item_name, 
+                ti.category 
+            FROM inspection_results ir
+            LEFT JOIN template_items ti ON ti.id = ir.template_item_id
+            WHERE ir.inspection_id = $1 
+            ORDER BY ti.item_order, ir.template_item_id
+            "#
         )
         .bind(inspection_id)
         .fetch_all(&self.db)
@@ -93,6 +135,8 @@ impl InspectionRepoTrait for InspectionRepository {
         longitude: Option<f64>,
         results: Vec<InspectionResultCreate>,
     ) -> Result<Inspection, Error> {
+        let mut tx = self.db.begin().await?;
+
         // Insert inspection
         let inspection: Inspection = sqlx::query_as::<_, Inspection>(
             r#"
@@ -108,7 +152,7 @@ impl InspectionRepoTrait for InspectionRepository {
         .bind(status)
         .bind(latitude)
         .bind(longitude)
-        .fetch_one(&self.db)
+        .fetch_one(&mut *tx)
         .await?;
 
         // Insert results
@@ -122,9 +166,11 @@ impl InspectionRepoTrait for InspectionRepository {
             .bind(result.result)
             .bind(result.notes)
             .bind(result.photo_url)
-            .execute(&self.db)
+            .execute(&mut *tx)
             .await?;
         }
+
+        tx.commit().await?;
 
         Ok(inspection)
     }

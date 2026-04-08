@@ -101,8 +101,9 @@ async fn create_extinguisher(
     Json(payload): Json<CreateFireExtinguisherPayload>,
 ) -> Result<Json<FireExtinguisher>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
-    if rid != 1 && rid != 5 && rid != 7 {
-        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
+    // Allow: Superuser (1), Manager (3), Ops TL (5), Maint TL (6), General TL (7), Squad Leader (8), Officer (9)
+    if rid != 1 && rid != 3 && rid != 5 && rid != 6 && rid != 7 && rid != 8 && rid != 9 {
+        return Err((StatusCode::FORBIDDEN, "Forbidden: Missing asset management permission".to_string()));
     }
 
     match state.fire_extinguisher_service.create_extinguisher(
@@ -120,7 +121,17 @@ async fn create_extinguisher(
         payload.photo_url.as_deref(),
     ).await {
         Ok(item) => Ok(Json(item)),
-        Err(e) => Err((StatusCode::BAD_REQUEST, e)),
+        Err(e) => {
+            if e.contains("duplicate key value violates unique constraint") {
+                Err((StatusCode::CONFLICT, "Serial number already exists".to_string()))
+            } else if e.contains("invalid_status") {
+                Err((StatusCode::BAD_REQUEST, "Invalid status. Allowed: READY, MAINTENANCE, EXPIRED, OUT_OF_SERVICE".to_string()))
+            } else if e.contains("expiry_date") {
+                Err((StatusCode::BAD_REQUEST, e))
+            } else {
+                Err((StatusCode::INTERNAL_SERVER_ERROR, e))
+            }
+        }
     }
 }
 
@@ -131,8 +142,8 @@ async fn update_extinguisher(
     Json(payload): Json<UpdateFireExtinguisherPayload>,
 ) -> Result<Json<FireExtinguisher>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
-    if rid != 1 && rid != 5 && rid != 7 {
-        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
+    if rid != 1 && rid != 3 && rid != 5 && rid != 6 && rid != 7 && rid != 8 && rid != 9 {
+        return Err((StatusCode::FORBIDDEN, "Forbidden: Missing asset management permission".to_string()));
     }
 
     match state.fire_extinguisher_service.update_extinguisher(
@@ -162,8 +173,8 @@ async fn delete_extinguisher(
     Path(id): Path<uuid::Uuid>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
-    if rid != 1 && rid != 5 && rid != 7 {
-        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
+    if rid != 1 && rid != 3 && rid != 5 && rid != 6 && rid != 7 && rid != 8 && rid != 9 {
+        return Err((StatusCode::FORBIDDEN, "Forbidden: Missing asset management permission".to_string()));
     }
 
     match state.fire_extinguisher_service.delete_extinguisher(id).await {

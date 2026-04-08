@@ -7,14 +7,20 @@ interface Vehicle {
     code: string;
     name: string;
     status: string;
+    vehicle_type?: string;
 }
 
 interface Inspection {
     id: string;
-    vehicle_id: string;
+    vehicle_id: string | null;
+    fire_extinguisher_id: string | null;
     tanggal: string;
     status: string;
     created_at: string;
+    // Joined fields
+    inspector_name?: string;
+    vehicle_code?: string;
+    fire_extinguisher_serial?: string;
 }
 
 interface InspectionTemplate {
@@ -41,6 +47,9 @@ interface InspectionResult {
     notes: string | null;
     photo_url: string | null;
     created_at: string;
+    // Joined fields
+    item_name?: string;
+    category?: string;
 }
 
 interface InspectionDetail {
@@ -55,7 +64,21 @@ interface ChecklistEntry {
     notes: string;
 }
 
+interface OperationalContext {
+    shift_name: string | null;
+    duty_position: string | null;
+    assigned_vehicle: string | null;
+    assigned_vehicle_id: string | null;
+    duty_status: string;
+}
+
 export default function Inspections() {
+    const getLocalISODate = () => {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offset).toISOString().split('T')[0];
+    };
+
     const [inspections, setInspections] = useState<Inspection[]>([]);
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [templates, setTemplates] = useState<InspectionTemplate[]>([]);
@@ -68,13 +91,15 @@ export default function Inspections() {
 
     const [selectedVehicle, setSelectedVehicle] = useState('');
     const [selectedTemplate, setSelectedTemplate] = useState('');
-    const [inspectDate, setInspectDate] = useState(new Date().toISOString().split('T')[0]);
+    const [inspectDate, setInspectDate] = useState(getLocalISODate());
     const [checklistResults, setChecklistResults] = useState<Record<number, ChecklistEntry>>({});
     const [submitting, setSubmitting] = useState(false);
+    const [opsContext, setOpsContext] = useState<OperationalContext | null>(null);
 
     useEffect(() => {
         fetchData();
         fetchTemplates();
+        fetchOpsContext();
     }, []);
 
     useEffect(() => {
@@ -97,7 +122,7 @@ export default function Inspections() {
             setInspections(insRes.data);
             setVehicles(vehRes.data);
         } catch (err) {
-            setError('Gagal mengambil data dari server operasional.');
+            setError('Failed to fetch data from operational server.');
         } finally {
             setLoading(false);
         }
@@ -109,6 +134,35 @@ export default function Inspections() {
             setTemplates(res.data);
         } catch (err) {
             console.error('Failed to load inspection templates', err);
+        }
+    };
+
+    const fetchOpsContext = async () => {
+        try {
+            const res = await api.get('/auth/me/context');
+            setOpsContext(res.data);
+            
+            // Auto-select assigned vehicle if it exists
+            if (res.data.assigned_vehicle_id) {
+                const vid = res.data.assigned_vehicle_id;
+                setSelectedVehicle(vid);
+                
+                // Intelligent Template Selection
+                const vehicle = vehicles.find(v => v.id === vid);
+                if (vehicle) {
+                    const type = vehicle.vehicle_type || '';
+                    const isAmbulance = type === 'RESCUE' || vehicle.code.startsWith('AMB');
+                    
+                    const templateName = isAmbulance ? 'Daily Ambulance Check' : 'Daily Vehicle Check (ARFF)';
+                    const targetTemplate = templates.find(t => t.name === templateName);
+                    
+                    if (targetTemplate) {
+                        setSelectedTemplate(targetTemplate.id.toString());
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch operational context', err);
         }
     };
 
@@ -128,17 +182,41 @@ export default function Inspections() {
     };
 
     const openModal = () => {
-        setSelectedVehicle('');
-        setSelectedTemplate('');
-        setInspectDate(new Date().toISOString().split('T')[0]);
+        // Re-fetch context to ensure latest assignment is picked up
+        fetchOpsContext();
+        
+        if (!opsContext?.assigned_vehicle_id) {
+            alert('SYSTEM ACCESS DENIED: No active vehicle assignment found. Please perform "Shift Check-in" from the Dashboard first to proceed with the audit.');
+            return;
+        }
+
+        setSelectedVehicle(opsContext.assigned_vehicle_id);
+        
+        // Intelligent Template Selection logic (locked)
+        const vehicle = vehicles.find(v => v.id === opsContext.assigned_vehicle_id);
+        if (vehicle) {
+            const type = vehicle.vehicle_type || '';
+            const isAmbulance = type === 'RESCUE' || vehicle.code.startsWith('AMB');
+            const templateName = isAmbulance ? 'Daily Ambulance Check' : 'Daily Vehicle Check (ARFF)';
+            const targetTemplate = templates.find(t => t.name === templateName);
+            if (targetTemplate) {
+                setSelectedTemplate(targetTemplate.id.toString());
+            } else {
+                setSelectedTemplate('');
+            }
+        }
+
+        setInspectDate(getLocalISODate());
         setChecklistResults({});
         setShowModal(true);
     };
 
     const resetModal = () => {
-        setSelectedVehicle('');
+        if (!opsContext?.assigned_vehicle_id) {
+            setSelectedVehicle('');
+        }
         setSelectedTemplate('');
-        setInspectDate(new Date().toISOString().split('T')[0]);
+        setInspectDate(getLocalISODate());
         setTemplateItems([]);
         setChecklistResults({});
     };
@@ -166,8 +244,9 @@ export default function Inspections() {
             setShowModal(false);
             resetModal();
             fetchData();
-        } catch (err) {
-            alert('Gagal membuat log inspeksi baru');
+        } catch (err: any) {
+            const msg = err.response?.data || 'Failed to create new inspection log';
+            alert(msg);
         } finally {
             setSubmitting(false);
         }
@@ -179,16 +258,27 @@ export default function Inspections() {
             setDetailData(res.data);
             setShowDetailModal(true);
         } catch (err) {
-            alert('Gagal mengambil detail inspeksi');
+            alert('Failed to fetch inspection details');
         }
     };
 
-    const getVehicleCode = (id: string) => {
-        return vehicles.find(v => v.id === id)?.code || 'Unknown';
+    const formatDate = (date: string) => {
+        return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
     };
 
-    const formatDate = (date: string) => {
-        return new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+    const formatTime = (date: string) => {
+        return new Date(date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    };
+
+    const formatDateTime = (date: string) => {
+        return new Date(date).toLocaleString('en-GB', { 
+            day: '2-digit', 
+            month: 'long', 
+            year: 'numeric',
+            hour: '2-digit', 
+            minute: '2-digit', 
+            hour12: false 
+        });
     };
 
     return (
@@ -196,35 +286,53 @@ export default function Inspections() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                        <ClipboardCheck className="text-blue-500" />
-                        Vehicle Inspections
+                        <Truck className="text-blue-500" />
+                        Vehicle Fleet Audit
                     </h1>
-                    <p className="text-slate-400 mt-1">Pemeriksaan kesiapan armada harian (Daily Check)</p>
+                    <p className="text-slate-400 mt-1">Daily vehicle readiness checks (ARFF Fleet)</p>
                 </div>
 
                 <button
                     onClick={openModal}
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 font-medium"
+                    className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl transition-all shadow-xl shadow-blue-500/20 font-black uppercase tracking-widest text-[11px] group"
                 >
-                    <Plus size={20} />
-                    Inspeksi Baru
+                    <Plus size={18} className="group-hover:rotate-90 transition-transform" />
+                    New Inspection Audit
                 </button>
             </div>
+
+            {opsContext?.assigned_vehicle && (
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 flex items-center justify-between group">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                            <Truck size={24} />
+                        </div>
+                        <div>
+                            <div className="text-[10px] uppercase font-black tracking-widest text-blue-500">Current Assignment</div>
+                            <div className="text-white font-bold text-lg">{opsContext.assigned_vehicle}</div>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-[10px] uppercase font-black tracking-widest text-slate-500">Duty Position</div>
+                        <div className="text-blue-400 font-bold">{opsContext.duty_position || 'UNASSIGNED'}</div>
+                    </div>
+                </div>
+            )}
 
             <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-2xl p-6 overflow-hidden relative">
                 <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                     <History size={120} />
                 </div>
 
-                <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-                    Log Riwayat Terakhir
-                </h2>
+                    <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+                        Recent History Logs
+                    </h2>
 
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-                        <Loader2 className="animate-spin mb-2" />
-                        <span className="text-sm">Sinkronisasi data taktis...</span>
-                    </div>
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+                            <Loader2 className="animate-spin mb-2" />
+                            <span className="text-sm">Synchronizing tactical data...</span>
+                        </div>
                 ) : error ? (
                     <div className="flex flex-col items-center justify-center py-20 text-red-400 gap-2">
                         <AlertCircle />
@@ -235,14 +343,14 @@ export default function Inspections() {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="border-b border-slate-800 text-slate-500 text-sm">
-                                    <th className="pb-4 font-medium uppercase tracking-wider">Unit Armada</th>
-                                    <th className="pb-4 font-medium uppercase tracking-wider">Tanggal Check</th>
-                                    <th className="pb-4 font-medium uppercase tracking-wider">Status Approval</th>
+                                    <th className="pb-4 font-medium uppercase tracking-wider">Asset Unit</th>
+                                    <th className="pb-4 font-medium uppercase tracking-wider">Date Checked</th>
+                                    <th className="pb-4 font-medium uppercase tracking-wider">Approval Status</th>
                                     <th className="pb-4 font-medium text-right lowercase italic">ops</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/50">
-                                {inspections.length > 0 ? inspections.map((item) => (
+                                {inspections.filter(item => item.vehicle_id !== null).length > 0 ? inspections.filter(item => item.vehicle_id !== null).map((item) => (
                                     <tr key={item.id} className="group hover:bg-white/5 transition-colors">
                                         <td className="py-4">
                                             <div className="flex items-center gap-3">
@@ -250,21 +358,31 @@ export default function Inspections() {
                                                     <Truck size={18} />
                                                 </div>
                                                 <div>
-                                                    <div className="text-white font-medium">{getVehicleCode(item.vehicle_id)}</div>
+                                                    <div className="text-white font-medium">
+                                                        {item.vehicle_code || 'Unknown Vehicle'}
+                                                    </div>
                                                     <div className="text-[10px] font-mono text-slate-500 uppercase">UID: {item.id.slice(0, 8)}</div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="py-4 text-slate-300 text-sm">
-                                            <div className="flex items-center gap-2">
-                                                <Calendar size={14} className="text-slate-500" />
-                                                {formatDate(item.tanggal)}
+                                            <div className="flex flex-col gap-0.5">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar size={14} className="text-slate-500" />
+                                                    {formatDate(item.tanggal)}
+                                                </div>
+                                                <div className="text-[10px] text-slate-500 font-mono pl-5">
+                                                    SUBMITTED: {formatTime(item.created_at)}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="py-4">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border ${item.status === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : item.status === 'SUBMITTED' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
-                                                {item.status}
-                                            </span>
+                                            <div className="flex flex-col">
+                                               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border w-fit ${item.status === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : item.status === 'SUBMITTED' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
+                                                   {item.status}
+                                               </span>
+                                               <span className="text-[9px] text-slate-500 mt-1 uppercase font-black tracking-tighter">BY: {item.inspector_name || 'System Analyst'}</span>
+                                            </div>
                                         </td>
                                         <td className="py-4 text-right">
                                             <button
@@ -278,7 +396,7 @@ export default function Inspections() {
                                 )) : (
                                     <tr>
                                         <td colSpan={4} className="py-20 text-center text-slate-600 italic text-sm">
-                                            --- Belum ada riwayat inspeksi tercatat di sistem ---
+                                            --- No vehicle inspection history recorded in system ---
                                         </td>
                                     </tr>
                                 )}
@@ -291,125 +409,172 @@ export default function Inspections() {
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md" onClick={() => !submitting && setShowModal(false)} />
-                    <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <div className="flex items-center justify-between gap-3 mb-6">
+                    <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+                        {/* Header - Fixed */}
+                        <div className="p-8 pb-4 border-b border-slate-800/50 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-blue-600/20 rounded-lg text-blue-500"><Plus size={24} /></div>
                                 <div>
                                     <h3 className="text-xl font-bold text-white tracking-tight">Create Inspection Log</h3>
-                                    <p className="text-sm text-slate-500">Pilih template checklist lalu isi hasil per item.</p>
+                                    <p className="text-sm text-slate-500">Fill in inspection results for each task item.</p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 hover:text-white"><X size={18} /></button>
+                            <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 hover:text-white transition-colors"><X size={18} /></button>
                         </div>
 
-                        <form onSubmit={handleCreate} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Pilih Unit Armada</label>
-                                    <select
-                                        required
-                                        value={selectedVehicle}
-                                        onChange={(e) => setSelectedVehicle(e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none"
-                                    >
-                                        <option value="">-- Pilih Kendaraan --</option>
-                                        {vehicles.map(v => (
-                                            <option key={v.id} value={v.id}>{v.code} - {v.name} ({v.status})</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Tanggal Pemeriksaan</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={inspectDate}
-                                        onChange={(e) => setInspectDate(e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Pilih Template Checklist</label>
-                                <select
-                                    required
-                                    value={selectedTemplate}
-                                    onChange={(e) => setSelectedTemplate(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none"
-                                >
-                                    <option value="">-- Pilih Template --</option>
-                                    {templates.map(t => (
-                                        <option key={t.id} value={t.id}>{t.name} ({t.frequency})</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {templateItems.length > 0 && (
-                                <div className="grid gap-4">
-                                    <div className="text-sm text-slate-300 font-semibold">Checklist Items</div>
-                                    {templateItems.map(item => (
-                                        <div key={item.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
-                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-3">
+                        <form onSubmit={handleCreate} className="flex flex-col flex-1 overflow-hidden">
+                            {/* Body - Scrollable */}
+                            <div className="p-8 pt-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {opsContext?.assigned_vehicle_id ? (
+                                        <div className="md:col-span-1">
+                                            <label className="block text-xs font-bold text-blue-500 uppercase tracking-widest mb-2 ml-1">Active Duty Assignment</label>
+                                            <div className="bg-blue-600/10 border border-blue-500/20 rounded-2xl p-4 flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400">
+                                                    <Truck size={24} />
+                                                </div>
                                                 <div>
-                                                    <div className="text-white font-semibold">{item.item_name}</div>
-                                                    <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">{item.category}</div>
+                                                    <div className="text-white font-black text-lg leading-none">{opsContext.assigned_vehicle}</div>
+                                                    <div className="text-[10px] text-blue-400 font-bold uppercase mt-1">Locked to Duty Assignment</div>
                                                 </div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {(['PASS', 'FAIL', 'N_A'] as const).map(option => (
-                                                        <button
-                                                            type="button"
-                                                            key={option}
-                                                            onClick={() => setChecklistResults(prev => ({
-                                                                ...prev,
-                                                                [item.id]: {
-                                                                    result: option,
-                                                                    notes: prev[item.id]?.notes || ''
-                                                                }
-                                                            }))}
-                                                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition ${checklistResults[item.id]?.result === option ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                                                        >
-                                                            {option}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Catatan</label>
-                                                <textarea
-                                                    value={checklistResults[item.id]?.notes || ''}
-                                                    onChange={(e) => setChecklistResults(prev => ({
-                                                        ...prev,
-                                                        [item.id]: {
-                                                            result: prev[item.id]?.result || 'N_A',
-                                                            notes: e.target.value,
-                                                        }
-                                                    }))}
-                                                    placeholder="Opsional: Tambahkan catatan pada item ini"
-                                                    className="w-full min-h-[80px] bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                                                />
                                             </div>
                                         </div>
-                                    ))}
+                                    ) : (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                                            Assigned Vehicle Unit 
+                                        </label>
+                                        <div className="relative">
+                                            <select
+                                                required
+                                                disabled={true}
+                                                value={selectedVehicle}
+                                                onChange={(e) => setSelectedVehicle(e.target.value)}
+                                                className="w-full bg-slate-900/50 border border-blue-500/30 text-white rounded-xl px-4 py-3.5 focus:outline-none appearance-none cursor-not-allowed opacity-80"
+                                            >
+                                                <option value="">-- No Unit Assigned --</option>
+                                                {vehicles.map(v => (
+                                                    <option key={v.id} value={v.id}>{v.code} - {v.name}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-blue-500 uppercase italic">Locked</div>
+                                        </div>
+                                    </div>
+                                    )}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Inspection Date</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={inspectDate}
+                                            onChange={(e) => setInspectDate(e.target.value)}
+                                            className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                        />
+                                    </div>
                                 </div>
-                            )}
 
-                            <div className="flex gap-3 pt-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                                        Audit Protocol (Automatic)
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            required
+                                            disabled={true}
+                                            value={selectedTemplate}
+                                            onChange={(e) => setSelectedTemplate(e.target.value)}
+                                            className="w-full bg-slate-900/50 border border-emerald-500/30 text-white rounded-xl px-4 py-3.5 focus:outline-none appearance-none cursor-not-allowed opacity-80"
+                                        >
+                                            <option value="">-- Resolving Protocol... --</option>
+                                            {templates.map(t => (
+                                                <option key={t.id} value={t.id}>{t.name}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-emerald-500 uppercase italic">Automated</div>
+                                    </div>
+                                </div>
+
+                                {templateItems.length > 0 && (
+                                    <div className="grid gap-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-sm text-slate-300 font-bold uppercase tracking-widest">Audit Items</div>
+                                            <div className="text-[10px] font-black text-slate-500 px-2 py-1 bg-slate-800 rounded-md">
+                                                PROGRESS: {Object.keys(checklistResults).filter(k => checklistResults[Number(k)].result !== 'N_A').length} / {templateItems.length}
+                                            </div>
+                                        </div>
+                                        {templateItems.map(item => (
+                                            <div key={item.id} className="bg-slate-950/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-colors">
+                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                                                    <div>
+                                                        <div className="text-white font-bold text-sm tracking-tight">{item.item_name}</div>
+                                                        <div className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80 font-black mt-0.5">{item.category}</div>
+                                                    </div>
+                                                    <div className="flex gap-1.5 p-1 bg-slate-900 rounded-lg w-fit">
+                                                        {(['PASS', 'FAIL', 'N_A'] as const).map(option => (
+                                                            <button
+                                                                type="button"
+                                                                key={option}
+                                                                onClick={() => setChecklistResults(prev => ({
+                                                                    ...prev,
+                                                                    [item.id]: {
+                                                                        result: option,
+                                                                        notes: prev[item.id]?.notes || ''
+                                                                    }
+                                                                }))}
+                                                                className={`px-4 py-1.5 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${
+                                                                    checklistResults[item.id]?.result === option 
+                                                                    ? (option === 'PASS' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : option === 'FAIL' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-slate-700 text-white') 
+                                                                    : 'text-slate-500 hover:text-slate-300'
+                                                                }`}
+                                                            >
+                                                                {option}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <textarea
+                                                        value={checklistResults[item.id]?.notes || ''}
+                                                        onChange={(e) => setChecklistResults(prev => ({
+                                                            ...prev,
+                                                            [item.id]: {
+                                                                result: prev[item.id]?.result || 'N_A',
+                                                                notes: e.target.value,
+                                                            }
+                                                        }))}
+                                                        placeholder="Add inspection notes here (optional)..."
+                                                        className="w-full min-h-[70px] bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-slate-700"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer - Fixed */}
+                            <div className="p-8 pt-4 border-t border-slate-800/50 bg-slate-900/50 flex gap-3">
                                 <button
                                     type="button"
                                     disabled={submitting}
                                     onClick={() => setShowModal(false)}
-                                    className="flex-1 px-4 py-3.5 rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 transition-all font-semibold disabled:opacity-50"
+                                    className="px-6 py-3.5 rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 transition-all font-bold text-xs uppercase tracking-widest disabled:opacity-50"
                                 >
-                                    Batal
+                                    Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submitting || !selectedVehicle || !selectedTemplate}
-                                    className="flex-1 px-4 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/30 transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    className="flex-1 px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-500/20 transition-all font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed group"
                                 >
-                                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Mulai Input Log'}
+                                    {submitting ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <ClipboardCheck size={16} className="group-hover:scale-110 transition-transform" />
+                                            Submit & Finalize Audit
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -423,38 +588,53 @@ export default function Inspections() {
                     <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
                         <div className="flex items-center justify-between gap-3 mb-6">
                             <div>
-                                <h3 className="text-xl font-bold text-white">Inspection Report</h3>
-                                <p className="text-sm text-slate-500">{getVehicleCode(detailData.inspection.vehicle_id)} • {formatDate(detailData.inspection.tanggal)}</p>
+                                <h3 className="text-xl font-bold text-white italic tracking-tighter uppercase">Inspection Report</h3>
+                                <p className="text-xs text-slate-400 mt-1">
+                                  <span className="text-blue-500 font-black">
+                                    {detailData.inspection.vehicle_code || 'UNIT'}
+                                  </span> • {formatDateTime(detailData.inspection.created_at)}
+                                </p>
+                                <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">
+                                  Inspector: <span className="text-slate-300">{detailData.inspection.inspector_name || 'Authorized Personnel'}</span>
+                                </div>
                             </div>
                             <button onClick={() => setShowDetailModal(false)} className="p-2 text-slate-400 hover:text-white"><X size={18} /></button>
                         </div>
-                        <div className="space-y-4">
-                            {detailData.results.map(result => {
-                                const item = templateItems.find(i => i.id === result.template_item_id);
-                                return (
-                                    <div key={result.id} className="bg-slate-950 border border-slate-800 rounded-3xl p-4">
-                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                                            <div>
-                                                <div className="text-white font-semibold">{item?.item_name ?? `Item #${result.template_item_id}`}</div>
-                                                <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">{item?.category ?? 'Checklist item'}</div>
-                                            </div>
-                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${result.result === 'PASS' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : result.result === 'FAIL' ? 'bg-red-500/15 text-red-400 border border-red-500/20' : 'bg-slate-700 text-slate-300 border border-slate-600'}`}>
-                                                {result.result}
-                                            </span>
+                        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                            {detailData.results.map(result => (
+                                <div key={result.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 group hover:border-slate-700 transition-colors">
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                                        <div>
+                                            <div className="text-white font-bold">{result.item_name || `Item #${result.template_item_id}`}</div>
+                                            <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-black">{result.category || 'GENERAL CHECK'}</div>
                                         </div>
-                                        {result.notes && (
-                                            <div className="mt-3 text-sm text-slate-300">
-                                                <strong>Notes:</strong> {result.notes}
-                                            </div>
-                                        )}
-                                        {result.photo_url && (
-                                            <div className="mt-3 text-sm text-slate-300">
-                                                <strong>Photo:</strong> <a className="text-blue-400 hover:underline" href={result.photo_url} target="_blank" rel="noreferrer">View</a>
-                                            </div>
-                                        )}
+                                        <div className="flex items-center gap-3">
+                                           <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                                             result.result === 'PASS' 
+                                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                             : result.result === 'FAIL' 
+                                             ? 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' 
+                                             : 'bg-slate-800 text-slate-400 border-slate-700'
+                                           }`}>
+                                               {result.result}
+                                           </span>
+                                        </div>
                                     </div>
-                                );
-                            })}
+                                    {result.notes && (
+                                        <div className="mt-4 p-3 bg-slate-900/50 rounded-xl border border-slate-800/50 text-xs text-slate-400 italic leading-relaxed">
+                                            <span className="text-slate-500 font-bold uppercase text-[9px] block mb-1 not-italic tracking-widest">Technician Notes:</span>
+                                            "{result.notes}"
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="mt-8 pt-6 border-t border-slate-800 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                           <div>Audit Trail ID: {detailData.inspection.id}</div>
+                           <button className="text-blue-500 hover:text-blue-400 transition-colors flex items-center gap-2">
+                              Generate Official PDF
+                           </button>
                         </div>
                     </div>
                 </div>

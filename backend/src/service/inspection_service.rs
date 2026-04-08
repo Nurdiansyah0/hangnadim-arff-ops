@@ -13,8 +13,8 @@ impl InspectionService {
         Self { repo }
     }
 
-    pub async fn get_all_inspections(&self) -> Result<Vec<Inspection>, String> {
-        self.repo.get_all_inspections().await.map_err(|e| e.to_string())
+    pub async fn get_all_inspections(&self, personnel_id: Option<Uuid>) -> Result<Vec<Inspection>, String> {
+        self.repo.get_all_inspections(personnel_id).await.map_err(|e| e.to_string())
     }
 
     pub async fn get_inspection_by_id(&self, id: Uuid) -> Result<Inspection, String> {
@@ -103,7 +103,7 @@ mod tests {
 
     #[async_trait]
     impl InspectionRepoTrait for MockInspectionRepo {
-        async fn get_all_inspections(&self) -> Result<Vec<Inspection>, sqlx::Error> {
+        async fn get_all_inspections(&self, _personnel_id: Option<Uuid>) -> Result<Vec<Inspection>, sqlx::Error> {
             if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
             Ok(vec![])
         }
@@ -236,6 +236,14 @@ mod tests {
         let repo = Arc::new(MockInspectionRepo { should_fail: false });
         let service = InspectionService::new(repo);
         let res = service.get_all_templates().await;
+        assert!(res.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_all_inspections_success() {
+        let repo = Arc::new(MockInspectionRepo { should_fail: false });
+        let service = InspectionService::new(repo);
+        let res = service.get_all_inspections(None).await;
         assert!(res.is_ok());
     }
 }

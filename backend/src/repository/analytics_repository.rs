@@ -73,11 +73,24 @@ impl AnalyticsRepoTrait for AnalyticsRepository {
         let mut reports = Vec::new();
 
         for def in defs {
+            let mut trend = None;
             let value = match def.code.as_str() {
                 "RESPONSE_TIME" => {
-                    let res: (Option<f64>,) = sqlx::query_as("SELECT AVG(EXTRACT(EPOCH FROM (arrival_time - dispatch_time))) FROM incidents WHERE arrival_time IS NOT NULL")
+                    // Current (Last 30 days)
+                    let curr: (Option<f64>,) = sqlx::query_as("SELECT AVG(EXTRACT(EPOCH FROM (arrival_time - dispatch_time))) FROM incidents WHERE arrival_time IS NOT NULL AND dispatch_time > NOW() - INTERVAL '30 days'")
                         .fetch_one(&self.db).await?;
-                    res.0.unwrap_or(0.0)
+                    let curr_val = curr.0.unwrap_or(0.0);
+                    
+                    // Previous (30-60 days ago)
+                    let prev: (Option<f64>,) = sqlx::query_as("SELECT AVG(EXTRACT(EPOCH FROM (arrival_time - dispatch_time))) FROM incidents WHERE arrival_time IS NOT NULL AND dispatch_time BETWEEN (NOW() - INTERVAL '60 days') AND (NOW() - INTERVAL '30 days')")
+                        .fetch_one(&self.db).await?;
+                    
+                    if let Some(p_val) = prev.0 {
+                        if p_val > 0.0 {
+                            trend = Some(((p_val - curr_val) / p_val) * 100.0); // Positive means improvement (faster)
+                        }
+                    }
+                    curr_val
                 },
                 "VEHICLE_READINESS" => {
                     let res: (i64, i64) = sqlx::query_as("SELECT COUNT(*) FILTER (WHERE status = 'READY'), COUNT(*) FROM vehicles")
@@ -88,8 +101,8 @@ impl AnalyticsRepoTrait for AnalyticsRepository {
                     let res: (Option<f64>, Option<f64>) = sqlx::query_as("SELECT SUM(inventory_level)::FLOAT8, SUM(min_requirement)::FLOAT8 FROM extinguishing_agents WHERE name ILIKE '%foam%'")
                         .fetch_one(&self.db).await?;
                     let inv = res.0.unwrap_or(0.0);
-                    let req = res.1.unwrap_or(1.0); 
-                    (inv / req) * 100.0
+                    let req = res.1.unwrap_or(0.0); 
+                    if req > 0.0 { (inv / req) * 100.0 } else { 100.0 } // 100% if no requirement set
                 },
                 "CERT_COMPLIANCE" => {
                     let res: (i64, i64) = sqlx::query_as("SELECT COUNT(*) FILTER (WHERE status = 'ACTIVE'), COUNT(*) FROM personnel_certifications")
@@ -97,11 +110,21 @@ impl AnalyticsRepoTrait for AnalyticsRepository {
                     if res.1 > 0 { (res.0 as f64 / res.1 as f64) * 100.0 } else { 0.0 }
                 },
                 "INSPECTION_COMPLETION" => {
+                    // Current (Last 24h as per spec, but for trend let's use 7 days)
                     let res: (i64, i64) = sqlx::query_as(r#"
                         SELECT 
                             (SELECT COUNT(DISTINCT COALESCE(vehicle_id::text, fire_extinguisher_id::text)) FROM inspections WHERE created_at > NOW() - INTERVAL '24 hours'),
                             ((SELECT COUNT(*) FROM vehicles) + (SELECT COUNT(*) FROM fire_extinguishers))
                     "#).fetch_one(&self.db).await?;
+                    
+                    // Simple trend based on inspections last 7 days vs previous 7 days
+                    let weekly_curr: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM inspections WHERE created_at > NOW() - INTERVAL '7 days'").fetch_one(&self.db).await?;
+                    let weekly_prev: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM inspections WHERE created_at BETWEEN (NOW() - INTERVAL '14 days') AND (NOW() - INTERVAL '7 days')").fetch_one(&self.db).await?;
+                    
+                    if weekly_prev.0 > 0 {
+                        trend = Some(((weekly_curr.0 as f64 - weekly_prev.0 as f64) / weekly_prev.0 as f64) * 100.0);
+                    }
+                    
                     if res.1 > 0 { (res.0 as f64 / res.1 as f64) * 100.0 } else { 0.0 }
                 },
                 "APAR_EXPIRY_COMPLIANCE" => {
@@ -128,6 +151,7 @@ impl AnalyticsRepoTrait for AnalyticsRepository {
                 value,
                 unit: def.unit,
                 status,
+                trend,
                 threshold_green: def.threshold_green,
                 threshold_yellow: def.threshold_yellow,
                 threshold_red: def.threshold_red,

@@ -52,6 +52,7 @@ async fn login(
             token_type: "Bearer".to_string(),
         })),
         Err(e) => {
+            println!("⚠️ SECURITY ALERT: Failed login attempt for ident '{}' - Reason: {}", payload.ident, e);
             let code = if e.contains("salah") { StatusCode::UNAUTHORIZED } else { StatusCode::INTERNAL_SERVER_ERROR };
             Err((code, Json(AuthError { message: e })))
         }

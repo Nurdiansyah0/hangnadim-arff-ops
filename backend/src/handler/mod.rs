@@ -20,3 +20,5 @@ pub mod maintenance_handler;
 pub mod finding_handler;
 pub mod media_handler;
 pub mod email_handler;
+pub mod audit_handler;
+pub mod fitness_handler;

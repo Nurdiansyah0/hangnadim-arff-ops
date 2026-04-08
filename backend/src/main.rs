@@ -32,6 +32,7 @@ use handler::email_handler::email_routes;
 use handler::inventory_handler::inventory_routes;
 use handler::maintenance_handler::maintenance_routes;
 use handler::finding_handler::finding_routes;
+use handler::fitness_handler::fitness_routes;
 
 use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
@@ -51,6 +52,8 @@ use repository::leave_repository::LeaveRepository;
 use repository::inventory_repository::InventoryRepository;
 use repository::maintenance_repository::PostgresMaintenanceRepository;
 use repository::finding_repository::PostgresFindingRepository;
+use repository::fitness_repository::PostgresFitnessRepository;
+use repository::audit_repository::AuditRepository;
 
 use service::auth_service::AuthService;
 use service::user_service::UserService;
@@ -71,6 +74,7 @@ use service::leave_service::LeaveService;
 use service::inventory_service::InventoryService;
 use service::maintenance_service::MaintenanceService;
 use service::finding_service::FindingService;
+use service::fitness_service::FitnessService;
 use service::email_service::LettreEmailService;
 use state::AppState;
 
@@ -112,6 +116,8 @@ async fn main() {
     let fire_extinguisher_repo = std::sync::Arc::new(FireExtinguisherRepository::new(pool.clone()));
     let maintenance_repo = std::sync::Arc::new(PostgresMaintenanceRepository::new(pool.clone()));
     let finding_repo = std::sync::Arc::new(PostgresFindingRepository::new(pool.clone()));
+    let fitness_repo = std::sync::Arc::new(PostgresFitnessRepository::new(pool.clone()));
+    let audit_repo = std::sync::Arc::new(AuditRepository::new(pool.clone()));
 
     let app_state = AppState {
         auth_service: AuthService::new(user_repo_shared.clone()),
@@ -134,6 +140,8 @@ async fn main() {
         email_service: std::sync::Arc::new(LettreEmailService),
         maintenance_service: MaintenanceService::new(maintenance_repo, vehicle_repo.clone()),
         finding_service: FindingService::new(finding_repo),
+        fitness_service: FitnessService::new(fitness_repo),
+        audit_repo: audit_repo.clone(),
     };
 
     let cors = CorsLayer::new()
@@ -162,7 +170,9 @@ async fn main() {
         .nest("/email", email_routes(app_state.clone()))
         .nest("/inventory", inventory_routes(app_state.clone()))
         .nest("/maintenance", maintenance_routes(app_state.clone()))
-        .nest("/findings", finding_routes(app_state.clone()));
+        .nest("/findings", finding_routes(app_state.clone()))
+        .nest("/fitness", fitness_routes(app_state.clone()))
+        .nest("/admin/audit-logs", handler::audit_handler::audit_routes(app_state.clone()));
 
     let app = Router::new()
         .nest("/api", api_routes)

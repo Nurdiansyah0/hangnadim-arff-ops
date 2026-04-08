@@ -103,6 +103,7 @@ pub struct OperationalContextResponse {
     pub shift_end: Option<chrono::NaiveTime>,
     pub duty_position: Option<String>,
     pub assigned_vehicle: Option<String>,
+    pub assigned_vehicle_id: Option<Uuid>,
     pub duty_status: String,
 }
 
@@ -227,6 +228,12 @@ pub struct InspectionResult {
     pub notes: Option<String>,
     pub photo_url: Option<String>,
     pub created_at: DateTime<Utc>,
+
+    // Joined fields for metadata sync
+    #[sqlx(default)]
+    pub item_name: Option<String>,
+    #[sqlx(default)]
+    pub category: Option<String>,
 }
 
 // =========================================================
@@ -247,18 +254,27 @@ pub struct Inspection {
     pub approved_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+
+    // Joined metadata for total sync
+    #[sqlx(default)]
+    pub inspector_name: Option<String>,
+    #[sqlx(default)]
+    pub vehicle_code: Option<String>,
+    #[sqlx(default)]
+    pub fire_extinguisher_serial: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct MaintenanceRecord {
     pub id: Uuid,
     pub vehicle_id: Uuid,
-    pub maintenance_type: String, // SCHEDULED, UNSCHEDULED, REPAIR
+    pub maintenance_type: Option<String>, // SCHEDULED, UNSCHEDULED, REPAIR
     pub description: String,
     pub performed_by: Uuid,
-    pub performed_at: chrono::NaiveDate,
+    pub performed_at: Option<chrono::NaiveDate>,
     pub cost: Option<BigDecimal>,
     pub next_due: Option<chrono::NaiveDate>,
+    pub status: String, // REQUESTED, IN_PROGRESS, COMPLETED, REJECTED
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     
@@ -308,6 +324,7 @@ pub struct KpiReport {
     pub value: f64,
     pub unit: String,
     pub status: String, // GREEN, YELLOW, RED
+    pub trend: Option<f64>, // Percentage change vs prev period
     pub threshold_green: f64,
     pub threshold_yellow: f64,
     pub threshold_red: f64,
@@ -356,10 +373,45 @@ pub struct FlightRoute {
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct AuditLog {
     pub id: Uuid,
-    pub user_id: Option<Uuid>,
+    pub actor_id: Option<Uuid>,
     pub table_name: String,
     pub action: String,
     pub original_data: Option<serde_json::Value>,
     pub new_data: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
+    
+    // Joined field
+    #[sqlx(default)]
+    pub actor_name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AuditLogResponse {
+    pub logs: Vec<AuditLog>,
+    pub total: i64,
+}
+
+// =========================================================
+// 6. HEALTH & FITNESS (Readiness)
+// =========================================================
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct PhysicalFitnessTest {
+    pub id: Uuid,
+    pub personnel_id: Uuid,
+    pub test_date: chrono::NaiveDate,
+    pub run_12min_meters: i32,
+    pub shuttle_run_seconds: bigdecimal::BigDecimal,
+    pub pull_ups: i32,
+    pub sit_ups: i32,
+    pub push_ups: i32,
+    pub score: Option<bigdecimal::BigDecimal>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FitnessTrendResponse {
+    pub current: PhysicalFitnessTest,
+    pub previous: Option<PhysicalFitnessTest>,
 }
