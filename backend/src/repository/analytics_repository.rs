@@ -2,6 +2,8 @@ use async_trait::async_trait;
 use sqlx::{Pool, Postgres, Error};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::models::{KpiDefinition, KpiReport};
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PerformanceMetrics {
     pub avg_response_time_seconds: Option<f64>,
@@ -12,6 +14,7 @@ pub struct PerformanceMetrics {
 #[async_trait]
 pub trait AnalyticsRepoTrait: Send + Sync {
     async fn get_performance_metrics(&self) -> Result<PerformanceMetrics, Error>;
+    async fn get_kpi_report(&self) -> Result<Vec<KpiReport>, Error>;
 }
 
 #[derive(Clone)]
@@ -60,5 +63,78 @@ impl AnalyticsRepoTrait for AnalyticsRepository {
             readiness_percentage,
             active_incidents: active.0,
         })
+    }
+
+    async fn get_kpi_report(&self) -> Result<Vec<KpiReport>, Error> {
+        let defs: Vec<KpiDefinition> = sqlx::query_as::<_, KpiDefinition>("SELECT id, code, name, unit, threshold_green::FLOAT8, threshold_yellow::FLOAT8, threshold_red::FLOAT8, regulation_ref FROM kpi_definitions ORDER BY id")
+            .fetch_all(&self.db)
+            .await?;
+
+        let mut reports = Vec::new();
+
+        for def in defs {
+            let value = match def.code.as_str() {
+                "RESPONSE_TIME" => {
+                    let res: (Option<f64>,) = sqlx::query_as("SELECT AVG(EXTRACT(EPOCH FROM (arrival_time - dispatch_time))) FROM incidents WHERE arrival_time IS NOT NULL")
+                        .fetch_one(&self.db).await?;
+                    res.0.unwrap_or(0.0)
+                },
+                "VEHICLE_READINESS" => {
+                    let res: (i64, i64) = sqlx::query_as("SELECT COUNT(*) FILTER (WHERE status = 'READY'), COUNT(*) FROM vehicles")
+                        .fetch_one(&self.db).await?;
+                    if res.1 > 0 { (res.0 as f64 / res.1 as f64) * 100.0 } else { 0.0 }
+                },
+                "FOAM_STOCK_RATIO" => {
+                    let res: (Option<f64>, Option<f64>) = sqlx::query_as("SELECT SUM(inventory_level)::FLOAT8, SUM(min_requirement)::FLOAT8 FROM extinguishing_agents WHERE name ILIKE '%foam%'")
+                        .fetch_one(&self.db).await?;
+                    let inv = res.0.unwrap_or(0.0);
+                    let req = res.1.unwrap_or(1.0); 
+                    (inv / req) * 100.0
+                },
+                "CERT_COMPLIANCE" => {
+                    let res: (i64, i64) = sqlx::query_as("SELECT COUNT(*) FILTER (WHERE status = 'ACTIVE'), COUNT(*) FROM personnel_certifications")
+                        .fetch_one(&self.db).await?;
+                    if res.1 > 0 { (res.0 as f64 / res.1 as f64) * 100.0 } else { 0.0 }
+                },
+                "INSPECTION_COMPLETION" => {
+                    let res: (i64, i64) = sqlx::query_as(r#"
+                        SELECT 
+                            (SELECT COUNT(DISTINCT COALESCE(vehicle_id::text, fire_extinguisher_id::text)) FROM inspections WHERE created_at > NOW() - INTERVAL '24 hours'),
+                            ((SELECT COUNT(*) FROM vehicles) + (SELECT COUNT(*) FROM fire_extinguishers))
+                    "#).fetch_one(&self.db).await?;
+                    if res.1 > 0 { (res.0 as f64 / res.1 as f64) * 100.0 } else { 0.0 }
+                },
+                "APAR_EXPIRY_COMPLIANCE" => {
+                    let res: (i64, i64) = sqlx::query_as("SELECT COUNT(*) FILTER (WHERE expiry_date >= CURRENT_DATE), COUNT(*) FROM fire_extinguishers")
+                        .fetch_one(&self.db).await?;
+                    if res.1 > 0 { (res.0 as f64 / res.1 as f64) * 100.0 } else { 0.0 }
+                },
+                _ => 0.0
+            };
+
+            let status = if def.code == "RESPONSE_TIME" {
+                if value <= def.threshold_green { "GREEN" }
+                else if value <= def.threshold_yellow { "YELLOW" }
+                else { "RED" }
+            } else {
+                if value >= def.threshold_green { "GREEN" }
+                else if value >= def.threshold_yellow { "YELLOW" }
+                else { "RED" }
+            }.to_string();
+
+            reports.push(KpiReport {
+                code: def.code,
+                name: def.name,
+                value,
+                unit: def.unit,
+                status,
+                threshold_green: def.threshold_green,
+                threshold_yellow: def.threshold_yellow,
+                threshold_red: def.threshold_red,
+                regulation_ref: def.regulation_ref,
+            });
+        }
+
+        Ok(reports)
     }
 }

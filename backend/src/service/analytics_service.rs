@@ -1,4 +1,5 @@
 use crate::repository::analytics_repository::{AnalyticsRepoTrait, PerformanceMetrics};
+use crate::domain::models::KpiReport;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -13,6 +14,10 @@ impl AnalyticsService {
 
     pub async fn get_performance(&self) -> Result<PerformanceMetrics, String> {
         self.repo.get_performance_metrics().await.map_err(|e| e.to_string())
+    }
+
+    pub async fn get_kpi_report(&self) -> Result<Vec<KpiReport>, String> {
+        self.repo.get_kpi_report().await.map_err(|e| e.to_string())
     }
 }
 
@@ -35,6 +40,10 @@ mod tests {
                 readiness_percentage: 95.0,
                 active_incidents: 2,
             })
+        }
+
+        async fn get_kpi_report(&self) -> Result<Vec<KpiReport>, sqlx::Error> {
+            Ok(vec![])
         }
     }
 

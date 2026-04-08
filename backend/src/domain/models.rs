@@ -290,6 +290,31 @@ pub struct Finding {
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct KpiDefinition {
+    pub id: i32,
+    pub code: String,
+    pub name: String,
+    pub unit: String,
+    pub threshold_green: f64,
+    pub threshold_yellow: f64,
+    pub threshold_red: f64,
+    pub regulation_ref: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct KpiReport {
+    pub code: String,
+    pub name: String,
+    pub value: f64,
+    pub unit: String,
+    pub status: String, // GREEN, YELLOW, RED
+    pub threshold_green: f64,
+    pub threshold_yellow: f64,
+    pub threshold_red: f64,
+    pub regulation_ref: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct WatchroomLog {
     pub id: Uuid,
     pub personnel_id: Option<Uuid>,
