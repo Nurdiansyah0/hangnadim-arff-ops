@@ -40,9 +40,18 @@ pub struct ExpiringQuery {
     pub days: Option<i64>,
 }
 
+#[derive(Deserialize)]
+pub struct NearbyQuery {
+    pub lat: f64,
+    pub lng: f64,
+    pub radius: Option<f64>,
+}
+
 pub fn fire_extinguisher_routes(state: AppState) -> Router {
     Router::new()
         .route("/", get(list_extinguishers).post(create_extinguisher))
+        .route("/nearby", get(nearby_extinguishers))
+        .route("/geojson", get(geojson_extinguishers))
         .route("/expiring", get(list_expiring_soon))
         .route("/{id}", get(get_extinguisher).put(update_extinguisher).delete(delete_extinguisher))
         .with_state(state)
@@ -163,4 +172,30 @@ async fn delete_extinguisher(
         Ok(_) => Ok(StatusCode::NO_CONTENT),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
+}
+
+async fn nearby_extinguishers(
+    State(state): State<AppState>,
+    _claims: RequireAuth,
+    Query(query): Query<NearbyQuery>,
+) -> Result<Json<Vec<FireExtinguisher>>, (StatusCode, String)> {
+    let radius = query.radius.unwrap_or(500.0); // Default 500m
+    state
+        .fire_extinguisher_service
+        .get_nearby_extinguishers(query.lat, query.lng, radius)
+        .await
+        .map(Json)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))
+}
+
+async fn geojson_extinguishers(
+    State(state): State<AppState>,
+    _claims: RequireAuth,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    state
+        .fire_extinguisher_service
+        .get_geojson_extinguishers()
+        .await
+        .map(Json)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))
 }

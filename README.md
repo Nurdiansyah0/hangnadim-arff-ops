@@ -15,7 +15,7 @@ Proyek ini terdiri dari dua bagian utama:
 -   **Manajemen Shift & Personel:** Penjadwalan, alokasi role/posisi (Manager, Team Leader, Firefighter, Watchroom, dll.), dan integrasi *Permission Leave*.
 -   **Watchroom:** Monitoring insiden *real-time* dan eskalasi.
 -   **Fire Protection & Prevention (FPP):** Modul untuk inspeksi keselamatan, penilaian risiko, serta checklist harian/mingguan.
--   **Audit & Pelatihan:** Modul arsip dan kepatuhan berdasarkan regulasi PR 30 Tahun 2022, serta perekaman lisensi/pelatihan personel.
+-   **Audit & Pelatihan:** Modul arsip dan kcepatuhan berdasarkan regulasi PR 30 Tahun 2022, serta perekaman lisensi/pelatihan personel.
 
 ## Struktur Direktori
 

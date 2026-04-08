@@ -16,3 +16,4 @@ pub mod compliance_service;
 pub mod incident_service;
 pub mod superuser_service;
 pub mod inventory_service;
+pub mod maintenance_service;

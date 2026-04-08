@@ -13,9 +13,12 @@ pub struct CreateInspectionResultPayload {
 
 #[derive(Deserialize)]
 pub struct CreateInspectionPayload {
-    pub vehicle_id: Uuid,
+    pub vehicle_id: Option<Uuid>,
+    pub fire_extinguisher_id: Option<Uuid>,
     pub tanggal: chrono::NaiveDate,
     pub status: String,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
     pub template_id: Option<i32>,
     pub results: Vec<CreateInspectionResultPayload>,
 }
@@ -177,9 +180,12 @@ async fn create_inspection(
         .inspection_service
         .create_inspection_with_results(
             payload.vehicle_id,
+            payload.fire_extinguisher_id,
             claims.personnel_id,
             payload.tanggal,
             &payload.status,
+            payload.latitude,
+            payload.longitude,
             results,
         )
         .await

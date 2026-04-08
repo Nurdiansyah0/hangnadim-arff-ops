@@ -27,10 +27,13 @@ impl InspectionService {
 
     pub async fn create_inspection_with_results(
         &self,
-        vehicle_id: Uuid,
+        vehicle_id: Option<Uuid>,
+        fire_extinguisher_id: Option<Uuid>,
         personnel_id: Option<Uuid>,
         tanggal: chrono::NaiveDate,
         status: &str,
+        latitude: Option<f64>,
+        longitude: Option<f64>,
         results: Vec<InspectionResultCreate>,
     ) -> Result<Inspection, String> {
         // Validation: Results cannot be empty
@@ -45,7 +48,7 @@ impl InspectionService {
         }
 
         self.repo
-            .create_inspection_with_results(vehicle_id, personnel_id, tanggal, status, results)
+            .create_inspection_with_results(vehicle_id, fire_extinguisher_id, personnel_id, tanggal, status, latitude, longitude, results)
             .await
             .map_err(|e| e.to_string())
     }
@@ -127,19 +130,25 @@ mod tests {
 
         async fn create_inspection_with_results(
             &self,
-            _vehicle_id: Uuid,
-            _personnel_id: Option<Uuid>,
+            v: Option<Uuid>,
+            f: Option<Uuid>,
+            pid: Option<Uuid>,
             t: NaiveDate,
             s: &str,
+            lat: Option<f64>,
+            lng: Option<f64>,
             _results: Vec<InspectionResultCreate>,
         ) -> Result<Inspection, sqlx::Error> {
             if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
             Ok(Inspection {
                 id: Uuid::new_v4(),
-                vehicle_id: Uuid::new_v4(),
-                personnel_id: None,
+                vehicle_id: v,
+                fire_extinguisher_id: f,
+                personnel_id: pid,
                 tanggal: t,
                 status: s.to_string(),
+                latitude: lat,
+                longitude: lng,
                 approved_by: None,
                 approved_at: None,
                 updated_at: Some(Utc::now()),
@@ -173,10 +182,13 @@ mod tests {
         let repo = Arc::new(MockInspectionRepo { should_fail: false });
         let service = InspectionService::new(repo);
         let res = service.create_inspection_with_results(
-            Uuid::new_v4(),
+            Some(Uuid::new_v4()),
+            None,
             None,
             NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(),
             "DRAFT",
+            Some(-6.2),
+            Some(106.8),
             vec![InspectionResultCreate { template_item_id: 1, result: "PASS".to_string(), notes: None, photo_url: None }],
         ).await;
         assert!(res.is_ok(), "Harus berhasil submit inspection dengan hasil checklist");
@@ -187,10 +199,13 @@ mod tests {
         let repo = Arc::new(MockInspectionRepo { should_fail: false });
         let service = InspectionService::new(repo);
         let res = service.create_inspection_with_results(
-            Uuid::new_v4(),
+            Some(Uuid::new_v4()),
+            None,
             None,
             NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(),
             "DRAFT",
+            None,
+            None,
             vec![],
         ).await;
         assert!(res.is_err());
@@ -203,10 +218,13 @@ mod tests {
         let service = InspectionService::new(repo);
         let future_date = NaiveDate::from_ymd_opt(2099, 1, 1).unwrap();
         let res = service.create_inspection_with_results(
-            Uuid::new_v4(),
+            Some(Uuid::new_v4()),
+            None,
             None,
             future_date,
             "DRAFT",
+            None,
+            None,
             vec![InspectionResultCreate { template_item_id: 1, result: "PASS".to_string(), notes: None, photo_url: None }],
         ).await;
         assert!(res.is_err());

@@ -236,14 +236,37 @@ pub struct InspectionResult {
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct Inspection {
     pub id: Uuid,
-    pub vehicle_id: Uuid,
+    pub vehicle_id: Option<Uuid>,
+    pub fire_extinguisher_id: Option<Uuid>,
     pub personnel_id: Option<Uuid>,
     pub tanggal: chrono::NaiveDate,
     pub status: String, 
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
     pub approved_by: Option<Uuid>,
     pub approved_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct MaintenanceRecord {
+    pub id: Uuid,
+    pub vehicle_id: Uuid,
+    pub maintenance_type: String, // SCHEDULED, UNSCHEDULED, REPAIR
+    pub description: String,
+    pub performed_by: Uuid,
+    pub performed_at: chrono::NaiveDate,
+    pub cost: Option<BigDecimal>,
+    pub next_due: Option<chrono::NaiveDate>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    
+    // Optional joined fields
+    #[sqlx(default)]
+    pub vehicle_code: Option<String>,
+    #[sqlx(default)]
+    pub personnel_name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]

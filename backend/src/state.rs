@@ -16,6 +16,7 @@ use crate::service::superuser_service::SuperuserService;
 use crate::service::leave_service::LeaveService;
 use crate::service::inventory_service::InventoryService;
 use crate::service::email_service::EmailService;
+use crate::service::maintenance_service::MaintenanceService;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -38,4 +39,5 @@ pub struct AppState {
     pub leave_service: LeaveService,
     pub inventory_service: InventoryService,
     pub email_service: Arc<dyn EmailService>,
+    pub maintenance_service: MaintenanceService,
 }

@@ -17,10 +17,13 @@ pub trait InspectionRepoTrait: Send + Sync {
     async fn get_inspection_results(&self, inspection_id: Uuid) -> Result<Vec<InspectionResult>, Error>;
     async fn create_inspection_with_results(
         &self,
-        vehicle_id: Uuid,
+        vehicle_id: Option<Uuid>,
+        fire_extinguisher_id: Option<Uuid>,
         personnel_id: Option<Uuid>,
         tanggal: chrono::NaiveDate,
         status: &str,
+        latitude: Option<f64>,
+        longitude: Option<f64>,
         results: Vec<InspectionResultCreate>,
     ) -> Result<Inspection, Error>;
     async fn get_all_templates(&self) -> Result<Vec<InspectionTemplate>, Error>;
@@ -55,7 +58,7 @@ impl InspectionRepository {
 impl InspectionRepoTrait for InspectionRepository {
     async fn get_all_inspections(&self) -> Result<Vec<Inspection>, Error> {
         sqlx::query_as::<_, Inspection>(
-            "SELECT id, vehicle_id, personnel_id, tanggal, status::TEXT, approved_by, approved_at, updated_at, created_at FROM inspections"
+            "SELECT id, vehicle_id, fire_extinguisher_id, personnel_id, tanggal, status::TEXT, latitude, longitude, approved_by, approved_at, updated_at, created_at FROM inspections"
         )
         .fetch_all(&self.db)
         .await
@@ -63,7 +66,7 @@ impl InspectionRepoTrait for InspectionRepository {
 
     async fn get_inspection_by_id(&self, id: Uuid) -> Result<Inspection, Error> {
         sqlx::query_as::<_, Inspection>(
-            "SELECT id, vehicle_id, personnel_id, tanggal, status::TEXT, approved_by, approved_at, updated_at, created_at FROM inspections WHERE id = $1"
+            "SELECT id, vehicle_id, fire_extinguisher_id, personnel_id, tanggal, status::TEXT, latitude, longitude, approved_by, approved_at, updated_at, created_at FROM inspections WHERE id = $1"
         )
         .bind(id)
         .fetch_one(&self.db)
@@ -81,24 +84,30 @@ impl InspectionRepoTrait for InspectionRepository {
 
     async fn create_inspection_with_results(
         &self,
-        vehicle_id: Uuid,
+        vehicle_id: Option<Uuid>,
+        fire_extinguisher_id: Option<Uuid>,
         personnel_id: Option<Uuid>,
         tanggal: chrono::NaiveDate,
         status: &str,
+        latitude: Option<f64>,
+        longitude: Option<f64>,
         results: Vec<InspectionResultCreate>,
     ) -> Result<Inspection, Error> {
         // Insert inspection
         let inspection: Inspection = sqlx::query_as::<_, Inspection>(
             r#"
-            INSERT INTO inspections (id, vehicle_id, personnel_id, tanggal, status)
-            VALUES (uuid_generate_v4(), $1, $2, $3, $4::approval_status_enum)
-            RETURNING id, vehicle_id, personnel_id, tanggal, status::TEXT, approved_by, approved_at, updated_at, created_at
+            INSERT INTO inspections (id, vehicle_id, fire_extinguisher_id, personnel_id, tanggal, status, latitude, longitude)
+            VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5::approval_status_enum, $6, $7)
+            RETURNING id, vehicle_id, fire_extinguisher_id, personnel_id, tanggal, status::TEXT, latitude, longitude, approved_by, approved_at, updated_at, created_at
             "#
         )
         .bind(vehicle_id)
+        .bind(fire_extinguisher_id)
         .bind(personnel_id)
         .bind(tanggal)
         .bind(status)
+        .bind(latitude)
+        .bind(longitude)
         .fetch_one(&self.db)
         .await?;
 

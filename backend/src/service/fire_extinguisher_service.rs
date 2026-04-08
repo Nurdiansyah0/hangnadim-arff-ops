@@ -123,6 +123,20 @@ impl FireExtinguisherService {
             .await
             .map_err(|e| e.to_string())
     }
+
+    pub async fn get_nearby_extinguishers(&self, lat: f64, lng: f64, radius_m: f64) -> Result<Vec<FireExtinguisher>, String> {
+        self.repo
+            .get_nearby_extinguishers(lat, lng, radius_m)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    pub async fn get_geojson_extinguishers(&self) -> Result<serde_json::Value, String> {
+        self.repo
+            .get_geojson_extinguishers()
+            .await
+            .map_err(|e| e.to_string())
+    }
 }
 
 #[cfg(test)]
@@ -229,6 +243,16 @@ mod tests {
         async fn get_expiring_soon(&self, _days: i64) -> Result<Vec<FireExtinguisher>, sqlx::Error> {
             if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
             Ok(vec![])
+        }
+
+        async fn get_nearby_extinguishers(&self, _lat: f64, _lng: f64, _radius_m: f64) -> Result<Vec<FireExtinguisher>, sqlx::Error> {
+            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            Ok(vec![])
+        }
+
+        async fn get_geojson_extinguishers(&self) -> Result<serde_json::Value, sqlx::Error> {
+            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            Ok(serde_json::json!({}))
         }
     }
 

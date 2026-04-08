@@ -30,6 +30,7 @@ use handler::leave_handler::leave_routes;
 use handler::media_handler::media_routes;
 use handler::email_handler::email_routes;
 use handler::inventory_handler::inventory_routes;
+use handler::maintenance_handler::maintenance_routes;
 
 use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
@@ -47,6 +48,7 @@ use repository::incident_repository::IncidentRepository;
 use repository::superuser_repository::SuperuserRepository;
 use repository::leave_repository::LeaveRepository;
 use repository::inventory_repository::InventoryRepository;
+use repository::maintenance_repository::PostgresMaintenanceRepository;
 
 use service::auth_service::AuthService;
 use service::user_service::UserService;
@@ -65,6 +67,7 @@ use service::incident_service::IncidentService;
 use service::superuser_service::SuperuserService;
 use service::leave_service::LeaveService;
 use service::inventory_service::InventoryService;
+use service::maintenance_service::MaintenanceService;
 use service::email_service::LettreEmailService;
 use state::AppState;
 
@@ -104,13 +107,14 @@ async fn main() {
     let leave_repo = std::sync::Arc::new(LeaveRepository::new(pool.clone()));
     let inventory_repo = std::sync::Arc::new(InventoryRepository::new(pool.clone()));
     let fire_extinguisher_repo = std::sync::Arc::new(FireExtinguisherRepository::new(pool.clone()));
+    let maintenance_repo = std::sync::Arc::new(PostgresMaintenanceRepository::new(pool.clone()));
 
     let app_state = AppState {
         auth_service: AuthService::new(user_repo_shared.clone()),
         user_service: UserService::new(user_repo_shared.clone()),
         personnel_service: PersonnelService::new(personnel_repo),
         shift_service: ShiftService::new(shift_repo),
-        vehicle_service: VehicleService::new(vehicle_repo),
+        vehicle_service: VehicleService::new(vehicle_repo.clone()),
         fire_extinguisher_service: FireExtinguisherService::new(fire_extinguisher_repo),
         inspection_service: InspectionService::new(inspection_repo),
         watchroom_service: WatchroomService::new(watchroom_repo),
@@ -124,6 +128,7 @@ async fn main() {
         leave_service: LeaveService::new(leave_repo),
         inventory_service: InventoryService::new(inventory_repo),
         email_service: std::sync::Arc::new(LettreEmailService),
+        maintenance_service: MaintenanceService::new(maintenance_repo, vehicle_repo.clone()),
     };
 
     let cors = CorsLayer::new()
@@ -150,7 +155,8 @@ async fn main() {
         .nest("/leaves", leave_routes(app_state.clone()))
         .nest("/media", media_routes(app_state.clone()))
         .nest("/email", email_routes(app_state.clone()))
-        .nest("/inventory", inventory_routes(app_state.clone()));
+        .nest("/inventory", inventory_routes(app_state.clone()))
+        .nest("/maintenance", maintenance_routes(app_state.clone()));
 
     let app = Router::new()
         .nest("/api", api_routes)
