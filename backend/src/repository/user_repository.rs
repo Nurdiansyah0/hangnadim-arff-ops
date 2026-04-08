@@ -118,9 +118,10 @@ impl UserRepository {
                 p.full_name, p.nip_nik,
                 u.status::text as status, 
                 u.last_login_at, u.created_at, u.updated_at,
-                NULL::int as role_id
+                ur.role_id as role_id
             FROM users u
             JOIN personnels p ON u.personnel_id = p.id
+            LEFT JOIN personnel_roles ur ON p.id = ur.personnel_id
             WHERE u.id = $1
             "#
         )
@@ -210,5 +211,27 @@ impl UserRepository {
             assigned_vehicle: duty_info.as_ref().map(|d| d.get("vehicle_code")),
             duty_status: duty_info.as_ref().and_then(|d| d.get::<Option<String>, _>("status")).unwrap_or_else(|| "OFF_DUTY".to_string()),
         })
+    }
+
+    pub async fn get_all_users(&self) -> Result<Vec<User>, Error> {
+        let users = sqlx::query_as::<_, User>(
+            r#"
+            SELECT 
+                u.id, u.personnel_id, u.username, u.email, u.password_hash, 
+                p.full_name, p.nip_nik,
+                u.status::text as status,
+                u.last_login_at,
+                u.created_at, u.updated_at,
+                ur.role_id as role_id
+            FROM users u
+            JOIN personnels p ON u.personnel_id = p.id
+            LEFT JOIN personnel_roles ur ON p.id = ur.personnel_id
+            ORDER BY u.created_at DESC
+            "#
+        )
+        .fetch_all(&self.db)
+        .await?;
+
+        Ok(users)
     }
 }

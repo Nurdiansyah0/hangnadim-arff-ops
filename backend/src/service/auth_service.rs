@@ -24,7 +24,9 @@ impl UserRepoTrait for UserRepository {
     async fn find_by_username_or_email(&self, ident: &str) -> Result<Option<User>, sqlx::Error> {
         self.find_by_username_or_email(ident).await
     }
-    async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error> { Ok(vec![]) } // Tambahkan impl di repo jika perlu
+    async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error> {
+        self.get_all_users().await
+    }
     async fn create_user(&self, pid: Uuid, u: &str, e: &str, p: &str) -> Result<User, sqlx::Error> {
         self.create_user(pid, u, e, p).await
     }
