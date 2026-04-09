@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Flame, 
   Plus, 
@@ -49,6 +49,63 @@ interface InspectionDetail {
     results: InspectionResult[];
 }
 
+/**
+ * GeoKalmanFilter — 1D Kalman Filter applied independently to lat & lng.
+ * R (measurement noise) is derived from the GPS-reported accuracy².
+ * Q (process noise) models expected position drift between readings.
+ * The filter converges rapidly: after ~5 fixes the estimate is significantly
+ * smoother than raw GPS, and after ~15 fixes approaches theoretical maximum
+ * precision for the device hardware.
+ */
+class GeoKalmanFilter {
+  private _lat = 0;
+  private _lng = 0;
+  private _P_lat = 1;   // error covariance (lat)
+  private _P_lng = 1;   // error covariance (lng)
+  private _Q = 3e-10;   // process noise — tuned for a stationary/slow-walking inspector
+  private _ready = false;
+  public samples = 0;
+
+  // Returns filtered {lat, lng} and the estimated position variance in metres
+  update(lat: number, lng: number, accMetres: number): { lat: number; lng: number; estAccuracy: number } {
+    // Convert GPS accuracy (metres) → degrees² variance
+    // 1 degree ≈ 111,139 m  →  1m ≈ 9e-6 deg
+    const deg_per_metre = 1 / 111_139;
+    const R = Math.pow(accMetres * deg_per_metre, 2);
+
+    if (!this._ready) {
+      this._lat = lat; this._lng = lng;
+      this._P_lat = R;  this._P_lng = R;
+      this._ready = true;
+      this.samples = 1;
+      return { lat, lng, estAccuracy: accMetres };
+    }
+
+    // === Predict ===
+    this._P_lat += this._Q;
+    this._P_lng += this._Q;
+
+    // === Kalman Gain ===
+    const K_lat = this._P_lat / (this._P_lat + R);
+    const K_lng = this._P_lng / (this._P_lng + R);
+
+    // === Update / Correct ===
+    this._lat += K_lat * (lat - this._lat);
+    this._lng += K_lng * (lng - this._lng);
+    this._P_lat *= (1 - K_lat);
+    this._P_lng *= (1 - K_lng);
+    this.samples++;
+
+    // Estimated accuracy in metres from the largest covariance dimension
+    const estVarDeg = Math.max(this._P_lat, this._P_lng);
+    const estAccuracy = Math.sqrt(estVarDeg) * 111_139;
+
+    return { lat: this._lat, lng: this._lng, estAccuracy };
+  }
+
+  reset() { this._ready = false; this.samples = 0; }
+}
+
 export default function FireExtinguishers() {
   const [items, setItems] = useState<FireExtinguisher[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -71,8 +128,12 @@ export default function FireExtinguishers() {
   const [detectedAsset, setDetectedAsset] = useState<any | null>(null);
   const [minDistance, setMinDistance] = useState<number | null>(null);
   const [locationStatus, setLocationStatus] = useState<'IDLE' | 'CAPTURING' | 'SUCCESS' | 'ERROR'>('IDLE');
-  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);   // raw GPS accuracy
+  const [filteredAccuracy, setFilteredAccuracy] = useState<number | null>(null);    // Kalman-filtered estimate
+  const [kalmanSamples, setKalmanSamples] = useState(0);  // convergence counter
   const [locationError, setLocationError] = useState<string | null>(null);
+  // Kalman filter instance — persists via ref so it's not recreated on every render
+  const kalman = useRef(new GeoKalmanFilter());
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371e3; // metres
@@ -92,7 +153,7 @@ export default function FireExtinguishers() {
     return new Date(now.getTime() - offset).toISOString().split('T')[0];
   };
 
-  const captureLocation = (force: boolean = false): Promise<{lat: number, lng: number, accuracy: number}> => {
+  const captureLocation = (): Promise<{lat: number, lng: number, accuracy: number}> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         setLocationStatus('ERROR');
@@ -101,31 +162,58 @@ export default function FireExtinguishers() {
       }
 
       setLocationStatus('CAPTURING');
-      navigator.geolocation.getCurrentPosition(
+      // For audit captures we do multiple samples via watchPosition
+      // and resolve once we get a sufficiently accurate fix (< 20m) or best available after 15s
+      let bestFix: {lat: number, lng: number, accuracy: number} | null = null;
+      let resolvedEarly = false;
+      const GOOD_ACCURACY = 20; // metres — accept immediately if we hit this
+      const MAX_WAIT = 15_000;  // 15 seconds max
+
+      const watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const { latitude, longitude, accuracy } = pos.coords;
-          setForm(prev => ({ ...prev, latitude, longitude }));
-          setCurrentCoords({ lat: latitude, lng: longitude });
+          // Reject junk readings (bad satellite lock)
+          if (accuracy > 150) return;
+
+          const filtered = kalman.current.update(latitude, longitude, accuracy);
           setLocationAccuracy(accuracy);
+          setFilteredAccuracy(filtered.estAccuracy);
+          setKalmanSamples(kalman.current.samples);
+          setCurrentCoords({ lat: filtered.lat, lng: filtered.lng });
           setLocationStatus('SUCCESS');
-          resolve({ lat: latitude, lng: longitude, accuracy });
+
+          const fix = { lat: filtered.lat, lng: filtered.lng, accuracy: filtered.estAccuracy };
+          if (!bestFix || filtered.estAccuracy < bestFix.accuracy) bestFix = fix;
+
+          if (filtered.estAccuracy <= GOOD_ACCURACY && !resolvedEarly) {
+            resolvedEarly = true;
+            navigator.geolocation.clearWatch(watchId);
+            resolve(fix);
+          }
         },
         (err) => {
-          console.error('GPS Capture Error:', err);
-          let errorMsg = 'Unknown spatial error';
-          if (err.code === 1) errorMsg = 'SIGNAL BLOCKED (PERMISSION DENIED)';
-          else if (err.code === 3) errorMsg = 'SIGNAL TIMEOUT (SATELLITE SEARCH FAILED)';
-          
-          setLocationError(errorMsg);
-          setLocationStatus('ERROR');
-          reject(err);
+          if (err.code !== 3) console.debug('GPS capture error:', err.message);
         },
         {
           enableHighAccuracy: true,
-          timeout: 30000,
-          maximumAge: force ? 0 : 5000
+          maximumAge: 0,
+          timeout: MAX_WAIT
         }
       );
+
+      // After MAX_WAIT, resolve with best available (even if accuracy > 20m)
+      setTimeout(() => {
+        navigator.geolocation.clearWatch(watchId);
+        if (!resolvedEarly) {
+          if (bestFix) {
+            resolve(bestFix);
+          } else {
+            setLocationStatus('ERROR');
+            setLocationError('SIGNAL TIMEOUT (SATELLITE SEARCH FAILED)');
+            reject(new Error('GPS timeout after 15s'));
+          }
+        }
+      }, MAX_WAIT);
     });
   };
 
@@ -166,15 +254,37 @@ export default function FireExtinguishers() {
   useEffect(() => {
     fetchData();
     
-    // Live Location Tracking for Radar
+    // === Kalman-Filtered Live Radar ===
+    // Continuously feed GPS readings through the Kalman filter.
+    // Readings with accuracy > 80m are silently rejected as too noisy.
+    // The filter converges over ~10–20 fixes to a stable, high-precision estimate.
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        setCurrentCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setLocationAccuracy(pos.coords.accuracy);
+        const { latitude, longitude, accuracy } = pos.coords;
+
+        // Accuracy gate: ignore satellite readings that haven't locked yet
+        if (accuracy > 80) {
+          console.debug(`[Radar] GPS fix rejected — accuracy ${accuracy.toFixed(1)}m (> 80m gate)`);
+          return;
+        }
+
+        const filtered = kalman.current.update(latitude, longitude, accuracy);
+        setCurrentCoords({ lat: filtered.lat, lng: filtered.lng });
+        setLocationAccuracy(accuracy);               // show raw for transparency
+        setFilteredAccuracy(filtered.estAccuracy);   // show Kalman estimate
+        setKalmanSamples(kalman.current.samples);
         setLocationStatus('SUCCESS');
       },
-      (err) => console.warn('Radar tracking error', err),
-      { enableHighAccuracy: true, maximumAge: 1000 }
+      (err) => {
+        if (err.code !== 3) {
+           console.debug('[Radar] GPS recalibrating…', err.message);
+        }
+      },
+      { 
+          enableHighAccuracy: true, 
+          maximumAge: 0,   // always request fresh satellite data
+          timeout: 10_000  // give each fix up to 10s
+      }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
@@ -235,7 +345,7 @@ export default function FireExtinguishers() {
       let finalLng = form.longitude;
       
       try {
-        const freshPos = await captureLocation(true);
+        const freshPos = await captureLocation();
         finalLat = freshPos.lat;
         finalLng = freshPos.lng;
       } catch (gpsErr) {
@@ -319,7 +429,7 @@ export default function FireExtinguishers() {
       setSubmitting(true);
       
       // CAPTURE CURRENT LOCATION FOR AUDIT VERIFICATION (Best Effort)
-      const currentLoc = await captureLocation(true).catch((e) => {
+      const currentLoc = await captureLocation().catch((e) => {
           console.warn('Audit GPS lock failed, proceeding without location binding', e);
           return null;
       }); 
@@ -465,7 +575,7 @@ export default function FireExtinguishers() {
                     <button
                         onClick={() => {
                             setLocationError(null);
-                            captureLocation(true);
+                            captureLocation();
                         }}
                         className="flex items-center gap-3 bg-red-600 hover:bg-red-500 text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg shadow-red-600/20"
                     >
@@ -490,17 +600,37 @@ export default function FireExtinguishers() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-6 opacity-40">
-                         <div className="flex flex-col items-center">
-                            <div className="text-[10px] font-black text-slate-600 uppercase mb-1">Status</div>
-                            <div className="text-xs text-orange-400 font-bold uppercase">Polling...</div>
+                     {/* Kalman Convergence Indicator */}
+                     <div className="w-full max-w-xs space-y-3">
+                         <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                             <span className="text-slate-500">Kalman Filter</span>
+                             <span className={kalmanSamples >= 10 ? 'text-emerald-400' : kalmanSamples >= 5 ? 'text-orange-400' : 'text-slate-500'}>
+                                 {kalmanSamples === 0 ? 'Awaiting Fix...' : kalmanSamples < 5 ? 'Converging...' : kalmanSamples < 10 ? 'Stabilizing...' : 'High Precision'}
+                             </span>
                          </div>
-                         <div className="h-8 w-px bg-slate-800" />
-                         <div className="flex flex-col items-center">
-                            <div className="text-[10px] font-black text-slate-600 uppercase mb-1">GPS Accuracy</div>
-                            <div className="text-xs text-blue-400 font-bold uppercase">{locationAccuracy?.toFixed(1) || '0.0'}m</div>
+                         <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                             <div 
+                                 className={`h-full rounded-full transition-all duration-500 ${kalmanSamples >= 10 ? 'bg-emerald-500' : kalmanSamples >= 5 ? 'bg-orange-500' : 'bg-slate-600'}`}
+                                 style={{ width: `${Math.min((kalmanSamples / 20) * 100, 100)}%` }}
+                             />
                          </div>
-                    </div>
+                         <div className="grid grid-cols-3 gap-2">
+                             <div className="text-center">
+                                 <div className="text-[9px] font-black text-slate-600 uppercase mb-0.5">Fixes</div>
+                                 <div className="text-xs font-bold text-slate-300">{kalmanSamples}</div>
+                             </div>
+                             <div className="text-center border-x border-slate-800">
+                                 <div className="text-[9px] font-black text-slate-600 uppercase mb-0.5">Raw GPS</div>
+                                 <div className="text-xs font-bold text-blue-400">{locationAccuracy ? `±${locationAccuracy.toFixed(0)}m` : '–'}</div>
+                             </div>
+                             <div className="text-center">
+                                 <div className="text-[9px] font-black text-slate-600 uppercase mb-0.5">Filtered</div>
+                                 <div className={`text-xs font-bold ${filteredAccuracy && filteredAccuracy < 10 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                     {filteredAccuracy ? `±${filteredAccuracy.toFixed(1)}m` : '–'}
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
                 </div>
             )}
         </div>
@@ -710,7 +840,7 @@ export default function FireExtinguishers() {
                       </div>
                       <button 
                         type="button"
-                        onClick={() => captureLocation(true)}
+                        onClick={() => captureLocation()}
                         className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-800 text-[10px] font-black uppercase tracking-widest transition-all"
                       >
                         <Locate size={14} />

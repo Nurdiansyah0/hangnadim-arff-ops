@@ -266,9 +266,7 @@ export default function Inspections() {
         return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
     };
 
-    const formatTime = (date: string) => {
-        return new Date(date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-    };
+
 
     const formatDateTime = (date: string) => {
         return new Date(date).toLocaleString('en-GB', { 
@@ -339,77 +337,60 @@ export default function Inspections() {
                         <span>{error}</span>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b border-slate-800 text-slate-500 text-sm">
-                                    <th className="pb-4 font-medium uppercase tracking-wider">Asset Unit</th>
-                                    <th className="pb-4 font-medium uppercase tracking-wider">Date Checked</th>
-                                    <th className="pb-4 font-medium uppercase tracking-wider">Approval Status</th>
-                                    <th className="pb-4 font-medium text-right lowercase italic">ops</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800/50">
-                                {inspections.filter(item => item.vehicle_id !== null).length > 0 ? inspections.filter(item => item.vehicle_id !== null).map((item) => (
-                                    <tr key={item.id} className="group hover:bg-white/5 transition-colors">
-                                        <td className="py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all">
-                                                    <Truck size={18} />
-                                                </div>
-                                                <div>
-                                                    <div className="text-white font-medium">
-                                                        {item.vehicle_code || 'Unknown Vehicle'}
-                                                    </div>
-                                                    <div className="text-[10px] font-mono text-slate-500 uppercase">UID: {item.id.slice(0, 8)}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 text-slate-300 text-sm">
-                                            <div className="flex flex-col gap-0.5">
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar size={14} className="text-slate-500" />
-                                                    {formatDate(item.tanggal)}
-                                                </div>
-                                                <div className="text-[10px] text-slate-500 font-mono pl-5">
-                                                    SUBMITTED: {formatTime(item.created_at)}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-4">
-                                            <div className="flex flex-col">
-                                               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border w-fit ${item.status === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : item.status === 'SUBMITTED' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
-                                                   {item.status}
-                                               </span>
-                                               <span className="text-[9px] text-slate-500 mt-1 uppercase font-black tracking-tighter">BY: {item.inspector_name || 'System Analyst'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 text-right">
-                                            <button
-                                                onClick={() => handleViewReport(item.id)}
-                                                className="text-slate-400 hover:text-white transition-colors text-xs px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-slate-500"
-                                            >
-                                                View Report
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={4} className="py-20 text-center text-slate-600 italic text-sm">
-                                            --- No vehicle inspection history recorded in system ---
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {inspections.filter(item => item.vehicle_id !== null).length > 0 ? inspections.filter(item => item.vehicle_id !== null).map((item) => (
+                            <div key={item.id} className="bg-slate-950/50 border border-slate-800/80 rounded-3xl p-5 flex flex-col gap-4 group hover:border-slate-700 transition-colors">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-lg">
+                                            <Truck size={20} />
+                                        </div>
+                                        <div>
+                                            <div className="text-white font-bold text-base">{item.vehicle_code || 'Unknown Vehicle'}</div>
+                                            <div className="text-[10px] font-mono text-slate-500 uppercase mt-0.5">UID: {item.id.slice(0, 8)}</div>
+                                        </div>
+                                    </div>
+                                    <span className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest uppercase border ${item.status === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : item.status === 'SUBMITTED' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
+                                        {item.status}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 mt-2 p-3 bg-slate-900/50 border border-slate-800/50 rounded-2xl">
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Date Logged</span>
+                                        <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                                            <Calendar size={14} className="text-slate-400" />
+                                            {formatDate(item.tanggal)}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col border-l border-slate-800/50 pl-3">
+                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Inspector</span>
+                                        <div className="text-xs text-blue-400 font-bold truncate">
+                                            {item.inspector_name || 'System Analyst'}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button
+                                    onClick={() => handleViewReport(item.id)}
+                                    className="w-full mt-2 bg-slate-800/30 hover:bg-slate-800 text-slate-300 hover:text-white font-bold text-xs uppercase tracking-widest py-3 rounded-xl border border-slate-700 transition-colors"
+                                >
+                                    Open Details
+                                </button>
+                            </div>
+                        )) : (
+                            <div className="col-span-1 lg:col-span-2 py-20 text-center text-slate-500 italic text-sm">
+                                --- No vehicle inspection history recorded in system ---
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
 
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-end md:items-center justify-center sm:p-4">
                     <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md" onClick={() => !submitting && setShowModal(false)} />
-                    <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+                    <div className="relative w-full h-[95vh] md:h-auto max-w-2xl bg-slate-900 border-t md:border border-slate-800 rounded-t-3xl md:rounded-3xl shadow-2xl animate-in slide-in-from-bottom-full md:zoom-in duration-300 flex flex-col md:max-h-[90vh]">
                         {/* Header - Fixed */}
                         <div className="p-8 pb-4 border-b border-slate-800/50 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
@@ -583,9 +564,9 @@ export default function Inspections() {
             )}
 
             {showDetailModal && detailData && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-end md:items-center justify-center sm:p-4">
                     <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md" onClick={() => setShowDetailModal(false)} />
-                    <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
+                    <div className="relative w-full h-[95vh] md:h-auto max-w-2xl bg-slate-900 border-t md:border border-slate-800 rounded-t-3xl md:rounded-3xl p-6 md:p-8 shadow-2xl animate-in slide-in-from-bottom-full md:zoom-in duration-300 flex flex-col md:max-h-[90vh]">
                         <div className="flex items-center justify-between gap-3 mb-6">
                             <div>
                                 <h3 className="text-xl font-bold text-white italic tracking-tighter uppercase">Inspection Report</h3>
