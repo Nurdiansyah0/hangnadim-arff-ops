@@ -1,0 +1,131 @@
+NO,NAMA / NIP,Shift,Position_id,Duty_position_enum,Vehicle
+1,"Jefri DH Sinaga
+PNS137-1721",Alpha,4,osc,Commando Car
+2,"Setiyono
+PNS145-1721",Alpha,6,driver,Commando Car
+3,"Taufik
+PNS013-1722",Alpha,6,watchroom,watchroom
+4,"Agusta Slamet Sriyanto
+PNS060-1722",Alpha,7,rescueman,Nurse Tender 2
+5,"Saipul Anuar
+PNS144-1722",Alpha,6,driver,Foam Tender 2
+6,"Suriyadi
+PNS146-1722",Alpha,7,driver,Foam Tender 3
+7,"Budi Priyanto
+PNS132-1722",Alpha,7,driver,Foam Tender 2
+8,"Indra Agus Susanto
+PNS135-1722",Alpha,6,driver,Ambulance 1
+9,"Namli
+PNS102-1722",Alpha,7,driver,Ambulance 2
+10,"M.Iqbal Fauzi
+CE069-1722",Alpha,7,rescueman,Foam Tender 3
+11,"M.Azhari Lazuardi
+CE081-1722",Alpha,7,rescueman,Utility
+12,"Rocky Pasaribu
+CE161-1722",Alpha,7,rescueman,Foam Tender 3
+13,"Diki Darmawan
+CE078-1722",Alpha,7,rescueman,Foam Tender 1
+14,"Nurdiansyah
+CE158-1722",Alpha,7,rescueman,Ambulance 1
+15,"Angga Pratama
+CE075-1722",Alpha,7,rescueman,Foam Tender 1
+16,"Munawir Mafildan M
+CE074-1722",Alpha,7,rescueman,Foam Tender 3
+17,"Ryan Bastia Defrizal
+CE162-1722",Alpha,7,rescueman,Foam Tender 1
+18,"Sufridanto Sitanggang
+CE164-1722",Alpha,7,rescueman,Ambulance 2
+19,"Juhalidi Deskandar
+CE154-1722",Alpha,7,rescueman,Foam Tender 4
+20,"Zeni Aris Setiawan
+CE169-1722",Alpha,7,rescueman,Foam Tender 3
+21,"Agung Wijayanto
+PNS126-1722",Bravo,4,osc,Commando Car
+22,"Jansen Nababan
+PNS136-1722",Bravo,6,driver,Commando Car
+23,"Asrul Hadi
+PNS130-1722",Bravo,6,watchroom,watchroom
+24,"Rayusman
+PNS143-1722",Bravo,6,driver,Foam Tender 1
+25,"Syaibir
+PNS147-1722",Bravo,6,driver,Foam Tender 4
+26,"Ansyori Fauzi
+PNS128-1722",Bravo,6,driver,Foam Tender 3
+27,"Junaidi
+PNS138-1722",Bravo,6,driver,Foam Tender 2
+28,"Pelita Wandri Sihaloho
+PNS103-1722",Bravo,7,driver,Utility
+29,"Daniel Firmansyah
+CE149-1722",Bravo,7,rescueman,Foam Tender 1
+30,"Sigit Gunadi
+CE079-1722",Bravo,7,rescueman,Foam Tender 1
+31,"Ari Ardian Syaputra
+CE071-1722",Bravo,7,rescueman,Ambulance 2
+32,"Mahfutzhi
+CE070-1722",Bravo,7,rescueman,Ambulance 2
+33,"Siktus Fendi Silaban
+CE163-1722",Bravo,7,rescueman,Foam Tender 3
+34,"Hari Kusuma Atmaja
+CE080-1722",Bravo,7,driver,Ambulance 1
+35,"Try Rezki Arya
+CE168-1722",Bravo,7,rescueman,Foam Tender 3
+36,"M.Ricky Setiawan
+CE157-1722",Bravo,7,rescueman,Foam Tender 2
+37,"Igif Pranata
+CE152-1722",Bravo,7,rescueman,Foam Tender 2
+38,"Clement Sirait
+CE076-1722",Bravo,7,driver,Ambulance 1
+39,"Guntur Febrian agan
+CE151-1722",Bravo,7,rescueman,Nurse Tender 1
+40,"Muhammad azhar
+PNS142-1722",Charlie,4,osc,Commando Car
+41,"Abdul Rohim
+PNS125-1722",Charlie,6,driver,Foam Tender 2
+42,"Maizar
+PNS011-1724",Charlie,6,driver,watchroom
+43,"Wahyu Sugandi
+PNS148-1722",Charlie,6,driver,Nurse Tender 1
+44,"Agus Agustus
+PNS127-1722",Charlie,6,driver,Foam Tender 1
+45,"Ansyory Al Fath
+PNS129-1722",Charlie,6,driver,Foam Tender 3
+46,"M.Agus Chalim
+PNS140-1722",Charlie,7,driver,Ambulance 1
+47,"Langgeng Argiansyah
+CE073-1722",Charlie,7,ast_nozzleman,Foam Tender 3
+48,"Ahmad Fajar Shodiq
+CE147-1722",Charlie,7,rescueman,Nurse Tender 1
+49,"Krismanto V Nababan
+CE077-1722",Charlie,7,nozzleman,Foam Tender 3
+50,"Febri Harianto
+CE150-1722",Charlie,7,driver,Ambulance 2
+51,"Syahrul Ramadhan
+CE167-1722",Charlie,7,rescueman,Foam Tender 1
+52,"Suwartoyo
+CE166-1722",Charlie,7,rescueman,Foam Tender 2
+53,"Ilham Prasetyo
+CE153-1722",Charlie,7,rescueman,Foam Tender 1
+54,"Suhendra
+CE165-1722",Charlie,7,rescueman,Foam Tender 1
+55,"Reza Fetrik
+CE160-1722",Charlie,7,rescueman,Nurse Tender  2
+56,"Mediyanto Saputra
+CE155-1722",Charlie,7,rescueman,Foam Tender 2
+57,"Rahmat tri Jayanto
+CE159-1722",Charlie,7,rescueman,Ambulance 1
+58,"Ansori Nurbuat
+CE148-1722",Charlie,7,rescueman,Foam Tender 2
+59,"Zulkarnain
+PNS005-1721",Normal,1,osc,Commando Car
+60,"Khairul Bahri
+PNS052-1722",Normal,3,osc,Commando Car
+61,"Esra Purba
+PNS053-1722",Normal,3,osc,Commando Car
+62,"Heru Laksana
+PNS015-1722",Normal,5,osc,Commando Car
+63,"B Ranuh Maryudha
+PNS014-1722",Normal,3,osc,Commando Car
+64,"Imam Hari Sumbodo
+PNS134-1722",Normal,6,osc,Commando Car
+65,"M.Ali Anafiah
+PNS141-1722",Normal,7,osc,Commando Car
