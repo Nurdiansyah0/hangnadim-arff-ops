@@ -3,4 +3,4 @@
 
 DELETE FROM template_items 
 WHERE item_name = 'Inspection Tag Present' 
-AND template_id = (SELECT id FROM inspection_templates WHERE name = 'Monthly APAR Check');
+AND template_id IN (SELECT id FROM inspection_templates WHERE name = 'Monthly APAR Check');

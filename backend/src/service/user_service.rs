@@ -131,6 +131,7 @@ mod tests {
                 shift_end: None,
                 duty_position: Some("WATCHROOM".to_string()),
                 assigned_vehicle: Some("V1".to_string()),
+                assigned_vehicle_id: None,
                 duty_status: "ACTIVE".to_string(),
             })
         }

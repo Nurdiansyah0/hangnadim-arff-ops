@@ -12,9 +12,10 @@ CREATE TABLE IF NOT EXISTS physical_fitness_tests (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_fitness_personnel ON physical_fitness_tests(personnel_id, test_date DESC);
+CREATE INDEX IF NOT EXISTS idx_fitness_personnel ON physical_fitness_tests(personnel_id, test_date DESC);
 
 -- Trigger to auto update updated_at
+DROP TRIGGER IF EXISTS trg_fitness_tests_updated_at ON physical_fitness_tests;
 CREATE TRIGGER trg_fitness_tests_updated_at
 BEFORE UPDATE ON physical_fitness_tests
 FOR EACH ROW

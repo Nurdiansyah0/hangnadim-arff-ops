@@ -46,6 +46,7 @@ FOR EACH ROW
 EXECUTE FUNCTION sync_vehicle_maintenance_dates();
 
 -- 5. Add update_at trigger for maintenance_records
+DROP TRIGGER IF EXISTS trg_maintenance_records_updated_at ON maintenance_records;
 CREATE TRIGGER trg_maintenance_records_updated_at
 BEFORE UPDATE ON maintenance_records
 FOR EACH ROW

@@ -3,8 +3,8 @@
 
 DB_URL="postgres://arff_user:arff_pass@localhost:5432/arff_db"
 
-echo "Resetting database..."
-psql "$DB_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+# echo "Resetting database..."
+# psql "$DB_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 
 echo "Running migrations..."
 for file in migrations/*.sql; do

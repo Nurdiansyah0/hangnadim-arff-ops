@@ -112,14 +112,20 @@ mod tests {
             if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
             Ok(Inspection {
                 id: Uuid::new_v4(),
-                vehicle_id: Uuid::new_v4(),
+                vehicle_id: Some(Uuid::new_v4()),
+                fire_extinguisher_id: None,
                 personnel_id: None,
                 tanggal: NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(),
                 status: "DRAFT".to_string(),
+                latitude: None,
+                longitude: None,
                 approved_by: None,
                 approved_at: None,
                 updated_at: Some(Utc::now()),
                 created_at: Utc::now(),
+                inspector_name: None,
+                vehicle_code: None,
+                fire_extinguisher_serial: None,
             })
         }
 
@@ -153,6 +159,9 @@ mod tests {
                 approved_at: None,
                 updated_at: Some(Utc::now()),
                 created_at: Utc::now(),
+                inspector_name: None,
+                vehicle_code: None,
+                fire_extinguisher_serial: None,
             })
         }
 

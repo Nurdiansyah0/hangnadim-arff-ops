@@ -21,17 +21,17 @@ export default function Login() {
     try {
       // Backend mengharapkan field 'ident' (bisa berupa username atau email)
       const response = await api.post('/auth/login', { ident: username, password });
-      
+
       const { access_token } = response.data;
-      
+
       // Simpan token sementara di localStorage agar interceptor bisa menggunakannya
       localStorage.setItem('arff-token-temp', access_token);
-      
+
       // Ambil data user asli dari profile me
       const profileRes = await api.get('/auth/profile/me', {
         headers: { Authorization: `Bearer ${access_token}` }
       });
-      
+
       const profile = profileRes.data;
       const user = {
         id: profile.personal.id,
@@ -46,7 +46,7 @@ export default function Login() {
 
       setAuth(user, access_token);
       localStorage.removeItem('arff-token-temp');
-      
+
       // Redirect berdasarkan role
       if (user.role_id === 9 || user.role_id === 8) {
         navigate('/staff/dashboard');
@@ -63,12 +63,12 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col justify-center items-center p-4 relative overflow-hidden bg-slate-950">
       {/* Dynamic Background Image with Overlay */}
-      <div 
+      <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-all duration-1000 scale-105"
         style={{ backgroundImage: "url('/theme/login-bg.png')" }}
       />
       <div className="absolute inset-0 z-0 bg-linear-to-br from-slate-950/90 via-slate-900/60 to-slate-950/90" />
-      
+
       {/* Decorative Blur Elements */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] pointer-events-none z-0" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-600/20 rounded-full blur-[120px] pointer-events-none z-0" />
@@ -77,15 +77,15 @@ export default function Login() {
       <div className="w-full max-w-md relative z-10 bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-[2.5rem] p-10 shadow-2xl">
         <div className="flex items-center gap-6 mb-10">
           <div className="w-20 h-20 shrink-0">
-             <img 
-               src="/theme/logo-arff.jpg" 
-               alt="ARFF Logo" 
-               className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,0,0.3)] shadow-2xl rounded-full"
-             />
+            <img
+              src="/theme/logo-arff.jpg"
+              alt="ARFF Logo"
+              className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,0,0.3)] shadow-2xl rounded-full"
+            />
           </div>
           <div className="flex flex-col">
             <h1 className="text-2xl font-black text-white tracking-tight leading-none">
-              SIOPEL <span className="text-blue-500 italic">V2</span>
+              ARSI <span className="text-blue-500 italic">V2</span>
             </h1>
             <p className="text-slate-400 mt-2 text-[10px] font-bold uppercase tracking-widest leading-normal">
               Sistem Informasi Operasional & Pelaporan

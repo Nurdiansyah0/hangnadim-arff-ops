@@ -5,7 +5,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 2. Alter Maintenance Records Table
 ALTER TABLE maintenance_records
-    ADD COLUMN status maintenance_status_enum NOT NULL DEFAULT 'REQUESTED';
+    ADD COLUMN IF NOT EXISTS status maintenance_status_enum NOT NULL DEFAULT 'REQUESTED';
 
 ALTER TABLE maintenance_records
     ALTER COLUMN maintenance_type DROP NOT NULL;

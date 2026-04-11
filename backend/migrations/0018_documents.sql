@@ -19,6 +19,7 @@ INSERT INTO documents (title, version, file_path, category) VALUES
 ('PR 30 Tahun 2022 tentang Standar Pelayanan ARFF', 'FINAL', '/uploads/regs/pr30_2022.pdf', 'REGULATION');
 
 -- Trigger for updated_at
+DROP TRIGGER IF EXISTS trg_documents_updated_at ON documents;
 CREATE TRIGGER trg_documents_updated_at
 BEFORE UPDATE ON documents
 FOR EACH ROW
