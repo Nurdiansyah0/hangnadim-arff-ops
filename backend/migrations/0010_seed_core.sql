@@ -3,16 +3,19 @@
 -- =========================================================
 
 -- 1. Initial Positions
-INSERT INTO positions (name) VALUES 
-('Airport Rescue & Fire Fighting Manager'),
-('Vice President'),
-('RFF Performance Standard Team Leader'),
-('RFF OperationTeam Leader'),
-('RFF Maintenance Team Leader'),
-('Rescue and Fire Fighting Squad Leader'),
-('Rescue Officer'),
-('Admin')
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO positions (id, name) VALUES 
+(1, 'Airport Rescue & Fire Fighting Manager'),
+(2, 'Vice President'),
+(3, 'RFF Performance Standard Team Leader'),
+(4, 'RFF OperationTeam Leader'),
+(5, 'RFF Maintenance Team Leader'),
+(6, 'Rescue and Fire Fighting Squad Leader'),
+(7, 'Rescue Officer'),
+(8, 'Admin')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
+
+-- Reset sequence for positions
+SELECT setval('positions_id_seq', 8);
 
 -- 2. Initial Roles
 INSERT INTO roles (id, name) VALUES 

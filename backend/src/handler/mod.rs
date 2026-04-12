@@ -22,3 +22,4 @@ pub mod media_handler;
 pub mod email_handler;
 pub mod audit_handler;
 pub mod fitness_handler;
+pub mod roster_handler;

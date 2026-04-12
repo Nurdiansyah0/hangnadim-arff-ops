@@ -33,6 +33,7 @@ use handler::inventory_handler::inventory_routes;
 use handler::maintenance_handler::maintenance_routes;
 use handler::finding_handler::finding_routes;
 use handler::fitness_handler::fitness_routes;
+use handler::roster_handler::roster_routes;
 
 use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
@@ -54,6 +55,7 @@ use repository::maintenance_repository::PostgresMaintenanceRepository;
 use repository::finding_repository::PostgresFindingRepository;
 use repository::fitness_repository::PostgresFitnessRepository;
 use repository::audit_repository::AuditRepository;
+use repository::roster_repository::RosterRepository;
 
 use service::auth_service::AuthService;
 use service::user_service::UserService;
@@ -75,27 +77,11 @@ use service::inventory_service::InventoryService;
 use service::maintenance_service::MaintenanceService;
 use service::finding_service::FindingService;
 use service::fitness_service::FitnessService;
+use service::roster_service::RosterService;
 use service::email_service::LettreEmailService;
 use state::AppState;
 
-#[tokio::main]
-async fn main() {
-    dotenv().ok();
-    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&db_url)
-        .await
-        .expect("Failed to connect to database");
-
-    println!("Connecting to database...");
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .expect("Failed to run migrations");
-    println!("Running SQL migrations...");
-
+pub async fn create_app_state(pool: sqlx::PgPool) -> AppState {
     let user_repo = UserRepository::new(pool.clone());
     let user_repo_shared = std::sync::Arc::new(user_repo);
 
@@ -118,12 +104,13 @@ async fn main() {
     let finding_repo = std::sync::Arc::new(PostgresFindingRepository::new(pool.clone()));
     let fitness_repo = std::sync::Arc::new(PostgresFitnessRepository::new(pool.clone()));
     let audit_repo = std::sync::Arc::new(AuditRepository::new(pool.clone()));
+    let roster_repo = std::sync::Arc::new(RosterRepository::new(pool.clone()));
 
-    let app_state = AppState {
+    AppState {
         auth_service: AuthService::new(user_repo_shared.clone()),
         user_service: UserService::new(user_repo_shared.clone()),
         personnel_service: PersonnelService::new(personnel_repo),
-        shift_service: ShiftService::new(shift_repo),
+        shift_service: ShiftService::new(shift_repo.clone()),
         vehicle_service: VehicleService::new(vehicle_repo.clone()),
         fire_extinguisher_service: FireExtinguisherService::new(fire_extinguisher_repo),
         inspection_service: InspectionService::new(inspection_repo),
@@ -141,9 +128,12 @@ async fn main() {
         maintenance_service: MaintenanceService::new(maintenance_repo, vehicle_repo.clone()),
         finding_service: FindingService::new(finding_repo),
         fitness_service: FitnessService::new(fitness_repo),
+        roster_service: RosterService::new(roster_repo, shift_repo.clone(), vehicle_repo.clone()),
         audit_repo: audit_repo.clone(),
-    };
+    }
+}
 
+pub fn app_router(app_state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -172,16 +162,174 @@ async fn main() {
         .nest("/maintenance", maintenance_routes(app_state.clone()))
         .nest("/findings", finding_routes(app_state.clone()))
         .nest("/fitness", fitness_routes(app_state.clone()))
+        .nest("/roster", roster_routes(app_state.clone()))
         .nest("/admin/audit-logs", handler::audit_handler::audit_routes(app_state.clone()));
 
-    let app = Router::new()
+    Router::new()
         .nest("/api", api_routes)
         .nest_service("/uploads", ServeDir::new("uploads"))
         .route("/api/health", axum::routing::get(|| async { "OK" }))
-        .layer(cors);
+        .layer(cors)
+}
+
+#[tokio::main]
+async fn main() {
+    dotenv().ok();
+    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    let pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&db_url)
+        .await
+        .expect("Failed to connect to database");
+
+    println!("Connecting to database...");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run migrations");
+    println!("Running SQL migrations...");
+
+    let app_state = create_app_state(pool).await;
+    
+    // Start the Background Roster Scheduler
+    let state_for_scheduler = app_state.clone();
+    tokio::spawn(async move {
+        spawn_roster_scheduler(state_for_scheduler).await;
+    });
+
+    let app = app_router(app_state);
 
     let addr = "0.0.0.0:8000";
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     println!("Backend Server running on {}", addr);
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn spawn_roster_scheduler(state: AppState) {
+    use chrono::{Datelike, Duration, Utc};
+    println!("Roster Scheduler: Started background task.");
+
+    loop {
+        let now = Utc::now().date_naive();
+        let tomorrow = now + Duration::days(1);
+        let day_after_tomorrow = tomorrow + Duration::days(1);
+
+        // Rule: 1 day before the month end.
+        // If tomorrow's month is same as today, but day_after_tomorrow's month is different,
+        // it means tomorrow is the last day of the month. So today is the trigger day.
+        if tomorrow.month() == now.month() && day_after_tomorrow.month() != now.month() {
+            let next_month_date = day_after_tomorrow;
+            println!("Roster Scheduler: Triggering generation for next month: {:02}/{}", next_month_date.month(), next_month_date.year());
+            
+            match state.roster_service.generate_monthly_roster(next_month_date.month(), next_month_date.year()).await {
+                Ok(_) => println!("Roster Scheduler: Successfully generated next month roster."),
+                Err(e) => eprintln!("Roster Scheduler Error: {}", e),
+            }
+            
+            // Wait 24 hours to avoid multiple runs on the same day
+            tokio::time::sleep(tokio::time::Duration::from_secs(86400)).await;
+        } else {
+            // Check again in 1 hour
+            tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+    use reqwest::Client;
+    use serde_json::{json, Value};
+    use std::env;
+    use tokio::net::TcpListener;
+
+    async fn setup_test_server() -> String {
+        dotenv().ok();
+        let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set for tests");
+
+        let pool = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&db_url)
+            .await
+            .expect("Failed to connect to database");
+
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("Failed to run migrations");
+
+        // Instantiating the router test for conflicts!
+        let app_state = create_app_state(pool).await;
+        let app = app_router(app_state);
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind random port");
+        let addr = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        format!("http://{}", addr)
+    }
+
+    #[tokio::test]
+    async fn test_api_availability_and_conflicts() {
+        let base_url = setup_test_server().await;
+        let client = Client::new();
+
+        let res = client.get(&format!("{}/api/health", base_url)).send().await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(res.text().await.unwrap(), "OK");
+
+        let res = client.get(&format!("{}/api/auth/login", base_url)).send().await.unwrap();
+        assert_ne!(res.status(), StatusCode::NOT_FOUND, "Auth Login Route should exist");
+    }
+
+    #[tokio::test]
+    async fn test_complex_flow_login_and_fetch_vehicles() {
+        let base_url = setup_test_server().await;
+        let client = Client::new();
+
+        let login_payload = json!({
+            "ident": "admin123",
+            "password": "admin123"
+        });
+
+        let res = client
+            .post(&format!("{}/api/auth/login", base_url))
+            .json(&login_payload)
+            .send()
+            .await
+            .expect("Failed to execute login request");
+        
+        if res.status() == StatusCode::UNAUTHORIZED {
+            println!("Note: Test DB does not have admin123 seeded. Skipping complex checks.");
+            return;
+        }
+
+        assert_eq!(res.status(), StatusCode::OK, "Login should succeed");
+        
+        let json_body: Value = res.json().await.unwrap();
+        let access_token = json_body["access_token"].as_str().expect("Access token missing in response");
+
+        let profile_res = client
+            .get(&format!("{}/api/auth/profile/me", base_url))
+            .header("Authorization", format!("Bearer {}", access_token))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(profile_res.status(), StatusCode::OK, "Profile fetch should succeed");
+
+        let vehicles_res = client
+            .get(&format!("{}/api/vehicles", base_url))
+            .header("Authorization", format!("Bearer {}", access_token))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(vehicles_res.status(), StatusCode::OK, "Vehicles fetch should succeed");
+    }
 }

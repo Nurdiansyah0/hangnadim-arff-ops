@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS inspection_templates (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) UNIQUE NOT NULL,
     target_type VARCHAR(50) NOT NULL, -- VEHICLE, FIRE_EXTINGUISHER, etc
     frequency VARCHAR(50) NOT NULL
 );
@@ -14,12 +14,13 @@ CREATE TABLE IF NOT EXISTS template_items (
     template_id INTEGER NOT NULL REFERENCES inspection_templates(id) ON DELETE CASCADE,
     category VARCHAR(100) NOT NULL,
     item_name VARCHAR(255) NOT NULL,
-    item_order INTEGER NOT NULL
+    item_order INTEGER NOT NULL,
+    UNIQUE(template_id, item_name)
 );
 
 -- Partitioned Inspections Table
 CREATE TABLE IF NOT EXISTS inspections (
-    id UUID NOT NULL,
+    id UUID NOT NULL DEFAULT uuid_generate_v4(),
     vehicle_id UUID REFERENCES vehicles(id) ON DELETE CASCADE,
     personnel_id UUID REFERENCES personnels(id),
     tanggal DATE NOT NULL,

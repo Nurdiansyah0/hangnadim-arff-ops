@@ -19,3 +19,5 @@ pub mod inventory_service;
 pub mod maintenance_service;
 pub mod finding_service;
 pub mod fitness_service;
+pub mod roster_service;
+pub mod holiday_service;

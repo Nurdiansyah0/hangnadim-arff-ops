@@ -343,6 +343,19 @@ pub struct WatchroomLog {
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct DutyAssignment {
+    pub id: Uuid,
+    pub personnel_id: Uuid,
+    pub shift_id: Option<i32>,
+    pub vehicle_id: Option<Uuid>,
+    pub position: String, // Maps to duty_position_enum
+    pub status: Option<String>,
+    pub assignment_date: chrono::NaiveDate,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct Incident {
     pub id: Uuid,
     pub commander_id: Option<Uuid>,

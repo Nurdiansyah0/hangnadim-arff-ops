@@ -18,6 +18,7 @@ use crate::service::inventory_service::InventoryService;
 use crate::service::email_service::EmailService;
 use crate::service::maintenance_service::MaintenanceService;
 use crate::service::finding_service::FindingService;
+use crate::service::roster_service::RosterService;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -43,5 +44,6 @@ pub struct AppState {
     pub maintenance_service: MaintenanceService,
     pub finding_service: FindingService,
     pub fitness_service: crate::service::fitness_service::FitnessService,
+    pub roster_service: RosterService,
     pub audit_repo: std::sync::Arc<dyn crate::repository::audit_repository::AuditRepoTrait>,
 }

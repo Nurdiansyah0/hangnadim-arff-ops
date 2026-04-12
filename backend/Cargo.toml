@@ -19,3 +19,6 @@ uuid = { version = "1.23.0", features = ["v4", "serde"] }
 lettre = { version = "0.11", features = ["tokio1-native-tls", "hostname", "builder"] }
 bigdecimal = { version = "0.4.10", features = ["serde"] }
 rust_decimal = "1.41.0"
+reqwest = { version = "0.12.12", features = ["json"] }
+
+[dev-dependencies]

@@ -18,3 +18,4 @@ pub mod maintenance_repository;
 pub mod finding_repository;
 pub mod audit_repository;
 pub mod fitness_repository;
+pub mod roster_repository;
