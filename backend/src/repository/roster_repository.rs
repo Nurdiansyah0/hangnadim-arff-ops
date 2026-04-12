@@ -13,18 +13,16 @@ impl RosterRepository {
         Self { db }
     }
 
-    /// Fetches the last assigned roster for a specific shift to use as a baseline.
-    pub async fn get_last_roster_baseline(&self, shift_id: i32) -> Result<Vec<DutyAssignment>, Error> {
+    /// Fetches the last assigned roster to use as a baseline for vehicle continuity.
+    pub async fn get_last_roster_baseline(&self) -> Result<Vec<DutyAssignment>, Error> {
         sqlx::query_as::<_, DutyAssignment>(
             r#"
             SELECT DISTINCT ON (personnel_id) 
                 id, personnel_id, shift_id, vehicle_id, position::TEXT, status, assignment_date, created_at, updated_at
             FROM duty_assignments
-            WHERE shift_id = $1
             ORDER BY personnel_id, assignment_date DESC
             "#
         )
-        .bind(shift_id)
         .fetch_all(&self.db)
         .await
     }
@@ -89,5 +87,34 @@ impl RosterRepository {
 
         tx.commit().await?;
         Ok(())
+    }
+
+    /// Fetches a high-fidelity view of the roster for a given range.
+    pub async fn get_monthly_view(&self, start_date: NaiveDate, end_date: NaiveDate) -> Result<Vec<crate::domain::models::RosterView>, Error> {
+        sqlx::query_as::<_, crate::domain::models::RosterView>(
+            r#"
+            SELECT 
+                da.id,
+                da.assignment_date,
+                da.personnel_id,
+                p.full_name as personnel_name,
+                p.shift::TEXT as team_name,
+                s.name as shift_name,
+                da.vehicle_id,
+                v.code as vehicle_code,
+                da.position::TEXT,
+                da.status::TEXT
+            FROM duty_assignments da
+            JOIN personnels p ON da.personnel_id = p.id
+            JOIN shifts s ON da.shift_id = s.id
+            LEFT JOIN vehicles v ON da.vehicle_id = v.id
+            WHERE da.assignment_date BETWEEN $1 AND $2
+            ORDER BY da.assignment_date ASC, s.name ASC, p.full_name ASC
+            "#
+        )
+        .bind(start_date)
+        .bind(end_date)
+        .fetch_all(&self.db)
+        .await
     }
 }

@@ -1,5 +1,5 @@
 use crate::repository::analytics_repository::{AnalyticsRepoTrait, PerformanceMetrics};
-use crate::domain::models::KpiReport;
+use crate::domain::models::{KpiReport, FleetReadinessItem, AlertItem};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -18,6 +18,14 @@ impl AnalyticsService {
 
     pub async fn get_kpi_report(&self) -> Result<Vec<KpiReport>, String> {
         self.repo.get_kpi_report().await.map_err(|e| e.to_string())
+    }
+
+    pub async fn get_fleet_readiness(&self) -> Result<Vec<FleetReadinessItem>, String> {
+        self.repo.get_fleet_readiness().await.map_err(|e| e.to_string())
+    }
+
+    pub async fn get_alerts(&self) -> Result<Vec<AlertItem>, String> {
+        self.repo.get_alerts().await.map_err(|e| e.to_string())
     }
 }
 
@@ -43,6 +51,14 @@ mod tests {
         }
 
         async fn get_kpi_report(&self) -> Result<Vec<KpiReport>, sqlx::Error> {
+            Ok(vec![])
+        }
+
+        async fn get_fleet_readiness(&self) -> Result<Vec<FleetReadinessItem>, sqlx::Error> {
+            Ok(vec![])
+        }
+
+        async fn get_alerts(&self) -> Result<Vec<AlertItem>, sqlx::Error> {
             Ok(vec![])
         }
     }

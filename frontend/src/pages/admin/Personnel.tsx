@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, UserPlus, Search, Loader2, Mail, Shield, Smartphone } from 'lucide-react';
-import { api } from '../lib/axios';
+import { api } from '../../lib/axios';
 
 interface Personnel {
   id: string;

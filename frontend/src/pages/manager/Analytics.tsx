@@ -12,7 +12,7 @@ import {
   ClipboardCheck,
   Zap
 } from 'lucide-react';
-import { api } from '../lib/axios';
+import { api } from '../../lib/axios';
 
 interface KpiReport {
   code: string;
@@ -24,20 +24,40 @@ interface KpiReport {
   regulation_ref: string | null;
 }
 
+interface FleetReadinessItem {
+  label: string;
+  rate: number;
+  color: string;
+}
+
+interface AlertItem {
+  alert_type: string;
+  description: string;
+  color: string;
+}
+
 export default function Analytics() {
   const [kpis, setKpis] = useState<KpiReport[]>([]);
+  const [fleetReadiness, setFleetReadiness] = useState<FleetReadinessItem[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchKpis();
+    fetchData();
   }, []);
 
-  const fetchKpis = async () => {
+  const fetchData = async () => {
     try {
-      const res = await api.get('/analytics/kpis');
-      setKpis(res.data);
+      const [kpiRes, fleetRes, alertsRes] = await Promise.all([
+        api.get('/analytics/kpis'),
+        api.get('/analytics/fleet-readiness'),
+        api.get('/analytics/alerts')
+      ]);
+      setKpis(kpiRes.data);
+      setFleetReadiness(fleetRes.data);
+      setAlerts(alertsRes.data);
     } catch (err) {
-      console.error('Failed to fetch KPIs');
+      console.error('Failed to fetch analytics data:', err);
     } finally {
       setLoading(false);
     }
@@ -148,22 +168,21 @@ export default function Analytics() {
             </div>
             
             <div className="space-y-6 relative z-10">
-               {[
-                 { label: 'Heavy Pressure Foam Tender (Striker)', rate: 94, color: 'emerald' },
-                 { label: 'Medium Pressure Foam Tender (Rosenbauer)', rate: 82, color: 'blue' },
-                 { label: 'Tactical Ambulance Support', rate: 100, color: 'purple' },
-                 { label: 'Rapid Intervention Vehicle', rate: 75, color: 'orange' }
-               ].map((item, i) => (
-                 <div key={i} className="space-y-3 group/row">
-                    <div className="flex justify-between items-end">
-                       <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.label}</div>
-                       <div className={`text-xl font-black text-${item.color}-500 italic`}>{item.rate}%</div>
-                    </div>
-                    <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/50">
-                       <div className={`h-full bg-${item.color}-500 rounded-full transition-all duration-[1.5s]`} style={{ width: `${item.rate}%` }} />
-                    </div>
-                 </div>
-               ))}
+               {fleetReadiness.length > 0 ? (
+                 fleetReadiness.map((item, i) => (
+                   <div key={i} className="space-y-3 group/row">
+                      <div className="flex justify-between items-end">
+                         <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.label}</div>
+                         <div className={`text-xl font-black text-${item.color}-500 italic`}>{item.rate}%</div>
+                      </div>
+                      <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/50">
+                         <div className={`h-full bg-${item.color}-500 rounded-full transition-all duration-[1.5s]`} style={{ width: `${item.rate}%` }} />
+                      </div>
+                   </div>
+                 ))
+               ) : (
+                 <div className="text-sm text-slate-500 italic px-2">No fleet data available...</div>
+               )}
             </div>
          </div>
 
@@ -176,20 +195,25 @@ export default function Analytics() {
              </div>
              
              <div className="space-y-4 relative z-10">
-                <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-4">
-                  <div className="w-1.5 h-12 bg-rose-500 rounded-full mt-1" />
-                  <div>
-                    <div className="text-xs font-black text-rose-500 uppercase tracking-widest mb-1">Critical Supply Low</div>
-                    <div className="text-sm text-slate-300">Foam concentration in Category 9 Fleet is below PR 30/2022 minimum mandatory level. Procuring required immediately.</div>
+                {alerts.length > 0 ? (
+                  alerts.map((alert, i) => (
+                    <div key={i} className={`p-4 bg-${alert.color}-500/10 border border-${alert.color}-500/20 rounded-2xl flex items-start gap-4`}>
+                      <div className={`w-1.5 h-12 bg-${alert.color}-500 rounded-full mt-1`} />
+                      <div>
+                        <div className={`text-xs font-black text-${alert.color}-500 uppercase tracking-widest mb-1`}>{alert.alert_type}</div>
+                        <div className="text-sm text-slate-300">{alert.description}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-4">
+                    <ShieldCheck className="text-emerald-500" size={24} />
+                    <div>
+                      <div className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-1">System Nominal</div>
+                      <div className="text-sm text-slate-300">No critical high-priority alerts detected at this time.</div>
+                    </div>
                   </div>
-                </div>
-                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-4">
-                  <div className="w-1.5 h-12 bg-amber-500 rounded-full mt-1" />
-                  <div>
-                    <div className="text-xs font-black text-amber-500 uppercase tracking-widest mb-1">Inspection Overdue</div>
-                    <div className="text-sm text-slate-300">3 Fire Extinguisher units at Passenger Terminal North-Gate have passed their 30-day inspection cycle.</div>
-                  </div>
-                </div>
+                )}
              </div>
          </div>
       </div>

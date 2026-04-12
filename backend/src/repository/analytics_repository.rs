@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use sqlx::{Pool, Postgres, Error};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::models::{KpiDefinition, KpiReport};
+use crate::domain::models::{KpiDefinition, KpiReport, FleetReadinessItem, AlertItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PerformanceMetrics {
@@ -15,6 +15,8 @@ pub struct PerformanceMetrics {
 pub trait AnalyticsRepoTrait: Send + Sync {
     async fn get_performance_metrics(&self) -> Result<PerformanceMetrics, Error>;
     async fn get_kpi_report(&self) -> Result<Vec<KpiReport>, Error>;
+    async fn get_fleet_readiness(&self) -> Result<Vec<FleetReadinessItem>, Error>;
+    async fn get_alerts(&self) -> Result<Vec<AlertItem>, Error>;
 }
 
 #[derive(Clone)]
@@ -160,5 +162,64 @@ impl AnalyticsRepoTrait for AnalyticsRepository {
         }
 
         Ok(reports)
+    }
+
+    async fn get_fleet_readiness(&self) -> Result<Vec<FleetReadinessItem>, Error> {
+        let rows: Vec<(Option<String>, i64, i64)> = sqlx::query_as(
+            "SELECT vehicle_type, COUNT(*) FILTER (WHERE status = 'READY'), COUNT(*) FROM vehicles GROUP BY vehicle_type"
+        ).fetch_all(&self.db).await?;
+
+        let mut results = Vec::new();
+        // Custom colors for UI
+        let colors = vec!["emerald", "blue", "purple", "orange"];
+        let mut color_idx = 0;
+
+        for row in rows {
+            let label = row.0.unwrap_or_else(|| "General Fleet".to_string());
+            let ready = row.1 as f64;
+            let total = row.2 as f64;
+            let rate = if total > 0.0 { (ready / total) * 100.0 } else { 0.0 };
+
+            results.push(FleetReadinessItem {
+                label,
+                rate: rate.round(),
+                color: colors[color_idx % colors.len()].to_string(),
+            });
+            color_idx += 1;
+        }
+
+        Ok(results)
+    }
+
+    async fn get_alerts(&self) -> Result<Vec<AlertItem>, Error> {
+        let mut alerts = Vec::new();
+
+        // 1. Critical Supply Low (Foam)
+        let foam_agents: Vec<(String, f64, f64)> = sqlx::query_as(
+            "SELECT name, inventory_level::FLOAT8, min_requirement::FLOAT8 FROM extinguishing_agents WHERE inventory_level < min_requirement"
+        ).fetch_all(&self.db).await?;
+
+        for foam in foam_agents {
+            alerts.push(AlertItem {
+                alert_type: "Critical Supply Low".to_string(),
+                description: format!("Inventory level for {} is at {}, which is below the minimum requirement of {}.", foam.0, foam.1, foam.2),
+                color: "rose".to_string(),
+            });
+        }
+
+        // 2. Inspection Overdue (Fire Extinguishers)
+        let overdue_extinguishers: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM fire_extinguishers WHERE expiry_date < CURRENT_DATE OR last_inspection_date < CURRENT_DATE - INTERVAL '30 days'"
+        ).fetch_one(&self.db).await?;
+
+        if overdue_extinguishers.0 > 0 {
+            alerts.push(AlertItem {
+                alert_type: "Inspection Overdue".to_string(),
+                description: format!("{} Fire Extinguisher unit(s) have passed their 30-day inspection cycle or are expired.", overdue_extinguishers.0),
+                color: "amber".to_string(),
+            });
+        }
+
+        Ok(alerts)
     }
 }

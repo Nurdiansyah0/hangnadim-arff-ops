@@ -64,6 +64,8 @@ pub struct UserProfile {
     pub position_name: Option<String>,
     pub role_name: Option<String>,
     pub role_id: Option<i32>,
+    pub phone_number: Option<String>,
+    pub profile_picture_url: Option<String>,
     pub created_at: Option<DateTime<Utc>>, // Made optional for safety
 }
 
@@ -75,7 +77,18 @@ pub struct AuthContextResponse {
     pub username: String,
     pub email: String,
     pub role: String,
+    pub position: Option<String>,
+    pub phone_number: Option<String>,
+    pub profile_picture_url: Option<String>,
     pub permissions: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SquadSummaryResponse {
+    pub active_personnel: i64,
+    pub pending_tasks: i64,
+    pub completed_tasks: i64,
+    pub readiness_percentage: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -98,6 +111,7 @@ pub struct CertificationDetail {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OperationalContextResponse {
+    pub shift_id: Option<i32>,
     pub shift_name: Option<String>,
     pub shift_start: Option<chrono::NaiveTime>,
     pub shift_end: Option<chrono::NaiveTime>,
@@ -108,6 +122,25 @@ pub struct OperationalContextResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct FlightFilter {
+    pub date: Option<chrono::NaiveDate>,
+    pub route_id: Option<i32>,
+    pub status: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProfileUpdateRequest {
+    pub phone_number: Option<String>,
+    pub email: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,         
     pub role_id: Option<i32>, 
@@ -331,6 +364,20 @@ pub struct KpiReport {
     pub regulation_ref: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FleetReadinessItem {
+    pub label: String,
+    pub rate: f64,
+    pub color: String, // emerald, amber, rose, blue, purple, etc
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AlertItem {
+    pub alert_type: String, // Critical Supply Low, Inspection Overdue
+    pub description: String,
+    pub color: String, // rose, amber, etc.
+}
+
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct WatchroomLog {
     pub id: Uuid,
@@ -353,6 +400,20 @@ pub struct DutyAssignment {
     pub assignment_date: chrono::NaiveDate,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct RosterView {
+    pub id: Uuid,
+    pub assignment_date: chrono::NaiveDate,
+    pub personnel_id: Uuid,  // Added for linking
+    pub personnel_name: String,
+    pub team_name: String,
+    pub shift_name: String,
+    pub vehicle_id: Option<Uuid>, // Added for linking
+    pub vehicle_code: Option<String>,
+    pub position: String,
+    pub status: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
@@ -427,4 +488,57 @@ pub struct PhysicalFitnessTest {
 pub struct FitnessTrendResponse {
     pub current: PhysicalFitnessTest,
     pub previous: Option<PhysicalFitnessTest>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct TaskTemplate {
+    pub id: Uuid,
+    pub position: String,
+    pub task_name: String,
+    pub description: Option<String>,
+    pub is_mandatory: Option<bool>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct DailyTask {
+    pub id: Uuid,
+    pub assignment_id: Uuid,
+    pub task_name: String,
+    pub description: Option<String>,
+    pub status: Option<String>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub completed_notes: Option<String>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct ShiftReport {
+    pub id: Uuid,
+    pub report_date: chrono::NaiveDate,
+    pub shift_id: i32,
+    pub team_leader_id: Uuid,
+    pub status: Option<String>,
+    pub approval_notes: Option<String>,
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct DailyTaskView {
+    pub task_id: Uuid,
+    pub task_name: String,
+    pub task_description: Option<String>,
+    pub status: Option<String>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub completed_notes: Option<String>,
+    pub assignment_id: Uuid,
+    pub assignment_date: chrono::NaiveDate,
+    pub personnel_id: Uuid,
+    pub personnel_name: String,
+    pub team_name: String,
+    pub shift_name: String,
+    pub vehicle_code: Option<String>,
+    pub position: String,
 }

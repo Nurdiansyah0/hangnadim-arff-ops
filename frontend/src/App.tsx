@@ -1,20 +1,24 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Inspections from './pages/Inspections';
-import Watchroom from './pages/Watchroom';
-import Incidents from './pages/Incidents';
-import Vehicles from './pages/Vehicles';
-import Personnel from './pages/Personnel';
-import Shifts from './pages/Shifts';
-import Compliance from './pages/Compliance';
-import Flights from './pages/Flights';
-import FireExtinguishers from './pages/FireExtinguishers';
-import Analytics from './pages/Analytics';
-import Leave from './pages/Leave';
-import AuditTrail from './pages/AuditTrail';
-import StaffDashboard from './pages/StaffDashboard';
-import MaintenanceRequest from './pages/MaintenanceRequest';
+import Login from './pages/shared/Login';
+import Dashboard from './pages/shared/Dashboard';
+import Inspections from './pages/officer/Inspections';
+import Watchroom from './pages/operation_leader/Watchroom';
+import Incidents from './pages/squad_leader/Incidents';
+import Vehicles from './pages/admin/Vehicles';
+import Personnel from './pages/admin/Personnel';
+import Shifts from './pages/admin/Shifts';
+import Compliance from './pages/performance_leader/Compliance';
+import Flights from './pages/operation_leader/Flights';
+import FireExtinguishers from './pages/officer/FireExtinguishers';
+import Analytics from './pages/manager/Analytics';
+import Leave from './pages/shared/Leave';
+import AuditTrail from './pages/admin/AuditTrail';
+import OfficerDashboard from './pages/officer/Dashboard';
+import SquadLeaderDashboard from './pages/squad_leader/Dashboard';
+import MaintenanceRequest from './pages/officer/MaintenanceRequest';
+import Roster from './pages/operation_leader/Roster';
+import MyTasks from './pages/officer/MyTasks';
+import TeamLeaderApproval from './pages/operation_leader/TeamLeaderApproval';
 import MainLayout from './components/layout/MainLayout';
 import { useAuth } from './store/useAuth';
 
@@ -32,13 +36,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // Pengalihan Berdasarkan Peran: Mengarahkan Staff ke dashboard khusus field ops
 const HomeRedirect = () => {
   const user = useAuth((state) => state.user);
-  
-  // Jika role adalah Officer (9) atau Squad Leader (8), arahkan ke Staff Dashboard
-  if (user?.role_id === 9 || user?.role_id === 8) {
-    return <Navigate to="/staff/dashboard" replace />;
+
+  if (user?.role_id === 9 || user?.role_id === 10) {
+    return <Navigate to="/officer/dashboard" replace />;
   }
-  
-  return <Navigate to="/dashboard" replace />;
+  if (user?.role_id === 8 || user?.role_id === 7) {
+    return <Navigate to="/squad-leader/dashboard" replace />;
+  }
+
+  return <Dashboard />;
 };
 
 function App() {
@@ -56,11 +62,15 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Default dashboard */}
+          {/* Default dashboard routing handles redirection logic */}
           <Route path="/" element={<HomeRedirect />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/staff/dashboard" element={<StaffDashboard />} />
+          <Route path="/dashboard" element={<HomeRedirect />} />
+          <Route path="/officer/dashboard" element={<OfficerDashboard />} />
+          <Route path="/squad-leader/dashboard" element={<SquadLeaderDashboard />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/my-tasks" element={<MyTasks />} />
+          <Route path="/shift-approval" element={<TeamLeaderApproval />} />
+          <Route path="/roster" element={<Roster />} />
           <Route path="/shifts" element={<Shifts />} />
           <Route path="/flights" element={<Flights />} />
           <Route path="/compliance" element={<Compliance />} />

@@ -8,7 +8,7 @@ import {
   ArrowRightLeft,
   Shield
 } from 'lucide-react';
-import { api } from '../lib/axios';
+import { api } from '../../lib/axios';
 
 interface Flight {
   id: string;

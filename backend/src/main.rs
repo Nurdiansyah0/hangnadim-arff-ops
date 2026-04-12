@@ -25,15 +25,13 @@ use handler::analytics_handler::analytics_routes;
 use handler::certification_handler::certification_routes;
 use handler::compliance_handler::compliance_routes;
 use handler::incident_handler::incident_routes;
-use handler::superuser_handler::superuser_routes;
 use handler::leave_handler::leave_routes;
 use handler::media_handler::media_routes;
 use handler::email_handler::email_routes;
-use handler::inventory_handler::inventory_routes;
 use handler::maintenance_handler::maintenance_routes;
-use handler::finding_handler::finding_routes;
 use handler::fitness_handler::fitness_routes;
 use handler::roster_handler::roster_routes;
+use handler::task_handler::task_routes;
 
 use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
@@ -48,14 +46,12 @@ use repository::analytics_repository::AnalyticsRepository;
 use repository::certification_repository::CertificationRepository;
 use repository::compliance_repository::ComplianceRepository;
 use repository::incident_repository::IncidentRepository;
-use repository::superuser_repository::SuperuserRepository;
 use repository::leave_repository::LeaveRepository;
-use repository::inventory_repository::InventoryRepository;
 use repository::maintenance_repository::PostgresMaintenanceRepository;
-use repository::finding_repository::PostgresFindingRepository;
 use repository::fitness_repository::PostgresFitnessRepository;
 use repository::audit_repository::AuditRepository;
 use repository::roster_repository::RosterRepository;
+use repository::task_repository::TaskRepository;
 
 use service::auth_service::AuthService;
 use service::user_service::UserService;
@@ -71,13 +67,11 @@ use service::analytics_service::AnalyticsService;
 use service::certification_service::CertificationService;
 use service::compliance_service::ComplianceService;
 use service::incident_service::IncidentService;
-use service::superuser_service::SuperuserService;
 use service::leave_service::LeaveService;
-use service::inventory_service::InventoryService;
 use service::maintenance_service::MaintenanceService;
-use service::finding_service::FindingService;
 use service::fitness_service::FitnessService;
 use service::roster_service::RosterService;
+use service::task_service::TaskService;
 use service::email_service::LettreEmailService;
 use state::AppState;
 
@@ -96,15 +90,13 @@ pub async fn create_app_state(pool: sqlx::PgPool) -> AppState {
     let certification_repo = std::sync::Arc::new(CertificationRepository::new(pool.clone()));
     let compliance_repo = std::sync::Arc::new(ComplianceRepository::new(pool.clone()));
     let incident_repo = std::sync::Arc::new(IncidentRepository::new(pool.clone()));
-    let superuser_repo = std::sync::Arc::new(SuperuserRepository::new(pool.clone()));
     let leave_repo = std::sync::Arc::new(LeaveRepository::new(pool.clone()));
-    let inventory_repo = std::sync::Arc::new(InventoryRepository::new(pool.clone()));
     let fire_extinguisher_repo = std::sync::Arc::new(FireExtinguisherRepository::new(pool.clone()));
     let maintenance_repo = std::sync::Arc::new(PostgresMaintenanceRepository::new(pool.clone()));
-    let finding_repo = std::sync::Arc::new(PostgresFindingRepository::new(pool.clone()));
     let fitness_repo = std::sync::Arc::new(PostgresFitnessRepository::new(pool.clone()));
     let audit_repo = std::sync::Arc::new(AuditRepository::new(pool.clone()));
     let roster_repo = std::sync::Arc::new(RosterRepository::new(pool.clone()));
+    let task_repo = TaskRepository::new(pool.clone());
 
     AppState {
         auth_service: AuthService::new(user_repo_shared.clone()),
@@ -121,14 +113,12 @@ pub async fn create_app_state(pool: sqlx::PgPool) -> AppState {
         certification_service: CertificationService::new(certification_repo),
         compliance_service: ComplianceService::new(compliance_repo),
         incident_service: IncidentService::new(incident_repo),
-        superuser_service: SuperuserService::new(superuser_repo),
         leave_service: LeaveService::new(leave_repo),
-        inventory_service: InventoryService::new(inventory_repo),
         email_service: std::sync::Arc::new(LettreEmailService),
         maintenance_service: MaintenanceService::new(maintenance_repo, vehicle_repo.clone()),
-        finding_service: FindingService::new(finding_repo),
         fitness_service: FitnessService::new(fitness_repo),
         roster_service: RosterService::new(roster_repo, shift_repo.clone(), vehicle_repo.clone()),
+        task_service: TaskService::new(task_repo),
         audit_repo: audit_repo.clone(),
     }
 }
@@ -154,15 +144,15 @@ pub fn app_router(app_state: AppState) -> Router {
         .nest("/certifications", certification_routes(app_state.clone()))
         .nest("/compliance", compliance_routes(app_state.clone()))
         .nest("/incidents", incident_routes(app_state.clone()))
-        .nest("/superuser", superuser_routes(app_state.clone()))
         .nest("/leaves", leave_routes(app_state.clone()))
         .nest("/media", media_routes(app_state.clone()))
         .nest("/email", email_routes(app_state.clone()))
-        .nest("/inventory", inventory_routes(app_state.clone()))
         .nest("/maintenance", maintenance_routes(app_state.clone()))
-        .nest("/findings", finding_routes(app_state.clone()))
         .nest("/fitness", fitness_routes(app_state.clone()))
         .nest("/roster", roster_routes(app_state.clone()))
+        .nest("/tasks", task_routes(app_state.clone()))
+        .nest("/squad", handler::squad_handler::squad_routes(app_state.clone()))
+        .nest("/profile", handler::profile_handler::profile_routes(app_state.clone()))
         .nest("/admin/audit-logs", handler::audit_handler::audit_routes(app_state.clone()));
 
     Router::new()

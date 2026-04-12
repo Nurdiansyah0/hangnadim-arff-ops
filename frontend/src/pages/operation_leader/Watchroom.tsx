@@ -9,7 +9,7 @@ import {
     User,
     Loader2,
 } from 'lucide-react';
-import { api } from '../lib/axios';
+import { api } from '../../lib/axios';
 
 interface WatchroomLog {
     id: string;

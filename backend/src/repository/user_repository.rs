@@ -65,6 +65,52 @@ impl UserRepository {
             .map(|_| ())
     }
 
+    pub async fn update_user_profile(
+        &self, 
+        personnel_id: Uuid, 
+        phone_number: Option<String>, 
+        email: Option<String>
+    ) -> Result<(), Error> {
+        let mut tx = self.db.begin().await?;
+
+        if let Some(ref e) = email {
+            sqlx::query("UPDATE users SET email = $1 WHERE personnel_id = $2")
+                .bind(e)
+                .bind(personnel_id)
+                .execute(&mut *tx)
+                .await?;
+        }
+
+        if phone_number.is_some() {
+            sqlx::query("UPDATE personnels SET phone_number = $1 WHERE id = $2")
+                .bind(phone_number)
+                .bind(personnel_id)
+                .execute(&mut *tx)
+                .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub async fn update_password(&self, user_id: Uuid, new_password_hash: &str) -> Result<(), Error> {
+        sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
+            .bind(new_password_hash)
+            .bind(user_id)
+            .execute(&self.db)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn update_profile_picture(&self, personnel_id: Uuid, url: &str) -> Result<(), Error> {
+        sqlx::query("UPDATE personnels SET profile_picture_url = $1 WHERE id = $2")
+            .bind(url)
+            .bind(personnel_id)
+            .execute(&self.db)
+            .await
+            .map(|_| ())
+    }
+
     pub async fn get_user_profile(&self, id: Uuid) -> Result<Option<UserProfile>, Error> {
         let profile = sqlx::query_as::<_, UserProfile>(
             r#"
@@ -72,6 +118,7 @@ impl UserRepository {
                 u.id, u.username, u.email,
                 p.full_name, pos.name as position_name, 
                 r.name as role_name, ur.role_id as role_id,
+                p.phone_number, p.profile_picture_url,
                 u.created_at
             FROM users u
             JOIN personnels p ON u.personnel_id = p.id
@@ -173,7 +220,7 @@ impl UserRepository {
     pub async fn get_operational_context(&self, user_id: Uuid) -> Result<OperationalContextResponse, Error> {
         let shift_info = sqlx::query(
             r#"
-            SELECT s.name, s.start_time, s.end_time
+            SELECT s.id, s.name, s.start_time, s.end_time
             FROM users u
             JOIN shift_assignments sa ON u.personnel_id = sa.personnel_id
             JOIN shifts s ON sa.shift_id = s.id
@@ -205,6 +252,7 @@ impl UserRepository {
 
         use sqlx::Row;
         Ok(OperationalContextResponse {
+            shift_id: shift_info.as_ref().map(|s| s.get("id")),
             shift_name: shift_info.as_ref().map(|s| s.get("name")),
             shift_start: shift_info.as_ref().map(|s| s.get("start_time")),
             shift_end: shift_info.as_ref().map(|s| s.get("end_time")),

@@ -17,6 +17,9 @@ pub trait UserRepoTrait: Send + Sync {
     async fn get_user_permissions(&self, user_id: Uuid) -> Result<Vec<String>, sqlx::Error>;
     async fn get_full_profile(&self, user_id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error>;
     async fn get_operational_context(&self, user_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error>;
+    async fn update_user_profile(&self, pid: Uuid, phone: Option<String>, email: Option<String>) -> Result<(), sqlx::Error>;
+    async fn update_password(&self, uid: Uuid, hash: &str) -> Result<(), sqlx::Error>;
+    async fn update_profile_picture(&self, pid: Uuid, url: &str) -> Result<(), sqlx::Error>;
 }
 
 #[async_trait]
@@ -44,6 +47,15 @@ impl UserRepoTrait for UserRepository {
     }
     async fn get_operational_context(&self, user_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
         self.get_operational_context(user_id).await
+    }
+    async fn update_user_profile(&self, pid: Uuid, phone: Option<String>, email: Option<String>) -> Result<(), sqlx::Error> {
+        self.update_user_profile(pid, phone, email).await
+    }
+    async fn update_password(&self, uid: Uuid, hash: &str) -> Result<(), sqlx::Error> {
+        self.update_password(uid, hash).await
+    }
+    async fn update_profile_picture(&self, pid: Uuid, url: &str) -> Result<(), sqlx::Error> {
+        self.update_profile_picture(pid, url).await
     }
 }
 #[derive(Clone)] 
@@ -103,6 +115,9 @@ impl AuthService {
             username: profile.username,
             email: profile.email,
             role: profile.role_name.unwrap_or_else(|| "User".to_string()),
+            position: profile.position_name,
+            phone_number: profile.phone_number,
+            profile_picture_url: profile.profile_picture_url,
             permissions,
         })
     }
@@ -118,6 +133,30 @@ impl AuthService {
             .get_operational_context(user_id)
             .await
             .map_err(|e| e.to_string())
+    }
+
+    pub async fn update_user_profile(&self, personnel_id: Uuid, phone: Option<String>, email: Option<String>) -> Result<(), String> {
+        self.repo.update_user_profile(personnel_id, phone, email).await
+            .map_err(|e| format!("Gagal membarui profil: {}", e))
+    }
+
+    pub async fn change_password(&self, user_id: Uuid, current: &str, new_pass: &str) -> Result<(), String> {
+        // We first need the current pass to verify.
+        let user = self.repo.get_user_profile(user_id).await.map_err(|e| e.to_string())?.ok_or_else(|| "User not found".to_string())?;
+        // But get_user_profile doesn't return hash! We need to find_by_username_or_email to get the hash.
+        let full_user = self.repo.find_by_username_or_email(&user.username).await.map_err(|e| e.to_string())?.ok_or("User not found")?;
+        
+        let valid = verify(current, &full_user.password_hash).unwrap_or(false);
+        if !valid {
+            return Err("Password lama tidak sesuai".to_string());
+        }
+
+        let new_hashed = bcrypt::hash(new_pass, 12).map_err(|_| "Gagal hash password".to_string())?;
+        self.repo.update_password(user_id, &new_hashed).await.map_err(|e| e.to_string())
+    }
+
+    pub async fn update_profile_picture(&self, personnel_id: Uuid, url: &str) -> Result<(), String> {
+        self.repo.update_profile_picture(personnel_id, url).await.map_err(|e| e.to_string())
     }
 }
 
@@ -178,6 +217,8 @@ mod tests {
                 position_name: Some("Guard".to_string()),
                 role_name: Some("Admin".to_string()),
                 role_id: Some(1),
+                phone_number: None,
+                profile_picture_url: None,
                 created_at: Some(Utc::now()),
             }))
         }
@@ -192,6 +233,7 @@ mod tests {
 
         async fn get_operational_context(&self, _id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
             Ok(crate::domain::models::OperationalContextResponse {
+                shift_id: Some(1),
                 shift_name: Some("Normal".to_string()),
                 shift_start: None,
                 shift_end: None,
@@ -200,6 +242,18 @@ mod tests {
                 assigned_vehicle_id: Some(Uuid::new_v4()),
                 duty_status: "ACTIVE".to_string(),
             })
+        }
+        
+        async fn update_user_profile(&self, _pid: Uuid, _phone: Option<String>, _email: Option<String>) -> Result<(), sqlx::Error> {
+            Ok(())
+        }
+        
+        async fn update_password(&self, _uid: Uuid, _hash: &str) -> Result<(), sqlx::Error> {
+            Ok(())
+        }
+        
+        async fn update_profile_picture(&self, _pid: Uuid, _url: &str) -> Result<(), sqlx::Error> {
+            Ok(())
         }
     }
 

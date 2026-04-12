@@ -1,4 +1,4 @@
-use crate::domain::models::{DutyAssignment, Shift, Vehicle};
+use crate::domain::models::{DutyAssignment, Shift};
 use crate::repository::roster_repository::RosterRepository;
 use crate::repository::shift_repository::ShiftRepository;
 use crate::repository::vehicle_repository::{VehicleRepository, VehicleRepoTrait};
@@ -110,7 +110,7 @@ impl RosterService {
 
         // Baseline: To avoid chaotic shuffling, we fetch the previous assigned roster for this team.
         // If not found, we use a global sequence logic.
-        let baseline = self.roster_repo.get_last_roster_baseline(shift.id).await.map_err(|e| e.to_string())?;
+        let baseline = self.roster_repo.get_last_roster_baseline().await.map_err(|e| e.to_string())?;
         
         // Pick PKWT for Watchroom (simplistic rotation: based on day of year % pkwt count)
         // Adjust logic if user wants strict sequential tracking.
@@ -195,6 +195,16 @@ impl RosterService {
         }
     }
 
+    pub async fn get_monthly_view(&self, month: u32, year: i32) -> Result<Vec<crate::domain::models::RosterView>, String> {
+        let start_date = NaiveDate::from_ymd_opt(year, month, 1).ok_or("Invalid date")?;
+        let num_days = self.days_in_month(month, year);
+        let end_date = NaiveDate::from_ymd_opt(year, month, num_days).ok_or("Invalid date")?;
+
+        self.roster_repo.get_monthly_view(start_date, end_date)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
     fn days_in_month(&self, month: u32, year: i32) -> u32 {
         match month {
             1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
@@ -207,7 +217,6 @@ impl RosterService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::NaiveDate;
 
     #[test]

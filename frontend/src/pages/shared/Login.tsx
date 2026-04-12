@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, Loader2, Eye, EyeOff } from 'lucide-react';
-import { api } from '../lib/axios';
-import { useAuth } from '../store/useAuth';
+import { api } from '../../lib/axios';
+import { useAuth } from '../../store/useAuth';
 
 export default function Login() {
   const [username, setUsername] = useState('');

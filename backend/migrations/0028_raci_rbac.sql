@@ -4,8 +4,6 @@
 
 -- 1. Create New Granular Roles
 INSERT INTO roles (id, name) VALUES 
-(10, 'Firefighter'),
-(11, 'Watchroom'),
 (12, 'Admin (Office)')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
 
@@ -49,8 +47,8 @@ ON CONFLICT (name) DO NOTHING;
 
 -- 3. Role-Permission Mapping (Based on RACI)
 
--- Clear existing role-permission for roles we are redefining (3-6, 10-12)
-DELETE FROM role_permissions WHERE role_id IN (2, 3, 4, 5, 6, 10, 11, 12);
+-- Clear existing role-permission for roles we are redefining (3-6, 8-9, 12)
+DELETE FROM role_permissions WHERE role_id IN (2, 3, 4, 5, 6, 8, 9, 12);
 
 -- VC (Role 2): Informed of everything + Dashboard
 INSERT INTO role_permissions (role_id, permission_id)
@@ -84,16 +82,16 @@ SELECT 6, id FROM permissions WHERE name IN (
     'MANAGE_VEHICLE_MAINT', 'MANAGE_STANDARDS', 'VIEW_READY_STATE', 'VIEW_INCIDENT_LOGS'
 );
 
--- Firefighter (Role 10): Execute Fire Ops, Evacuation execute, Inspection help. Informed of others.
+-- Squad Leader (Role 8): Execute Fire Ops, Evacuation execute, Inspection help. Incident Lead level 2.
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 10, id FROM permissions WHERE name IN (
-    'EXECUTE_FIRE_OPS', 'MANAGE_EVACUATION', 'EXECUTE_INSPECTION', 'VIEW_READY_STATE', 'VIEW_INCIDENT_LOGS'
+SELECT 8, id FROM permissions WHERE name IN (
+    'LEAD_INCIDENT_FIRE', 'MANAGE_EVACUATION', 'EXECUTE_INSPECTION', 'VIEW_READY_STATE', 'VIEW_INCIDENT_LOGS'
 );
 
--- Watchroom (Role 11): Monitor airport, Alarm notification (A/R), Reporting help, Database update (R)
+-- Officer (Role 9): Execute Fire Ops, Evacuation execute, Inspection help. Informed of others.
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 11, id FROM permissions WHERE name IN (
-    'MANAGE_AIRPORT_MONITOR', 'MANAGE_NOTIFICATION', 'MANAGE_COORD_SAFETY', 'MANAGE_ARCHIVE', 'VIEW_INCIDENT_LOGS'
+SELECT 9, id FROM permissions WHERE name IN (
+    'EXECUTE_FIRE_OPS', 'MANAGE_EVACUATION', 'EXECUTE_INSPECTION', 'VIEW_READY_STATE', 'VIEW_INCIDENT_LOGS', 'MANAGE_AIRPORT_MONITOR', 'MANAGE_NOTIFICATION', 'MANAGE_COORD_SAFETY', 'MANAGE_ARCHIVE'
 );
 
 -- Admin (Office) (Role 12): Risk ID doc, Inspection doc, Audit doc, Reporting, Archive, Sched record
@@ -120,8 +118,8 @@ SELECT
         WHEN pos.name = 'RFF Performance Standard Team Leader' THEN 4
         WHEN pos.name = 'RFF OperationTeam Leader' THEN 5
         WHEN pos.name = 'RFF Maintenance Team Leader' THEN 6
-        WHEN pos.name = 'Rescue and Fire Fighting Squad Leader' THEN 10
-        WHEN pos.name = 'Rescue Officer' THEN 10
+        WHEN pos.name = 'Rescue and Fire Fighting Squad Leader' THEN 8
+        WHEN pos.name = 'Rescue Officer' THEN 9
         WHEN pos.name = 'Admin' THEN 12
         ELSE 9 -- Default Officer
     END

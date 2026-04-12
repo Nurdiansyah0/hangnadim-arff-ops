@@ -1,0 +1,150 @@
+   Compiling backend v0.1.0 (/home/nurdiansyah/Nurdiansyah_dev/hangnadim-arff-ops/backend)
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `axum_extra`
+ --> src/handler/profile_handler.rs:7:5
+  |
+7 | use axum_extra::extract::cookie::CookieJar;
+  |     ^^^^^^^^^^ use of unresolved module or unlinked crate `axum_extra`
+  |
+  = help: if you wanted to use a crate named `axum_extra`, use `cargo add axum_extra` to add it to your `Cargo.toml`
+
+warning: unused import: `Serialize`
+ --> src/handler/profile_handler.rs:8:26
+  |
+8 | use serde::{Deserialize, Serialize};
+  |                          ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `crate::service::auth_service::AuthService`
+  --> src/handler/profile_handler.rs:13:5
+   |
+13 | use crate::service::auth_service::AuthService;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+  --> src/handler/profile_handler.rs:16:5
+   |
+16 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+
+error[E0277]: the trait bound `fn(..., ..., ...) -> ... {update_profile}: Handler<_, _>` is not satisfied
+    --> src/handler/profile_handler.rs:20:25
+     |
+  20 |         .route("/", put(update_profile))
+     |                     --- ^^^^^^^^^^^^^^ the trait `Handler<_, _>` is not implemented for fn item `fn(State<AppState>, ..., ...) -> ... {update_profile}`
+     |                     |
+     |                     required by a bound introduced by this call
+     |
+     = note: Consider using `#[axum::debug_handler]` to improve the error message
+help: the following other types implement trait `Handler<T, S>`
+    --> /home/nurdiansyah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.8/src/routing/method_routing.rs:1309:1
+     |
+1309 | / impl<S> Handler<(), S> for MethodRouter<S>
+1310 | | where
+1311 | |     S: Clone + 'static,
+     | |_______________________^ `MethodRouter<S>` implements `Handler<(), S>`
+     |
+    ::: /home/nurdiansyah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.8/src/handler/mod.rs:313:1
+     |
+ 313 | / impl<H, S, T, L> Handler<T, S> for Layered<L, H, T, S>
+ 314 | | where
+ 315 | |     L: Layer<HandlerService<H, T, S>> + Clone + Send + Sync + 'static,
+ 316 | |     H: Handler<T, S>,
+...    |
+ 320 | |     T: 'static,
+ 321 | |     S: 'static,
+     | |_______________^ `Layered<L, H, T, S>` implements `Handler<T, S>`
+note: required by a bound in `put`
+    --> /home/nurdiansyah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.8/src/routing/method_routing.rs:446:1
+     |
+ 446 | top_level_handler_fn!(put, PUT);
+     | ^^^^^^^^^^^^^^^^^^^^^^---^^^^^^
+     | |                     |
+     | |                     required by a bound in this function
+     | required by this bound in `put`
+     = note: the full name for the type has been written to '/home/nurdiansyah/Nurdiansyah_dev/hangnadim-arff-ops/backend/target/debug/deps/backend-97fd81afe162569c.long-type-4143502056832794837.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `fn(..., ..., ...) -> ... {change_password}: Handler<_, _>` is not satisfied
+    --> src/handler/profile_handler.rs:21:34
+     |
+  21 |         .route("/password", post(change_password))
+     |                             ---- ^^^^^^^^^^^^^^^ the trait `Handler<_, _>` is not implemented for fn item `fn(State<AppState>, ..., ...) -> ... {change_password}`
+     |                             |
+     |                             required by a bound introduced by this call
+     |
+     = note: Consider using `#[axum::debug_handler]` to improve the error message
+help: the following other types implement trait `Handler<T, S>`
+    --> /home/nurdiansyah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.8/src/routing/method_routing.rs:1309:1
+     |
+1309 | / impl<S> Handler<(), S> for MethodRouter<S>
+1310 | | where
+1311 | |     S: Clone + 'static,
+     | |_______________________^ `MethodRouter<S>` implements `Handler<(), S>`
+     |
+    ::: /home/nurdiansyah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.8/src/handler/mod.rs:313:1
+     |
+ 313 | / impl<H, S, T, L> Handler<T, S> for Layered<L, H, T, S>
+ 314 | | where
+ 315 | |     L: Layer<HandlerService<H, T, S>> + Clone + Send + Sync + 'static,
+ 316 | |     H: Handler<T, S>,
+...    |
+ 320 | |     T: 'static,
+ 321 | |     S: 'static,
+     | |_______________^ `Layered<L, H, T, S>` implements `Handler<T, S>`
+note: required by a bound in `post`
+    --> /home/nurdiansyah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.8/src/routing/method_routing.rs:445:1
+     |
+ 445 | top_level_handler_fn!(post, POST);
+     | ^^^^^^^^^^^^^^^^^^^^^^----^^^^^^^
+     | |                     |
+     | |                     required by a bound in this function
+     | required by this bound in `post`
+     = note: the full name for the type has been written to '/home/nurdiansyah/Nurdiansyah_dev/hangnadim-arff-ops/backend/target/debug/deps/backend-97fd81afe162569c.long-type-9662353751979752230.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `fn(..., ..., ...) -> ... {upload_photo_chunked}: Handler<_, _>` is not satisfied
+    --> src/handler/profile_handler.rs:22:38
+     |
+  22 |         .route("/upload-photo", post(upload_photo_chunked))
+     |                                 ---- ^^^^^^^^^^^^^^^^^^^^ the trait `Handler<_, _>` is not implemented for fn item `fn(State<...>, ..., ...) -> ... {upload_photo_chunked}`
+     |                                 |
+     |                                 required by a bound introduced by this call
+     |
+     = note: Consider using `#[axum::debug_handler]` to improve the error message
+help: the following other types implement trait `Handler<T, S>`
+    --> /home/nurdiansyah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.8/src/routing/method_routing.rs:1309:1
+     |
+1309 | / impl<S> Handler<(), S> for MethodRouter<S>
+1310 | | where
+1311 | |     S: Clone + 'static,
+     | |_______________________^ `MethodRouter<S>` implements `Handler<(), S>`
+     |
+    ::: /home/nurdiansyah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.8/src/handler/mod.rs:313:1
+     |
+ 313 | / impl<H, S, T, L> Handler<T, S> for Layered<L, H, T, S>
+ 314 | | where
+ 315 | |     L: Layer<HandlerService<H, T, S>> + Clone + Send + Sync + 'static,
+ 316 | |     H: Handler<T, S>,
+...    |
+ 320 | |     T: 'static,
+ 321 | |     S: 'static,
+     | |_______________^ `Layered<L, H, T, S>` implements `Handler<T, S>`
+note: required by a bound in `post`
+    --> /home/nurdiansyah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.8/src/routing/method_routing.rs:445:1
+     |
+ 445 | top_level_handler_fn!(post, POST);
+     | ^^^^^^^^^^^^^^^^^^^^^^----^^^^^^^
+     | |                     |
+     | |                     required by a bound in this function
+     | required by this bound in `post`
+     = note: the full name for the type has been written to '/home/nurdiansyah/Nurdiansyah_dev/hangnadim-arff-ops/backend/target/debug/deps/backend-97fd81afe162569c.long-type-10879282750174058718.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+Some errors have detailed explanations: E0277, E0433.
+For more information about an error, try `rustc --explain E0277`.
+warning: `backend` (bin "backend") generated 3 warnings
+error: could not compile `backend` (bin "backend") due to 4 previous errors; 3 warnings emitted

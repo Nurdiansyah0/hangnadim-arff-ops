@@ -12,13 +12,11 @@ use crate::service::analytics_service::AnalyticsService;
 use crate::service::certification_service::CertificationService;
 use crate::service::compliance_service::ComplianceService;
 use crate::service::incident_service::IncidentService;
-use crate::service::superuser_service::SuperuserService;
 use crate::service::leave_service::LeaveService;
-use crate::service::inventory_service::InventoryService;
 use crate::service::email_service::EmailService;
 use crate::service::maintenance_service::MaintenanceService;
-use crate::service::finding_service::FindingService;
 use crate::service::roster_service::RosterService;
+use crate::service::task_service::TaskService;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -37,13 +35,11 @@ pub struct AppState {
     pub certification_service: CertificationService,
     pub compliance_service: ComplianceService,
     pub incident_service: IncidentService,
-    pub superuser_service: SuperuserService,
     pub leave_service: LeaveService,
-    pub inventory_service: InventoryService,
     pub email_service: Arc<dyn EmailService>,
     pub maintenance_service: MaintenanceService,
-    pub finding_service: FindingService,
     pub fitness_service: crate::service::fitness_service::FitnessService,
     pub roster_service: RosterService,
+    pub task_service: TaskService,
     pub audit_repo: std::sync::Arc<dyn crate::repository::audit_repository::AuditRepoTrait>,
 }

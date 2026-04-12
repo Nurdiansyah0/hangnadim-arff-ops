@@ -1,5 +1,5 @@
 use crate::{handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use axum::{extract::{State, Query}, http::StatusCode, routing::{get, post}, Json, Router};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -8,10 +8,27 @@ pub struct GenerateRosterPayload {
     pub year: i32,
 }
 
+#[derive(Deserialize)]
+pub struct QueryParams {
+    pub month: u32,
+    pub year: i32,
+}
+
 pub fn roster_routes(state: AppState) -> Router {
     Router::new()
         .route("/generate-monthly", post(generate_monthly))
+        .route("/view", get(get_roster_view))
         .with_state(state)
+}
+
+async fn get_roster_view(
+    State(state): State<AppState>,
+    Query(params): Query<QueryParams>,
+) -> Result<Json<Vec<crate::domain::models::RosterView>>, (StatusCode, String)> {
+    match state.roster_service.get_monthly_view(params.month, params.year).await {
+        Ok(data) => Ok(Json(data)),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
+    }
 }
 
 async fn generate_monthly(

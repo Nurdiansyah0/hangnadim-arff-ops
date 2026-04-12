@@ -12,8 +12,8 @@ import {
   TrendingUp,
   History
 } from 'lucide-react';
-import { api } from '../lib/axios';
-import GridSelector from '../components/common/GridSelector';
+import { api } from '../../lib/axios';
+import GridSelector from '../../components/common/GridSelector';
 
 interface Incident {
   id: string;

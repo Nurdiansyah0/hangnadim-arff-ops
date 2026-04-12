@@ -10,7 +10,7 @@ import {
   History as HistoryIcon,
   Calendar
 } from 'lucide-react';
-import { api } from '../lib/axios';
+import { api } from '../../lib/axios';
 
 interface FireExtinguisher {
   id: string;
@@ -850,14 +850,14 @@ export default function FireExtinguishers() {
 
                     {form.latitude && (
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50">
-                           <div className="text-[9px] uppercase font-black text-slate-500 tracking-tighter">LATITUDE</div>
-                           <div className="text-xs font-mono text-blue-400">{form.latitude.toFixed(8)}</div>
-                        </div>
-                        <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50">
-                           <div className="text-[9px] uppercase font-black text-slate-500 tracking-tighter">LONGITUDE</div>
-                           <div className="text-xs font-mono text-blue-400">{form.longitude.toFixed(8)}</div>
-                        </div>
+                         <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50">
+                            <div className="text-[9px] uppercase font-black text-slate-500 tracking-tighter">LATITUDE</div>
+                            <div className="text-xs font-mono text-blue-400">{form.latitude?.toFixed(8) || '0.00000000'}</div>
+                         </div>
+                         <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50">
+                            <div className="text-[9px] uppercase font-black text-slate-500 tracking-tighter">LONGITUDE</div>
+                            <div className="text-xs font-mono text-blue-400">{form.longitude?.toFixed(8) || '0.00000000'}</div>
+                         </div>
                         <div className="col-span-2 flex items-center gap-2 mt-1">
                            <div className="text-[9px] font-black uppercase tracking-widest text-slate-600">CONFIDENCE:</div>
                            <div className={`text-[10px] font-bold ${locationAccuracy && locationAccuracy < 10 ? 'text-emerald-500' : 'text-orange-500'}`}>

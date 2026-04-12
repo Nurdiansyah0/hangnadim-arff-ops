@@ -9,8 +9,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/axios';
-import { useAuth } from '../store/useAuth';
+import { api } from '../../lib/axios';
+import { useAuth } from '../../store/useAuth';
 
 interface OperationalContext {
     assigned_vehicle: string | null;

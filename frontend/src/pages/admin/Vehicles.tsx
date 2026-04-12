@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Truck, Plus, Search, Loader2, Settings2, Trash2 } from 'lucide-react';
-import { api } from '../lib/axios';
+import { api } from '../../lib/axios';
 
 interface Vehicle {
   id: string;

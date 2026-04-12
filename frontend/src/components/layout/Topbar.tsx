@@ -1,21 +1,66 @@
-import { useState, useEffect } from 'react';
-import { Bell, Search, Menu, LogOut, Wifi, WifiOff } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Bell, Search, Menu, LogOut, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../store/useAuth';
+import { api } from '../../lib/axios';
+
+interface AlertItem {
+  alert_type: string;
+  description: string;
+  color: string;
+}
 
 export default function Topbar() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const fetchAlerts = async () => {
+    try {
+      // Only fetch if user has right role or just handle 403 gracefully
+      const res = await api.get('/analytics/alerts');
+      setAlerts(res.data);
+    } catch (err) {
+      // Ignored for non-admins
+    }
+  };
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    
+    // Initial fetch
+    if (user?.role_id === 1 || user?.role_id === 6 || user?.role_id === 2 || user?.role_id === 3 || user?.role_id === 4 || user?.role_id === 5) {
+      fetchAlerts();
+      // Poll every 30 seconds for 'realtime' feel
+      const interval = setInterval(fetchAlerts, 30000);
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+        clearInterval(interval);
+      };
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
+  }, [user]);
+
+  // Handle clicking outside to close notifications dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   return (
@@ -50,10 +95,50 @@ export default function Topbar() {
         </div>
 
         {/* Notifications */}
-        <button className="relative p-2 text-slate-400 hover:text-white transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border border-slate-900"></span>
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 text-slate-400 hover:text-white transition-colors"
+          >
+            <Bell size={20} />
+            {alerts.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border border-slate-900 animate-pulse"></span>
+            )}
+          </button>
+
+          {/* Notifications Dropdown */}
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="px-4 py-3 border-b border-slate-800/60 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest">System Alerts</h3>
+                <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">{alerts.length} NEW</span>
+              </div>
+              
+              <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+                {alerts.length > 0 ? (
+                  alerts.map((alert, idx) => (
+                    <div key={idx} className="px-4 py-3 border-b border-slate-800/40 hover:bg-slate-800/30 transition-colors cursor-pointer">
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-1 text-${alert.color}-500`}>
+                          <AlertTriangle size={16} />
+                        </div>
+                        <div>
+                          <p className={`text-xs font-bold text-${alert.color}-500 mb-1 uppercase tracking-wider`}>{alert.alert_type}</p>
+                          <p className="text-xs text-slate-400 leading-relaxed">{alert.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-8 text-center text-slate-500">
+                    <Bell size={24} className="mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">No pending alerts.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Mobile Dropdown Overlay (Hamburger Menu) */}

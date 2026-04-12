@@ -9,7 +9,7 @@ import {
   FileText,
   AlertTriangle
 } from 'lucide-react';
-import { api } from '../lib/axios';
+import { api } from '../../lib/axios';
 
 interface LeaveRequest {
   id: string;

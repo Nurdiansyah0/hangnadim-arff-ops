@@ -18,7 +18,8 @@ import {
   BarChart3,
   Wifi,
   WifiOff,
-  Wrench
+  Wrench,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '../../store/useAuth';
 
@@ -72,16 +73,18 @@ export default function Sidebar() {
   };
 
   const navItems: NavItem[] = [
-    { 
-      path: user?.role_id === 9 || user?.role_id === 8 ? '/staff/dashboard' : '/dashboard', 
-      label: user?.role_id === 9 || user?.role_id === 8 ? 'Field Dashboard' : 'Tactical Dashboard', 
-      icon: LayoutDashboard 
+    {
+      path: user?.role_id === 9 || user?.role_id === 8 ? '/staff/dashboard' : '/dashboard',
+      label: user?.role_id === 9 || user?.role_id === 8 ? 'Field Dashboard' : 'Tactical Dashboard',
+      icon: LayoutDashboard
     },
     { path: '/analytics', label: 'Performance Intel', icon: BarChart3, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
     { path: '/flights', label: 'Flight Watch', icon: Plane, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
+    { path: '/my-tasks', label: 'My Daily Tasks', icon: ClipboardCheck, roleLimit: [8, 9, 10, 11] },
+    { path: '/shift-approval', label: 'Daily Shift Report', icon: ClipboardCheck, roleLimit: [4, 5, 6] },
     { path: '/incidents', label: 'Incidents Log', icon: Flame, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
-    { 
-      label: 'Inspections', 
+    {
+      label: 'Inspections',
       icon: ClipboardCheck,
       children: [
         { path: '/inspections', label: 'Vehicle Audit', icon: Truck },
@@ -90,7 +93,8 @@ export default function Sidebar() {
     },
     { path: '/maintenance/request', label: 'Request Maintenance', icon: Wrench, roleLimit: [8, 9] },
     { path: '/watchroom', label: 'Watchroom Journal', icon: ShieldAlert, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
-    { path: '/shifts', label: 'Shifts & Rotation', icon: Calendar, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
+    { path: '/roster', label: 'Duty Matrix', icon: Calendar, roleLimit: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+    { path: '/shifts', label: 'Shifts & Rotation', icon: Clock, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
     { path: '/compliance', label: 'Safety & Compliance', icon: ShieldCheck, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
     { path: '/leave', label: user?.role_id === 9 || user?.role_id === 8 ? 'Request Leave' : 'Leave Management', icon: Calendar },
     { path: '/users', label: 'Personnel Master', icon: Users, roleLimit: [1, 7] },
@@ -106,8 +110,7 @@ export default function Sidebar() {
       <Link
         key={item.path}
         to={item.path!}
-        className={`flex items-center justify-between group rounded-2xl transition-all duration-300 border ${
-            isChild ? 'px-4 py-3 md:px-4 md:py-2.5 md:ml-9 mb-1' : 'px-4 py-3.5'
+        className={`flex items-center justify-between group rounded-2xl transition-all duration-300 border ${isChild ? 'px-4 py-3 md:px-4 md:py-2.5 md:ml-9 mb-1' : 'px-4 py-3.5'
           } ${isActive
             ? 'bg-blue-500/10 md:bg-blue-600 md:text-white text-blue-400 border border-blue-500/20 md:border-blue-500 shadow-none md:shadow-lg md:shadow-blue-600/20'
             : 'text-slate-400 md:border-transparent md:hover:text-white hover:text-blue-400 hover:bg-slate-800 md:hover:bg-slate-800/50 md:hover:border-slate-700'
@@ -154,11 +157,10 @@ export default function Sidebar() {
               <div key={item.label} className="space-y-1 shrink-0 relative group/mobile">
                 <button
                   onClick={() => toggleMenu(item.label)}
-                  className={`w-full flex flex-col md:flex-row items-center justify-between group px-3 py-2 md:px-4 md:py-3.5 rounded-2xl transition-all duration-300 md:border ${
-                    hasActiveChild 
-                      ? 'text-blue-400 md:border-blue-500/20 md:bg-blue-500/5' 
+                  className={`w-full flex flex-col md:flex-row items-center justify-between group px-3 py-2 md:px-4 md:py-3.5 rounded-2xl transition-all duration-300 md:border ${hasActiveChild
+                      ? 'text-blue-400 md:border-blue-500/20 md:bg-blue-500/5'
                       : 'text-slate-500 md:text-slate-400 md:border-transparent hover:text-blue-400 md:hover:text-white md:hover:bg-slate-800/50 md:hover:border-slate-700'
-                  }`}
+                    }`}
                 >
                   <div className="flex flex-col md:flex-row items-center gap-1 md:gap-3">
                     <ParentIcon size={24} className={hasActiveChild ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400 transition-colors'} />
@@ -166,7 +168,7 @@ export default function Sidebar() {
                   </div>
                   {isOpen ? <ChevronDown size={14} className="hidden md:block opacity-50" /> : <ChevronRight size={14} className="hidden md:block opacity-50" />}
                 </button>
-                
+
                 {isOpen && (
                   <>
                     {/* Mobile: horizontal icon-only pills */}
@@ -181,11 +183,10 @@ export default function Sidebar() {
                               toggleMenu(item.label);
                               navigate(child.path!);
                             }}
-                            className={`flex flex-col items-center justify-center w-20 h-20 rounded-3xl border-2 transition-all duration-200 shadow-2xl shadow-black/60 active:scale-95 ${
-                              childActive
+                            className={`flex flex-col items-center justify-center w-20 h-20 rounded-3xl border-2 transition-all duration-200 shadow-2xl shadow-black/60 active:scale-95 ${childActive
                                 ? 'bg-blue-600 border-blue-400 text-white shadow-blue-600/30'
                                 : 'bg-slate-800/95 border-slate-600/50 text-slate-300 hover:bg-slate-700 hover:border-slate-500 hover:text-white'
-                            }`}
+                              }`}
                           >
                             <ChildIcon size={32} className={childActive ? 'text-white' : ''} />
                           </button>
@@ -193,8 +194,8 @@ export default function Sidebar() {
                       })}
                     </div>
                     {/* Backdrop to close on outside tap */}
-                    <div 
-                      className="fixed inset-0 z-99 md:hidden" 
+                    <div
+                      className="fixed inset-0 z-99 md:hidden"
                       onClick={() => toggleMenu(item.label)}
                     />
 
@@ -209,9 +210,9 @@ export default function Sidebar() {
           }
 
           return (
-             <div key={item.path} className="shrink-0">
-                 {renderLink(item)}
-             </div>
+            <div key={item.path} className="shrink-0">
+              {renderLink(item)}
+            </div>
           );
         })}
       </nav>
@@ -225,7 +226,7 @@ export default function Sidebar() {
           <div className="overflow-hidden">
             <p className="text-sm font-bold text-white truncate">{user?.full_name || user?.username || 'Administrator'}</p>
             <p className="text-[10px] text-blue-400 font-medium uppercase tracking-wider">
-              {user?.role || 'Field Operator'}
+              {user?.position || user?.role || 'Field Operator'}
             </p>
           </div>
         </div>
@@ -238,18 +239,17 @@ export default function Sidebar() {
           Sign Out System
         </button>
 
-        <div className={`p-4 rounded-2xl border flex items-center justify-between transition-all duration-500 ${
-          isOnline 
-          ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500' 
-          : 'bg-red-500/5 border-red-500/20 text-red-500 animate-pulse'
-        }`}>
-           <div className="flex items-center gap-3">
-              {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
-              <span className="text-[10px] font-black uppercase tracking-widest">
-                {isOnline ? 'Network: Online' : 'Network: Offline'}
-              </span>
-           </div>
-           {isOnline && <CloudUpload size={14} className="opacity-40" />}
+        <div className={`p-4 rounded-2xl border flex items-center justify-between transition-all duration-500 ${isOnline
+            ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500'
+            : 'bg-red-500/5 border-red-500/20 text-red-500 animate-pulse'
+          }`}>
+          <div className="flex items-center gap-3">
+            {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
+            <span className="text-[10px] font-black uppercase tracking-widest">
+              {isOnline ? 'Network: Online' : 'Network: Offline'}
+            </span>
+          </div>
+          {isOnline && <CloudUpload size={14} className="opacity-40" />}
         </div>
       </div>
     </aside>

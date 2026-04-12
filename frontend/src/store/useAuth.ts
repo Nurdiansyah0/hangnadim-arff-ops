@@ -7,6 +7,7 @@ interface User {
   email: string;
   full_name?: string;
   role?: string;
+  position?: string;
   nip_nik?: string;
   personnel_id: string | null;
   role_id: number | null;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock, Plus, Loader2, Calendar, Scissors, Trash2 } from 'lucide-react';
-import { api } from '../lib/axios';
+import { api } from '../../lib/axios';
 
 interface Shift {
   id: number;
