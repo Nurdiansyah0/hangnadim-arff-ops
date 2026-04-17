@@ -94,6 +94,8 @@ mod tests {
                 position_name: Some("Guard".to_string()),
                 role_name: Some("Admin".to_string()),
                 role_id: Some(1),
+                phone_number: None,
+                profile_picture_url: None,
                 created_at: Some(chrono::Utc::now()),
             }))
         }
@@ -126,6 +128,7 @@ mod tests {
 
         async fn get_operational_context(&self, _id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
             Ok(crate::domain::models::OperationalContextResponse {
+                shift_id: Some(1),
                 shift_name: Some("Normal".to_string()),
                 shift_start: None,
                 shift_end: None,
@@ -134,6 +137,18 @@ mod tests {
                 assigned_vehicle_id: None,
                 duty_status: "ACTIVE".to_string(),
             })
+        }
+
+        async fn update_user_profile(&self, _pid: Uuid, _phone: Option<String>, _email: Option<String>) -> Result<(), sqlx::Error> {
+            Ok(())
+        }
+
+        async fn update_password(&self, _uid: Uuid, _hash: &str) -> Result<(), sqlx::Error> {
+            Ok(())
+        }
+
+        async fn update_profile_picture(&self, _pid: Uuid, _url: &str) -> Result<(), sqlx::Error> {
+            Ok(())
         }
     }
 
