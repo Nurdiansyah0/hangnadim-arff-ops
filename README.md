@@ -22,7 +22,11 @@ Pastikan Anda sudah menginstal perangkat lunak berikut:
 ### 2. Konfigurasi Database (PENTING)
 1. Buka **pgAdmin** atau **psql**.
 2. Buat database baru dengan nama `arff_db`.
-3. Jalankan perintah SQL ini di database tersebut:
+3. Pastikan user database Anda memiliki hak akses penuh (Owner) ke database tersebut:
+   ```sql
+   ALTER DATABASE arff_db OWNER TO nama_user_anda;
+   ```
+4. Jalankan perintah SQL ini di database tersebut:
    ```sql
    CREATE EXTENSION IF NOT EXISTS postgis;
    ```
