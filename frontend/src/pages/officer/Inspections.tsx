@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, History, ClipboardCheck, Truck, Calendar, Loader2, AlertCircle, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '../../lib/axios';
 
 interface Vehicle {
@@ -186,7 +187,7 @@ export default function Inspections() {
         fetchOpsContext();
         
         if (!opsContext?.assigned_vehicle_id) {
-            alert('SYSTEM ACCESS DENIED: No active vehicle assignment found. Please perform "Shift Check-in" from the Dashboard first to proceed with the audit.');
+            toast.error('SYSTEM ACCESS DENIED: No active vehicle assignment found. Please perform "Shift Check-in" from the Dashboard first to proceed with the audit.');
             return;
         }
 
@@ -245,8 +246,8 @@ export default function Inspections() {
             resetModal();
             fetchData();
         } catch (err: any) {
-            const msg = err.response?.data || 'Failed to create new inspection log';
-            alert(msg);
+            const msg = err.response?.data || 'Failed to submit inspection';
+            toast.error(msg);
         } finally {
             setSubmitting(false);
         }
@@ -258,7 +259,7 @@ export default function Inspections() {
             setDetailData(res.data);
             setShowDetailModal(true);
         } catch (err) {
-            alert('Failed to fetch inspection details');
+            toast.error('Failed to fetch inspection details');
         }
     };
 

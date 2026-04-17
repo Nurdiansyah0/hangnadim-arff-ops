@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, UserPlus, Search, Loader2, Mail, Shield, Smartphone } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '../../lib/axios';
 
 interface Personnel {
@@ -67,7 +68,7 @@ export default function Personnel() {
       setForm({ nip_nik: '', full_name: '', position_id: '', status: 'ACTIVE', shift: '', employment_status: '' });
       fetchData();
     } catch (err) {
-      alert('Failed to add new personnel');
+      toast.error('Failed to add new personnel');
     } finally {
       setSubmitting(false);
     }

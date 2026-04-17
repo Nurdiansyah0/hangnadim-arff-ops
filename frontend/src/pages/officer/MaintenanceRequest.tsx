@@ -10,6 +10,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { api } from '../../lib/axios';
 import { useAuth } from '../../store/useAuth';
 
@@ -100,7 +101,7 @@ export default function MaintenanceRequest() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!opsContext?.assigned_vehicle_id || !user?.personnel_id) {
-       alert("SYSTEM DENIED: No active vehicle or personnel context found.");
+       toast.error("SYSTEM DENIED: No active vehicle or personnel context found.");
        return;
     }
 
@@ -130,7 +131,7 @@ export default function MaintenanceRequest() {
     } catch (err: any) {
       console.error('Server Refused Request:', err);
       const msg = err.response?.data || err.message || 'Transmission failed';
-      alert(`Server Diagnostic Error:\n${msg}`);
+      toast.error(`Server Diagnostic Error: ${msg}`);
     } finally {
       setLoading(false);
     }

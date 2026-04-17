@@ -1,4 +1,10 @@
-.env
-.env.*
+# Allow .env files for local dev sync as per user request
+# .env
+# .env.*
+
 node_modules/
 target/
+dist/
+dev-dist/
+*.log
+.DS_Store
