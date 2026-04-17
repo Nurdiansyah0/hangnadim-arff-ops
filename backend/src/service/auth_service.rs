@@ -114,11 +114,17 @@ impl AuthService {
             id: profile.id,
             username: profile.username,
             email: profile.email,
+            full_name: profile.full_name,
             role: profile.role_name.unwrap_or_else(|| "User".to_string()),
             position: profile.position_name,
             phone_number: profile.phone_number,
             profile_picture_url: profile.profile_picture_url,
             permissions,
+            remaining_leave: profile.remaining_leave,
+            annual_leave_quota: profile.annual_leave_quota,
+            shift_team: profile.shift_team,
+            personnel_id: profile.personnel_id,
+            role_id: profile.role_id,
         })
     }
 

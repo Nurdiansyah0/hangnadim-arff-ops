@@ -8,8 +8,11 @@ import {
   Navigation, 
   Locate,
   History as HistoryIcon,
-  Calendar
+  Calendar,
+  QrCode
 } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
+import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../../lib/axios';
 
 interface FireExtinguisher {
@@ -22,6 +25,8 @@ interface FireExtinguisher {
   building: string | null;
   expiry_date: string;
   status: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface Inspection {
@@ -132,6 +137,10 @@ export default function FireExtinguishers() {
   const [filteredAccuracy, setFilteredAccuracy] = useState<number | null>(null);    // Kalman-filtered estimate
   const [kalmanSamples, setKalmanSamples] = useState(0);  // convergence counter
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [lastRegistered, setLastRegistered] = useState<FireExtinguisher | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   // Kalman filter instance — persists via ref so it's not recreated on every render
   const kalman = useRef(new GeoKalmanFilter());
 
@@ -262,9 +271,9 @@ export default function FireExtinguishers() {
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
 
-        // Accuracy gate: ignore satellite readings that haven't locked yet
-        if (accuracy > 80) {
-          console.debug(`[Radar] GPS fix rejected — accuracy ${accuracy.toFixed(1)}m (> 80m gate)`);
+        // Accuracy gate: ignore satellite readings that are extremely noisy (> 150m)
+        if (accuracy > 150) {
+          console.debug(`[Radar] GPS fix rejected — accuracy ${accuracy.toFixed(1)}m (> 150m gate)`);
           return;
         }
 
@@ -352,7 +361,7 @@ export default function FireExtinguishers() {
         console.warn('Final GPS refresh failed', gpsErr);
       }
 
-      await api.post('/fire-extinguishers', {
+      const res = await api.post('/fire-extinguishers', {
         serial_number: form.serial_number,
         agent_type: form.agent_type,
         capacity_kg: parseFloat(form.capacity_kg),
@@ -366,7 +375,11 @@ export default function FireExtinguishers() {
         longitude: finalLng,
         photo_url: null,
       });
+
+      setLastRegistered(res.data);
       setShowModal(false);
+      setShowSuccessModal(true);
+      
       setForm({
         serial_number: '',
         agent_type: 'CO2',
@@ -380,7 +393,6 @@ export default function FireExtinguishers() {
         longitude: null,
       });
       fetchData();
-      alert('APAR Registered Successfully - Spatial Lock Recorded');
     } catch (err: any) {
       console.error('Registration Error:', err);
       const serverMsg = err.response?.data || err.message || 'Operation failed';
@@ -459,6 +471,33 @@ export default function FireExtinguishers() {
       alert(msg);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleQrScanSuccess = (decodedText: string) => {
+    // Expected QR format: Serial Number (e.g. "APAR-061") or full ID
+    const found = items.find(item => item.serial_number === decodedText || item.id === decodedText);
+    
+    if (found) {
+        setShowQrScanner(false);
+        
+        // GEOFENCING VERIFICATION
+        if (found.latitude && found.longitude && currentCoords) {
+            const distance = calculateDistance(currentCoords.lat, currentCoords.lng, found.latitude, found.longitude);
+            const MAX_DISTANCE = 50; // 50 meters tolerance for indoor stability
+            
+            if (distance > MAX_DISTANCE) {
+                alert(`GEOLOCATION MISMATCH: Scanned unit #${found.serial_number} is registered ${distance.toFixed(1)}m away. You must be within ${MAX_DISTANCE}m to perform an audit.`);
+                return;
+            }
+        } else if (!currentCoords) {
+            alert('GEOLOCATION REQUIRED: Could not verify your position. Please ensure GPS is active.');
+            return;
+        }
+
+        openInspectModal(found);
+    } else {
+        setQrError(`UNRECOGNIZED ASSET: The code "${decodedText}" is not registered in the ARFF database.`);
     }
   };
 
@@ -630,6 +669,17 @@ export default function FireExtinguishers() {
                                  </div>
                              </div>
                          </div>
+                     </div>
+
+                     <div className="pt-4 flex flex-col items-center gap-4">
+                         <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">— OR —</div>
+                         <button
+                           onClick={() => setShowQrScanner(true)}
+                           className="flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-2xl transition-all shadow-xl font-black uppercase tracking-[0.2em] text-xs border border-slate-700 group"
+                         >
+                           <QrCode size={18} className="group-hover:scale-110 transition-transform" />
+                           Scan Asset QR Code
+                         </button>
                      </div>
                 </div>
             )}
@@ -1066,6 +1116,155 @@ export default function FireExtinguishers() {
               </div>
           </div>
       )}
+      {showQrScanner && (
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-xl" onClick={() => setShowQrScanner(false)} />
+            <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-4xl p-8 shadow-2xl animate-in zoom-in duration-300 overflow-hidden">
+                <div className="absolute top-0 right-0 p-6">
+                    <button onClick={() => setShowQrScanner(false)} className="text-slate-500 hover:text-white transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+
+                <div className="flex flex-col items-center text-center space-y-6">
+                    <div className="w-16 h-16 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-500">
+                        <QrCode size={32} />
+                    </div>
+                    
+                    <div>
+                        <h3 className="text-2xl font-black text-white uppercase tracking-tight">Tactical QR Scanner</h3>
+                        <p className="text-slate-500 text-sm mt-1 font-medium">Align the unit QR code within the frame for spatial verification.</p>
+                    </div>
+
+                    <div className="w-full aspect-square bg-black rounded-3xl overflow-hidden border-2 border-slate-800 relative group">
+                        <div id="qr-reader" className="w-full h-full" />
+                        
+                        {/* Scanner Overlay UI */}
+                        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                            <div className="w-64 h-64 border-2 border-blue-500/50 rounded-2xl relative">
+                                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 -translate-x-1 -translate-y-1 rounded-tl-lg" />
+                                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 translate-x-1 -translate-y-1 rounded-tr-lg" />
+                                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 -translate-x-1 translate-y-1 rounded-bl-lg" />
+                                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 translate-x-1 translate-y-1 rounded-br-lg" />
+                                <div className="absolute top-0 left-0 w-full h-0.5 bg-blue-500/50 animate-[scan_2s_ease-in-out_infinite]" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {qrError && (
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 w-full flex items-center gap-3 text-red-400 text-left">
+                            <X className="shrink-0" size={18} />
+                            <span className="text-xs font-bold leading-tight">{qrError}</span>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-950 px-4 py-2 rounded-full border border-slate-800">
+                        <div className={`w-2 h-2 rounded-full ${currentCoords ? (filteredAccuracy && filteredAccuracy < 20 ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500 animate-pulse') : 'bg-red-500'}`} />
+                        GPS Lock: {currentCoords ? (filteredAccuracy && filteredAccuracy < 50 ? `±${filteredAccuracy.toFixed(1)}m` : 'CALIBRATING...') : 'SEARCHING SIGNAL...'}
+                    </div>
+                </div>
+
+                <QRScannerHandler onSuccess={handleQrScanSuccess} onError={(err) => setQrError(err)} />
+            </div>
+        </div>
+      )}
+      {showSuccessModal && lastRegistered && (
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl" onClick={() => setShowSuccessModal(false)} />
+            <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-4xl p-10 shadow-2xl animate-in zoom-in duration-300 text-center">
+                <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500 mx-auto mb-6">
+                    <ClipboardCheck size={40} />
+                </div>
+                
+                <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-2">Registration Success</h3>
+                <p className="text-slate-500 text-sm mb-8 font-medium">Asset spatial lock engaged. Please print and affix the QR code to the unit.</p>
+
+                <div className="bg-white p-6 rounded-3xl inline-block shadow-2xl mb-8">
+                    <QRCodeSVG 
+                        id="qr-download"
+                        value={lastRegistered.serial_number} 
+                        size={180}
+                        level="H"
+                        includeMargin={false}
+                    />
+                </div>
+
+                <div className="text-xl font-black text-white uppercase tracking-tighter mb-8">
+                    #{lastRegistered.serial_number}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <button
+                        onClick={() => {
+                            const svg = document.getElementById('qr-download');
+                            if (svg) {
+                                const svgData = new XMLSerializer().serializeToString(svg);
+                                const canvas = document.createElement("canvas");
+                                const ctx = canvas.getContext("2d");
+                                const img = new Image();
+                                img.onload = () => {
+                                    canvas.width = img.width;
+                                    canvas.height = img.height;
+                                    ctx?.drawImage(img, 0, 0);
+                                    const pngFile = canvas.toDataURL("image/png");
+                                    const downloadLink = document.createElement("a");
+                                    downloadLink.download = `QR_${lastRegistered.serial_number}.png`;
+                                    downloadLink.href = `${pngFile}`;
+                                    downloadLink.click();
+                                };
+                                img.src = "data:image/svg+xml;base64," + btoa(svgData);
+                            }
+                        }}
+                        className="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all border border-slate-700"
+                    >
+                        Download PNG
+                    </button>
+                    <button
+                        onClick={() => setShowSuccessModal(false)}
+                        className="px-6 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-lg shadow-orange-600/20"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
+}
+
+// Separate helper component to handle Html5Qrcode lifecycle
+function QRScannerHandler({ onSuccess, onError }: { onSuccess: (text: string) => void, onError: (err: string) => void }) {
+    useEffect(() => {
+        const scanner = new Html5Qrcode("qr-reader");
+        
+        const startScanner = async () => {
+            try {
+                await scanner.start(
+                    { facingMode: "environment" },
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 },
+                    },
+                    (decodedText) => {
+                        onSuccess(decodedText);
+                    },
+                    undefined
+                );
+            } catch (err) {
+                console.error("Failed to start QR scanner", err);
+                onError("Camera access denied or hardware not found.");
+            }
+        };
+
+        startScanner();
+
+        return () => {
+            if (scanner.isScanning) {
+                scanner.stop().catch(err => console.error("Error stopping scanner", err));
+            }
+        };
+    }, []);
+
+    return null;
 }

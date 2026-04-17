@@ -55,6 +55,49 @@ impl LeaveRepository {
         Ok(data)
     }
 
+    pub async fn count_overlapping_requests_by_team(&self, team: &str, date: chrono::NaiveDate) -> Result<i64, String> {
+        let count: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) 
+            FROM leave_requests lr
+            JOIN personnels p ON lr.personnel_id = p.id
+            WHERE p.shift::TEXT = $1
+            AND $2 BETWEEN lr.start_date AND lr.end_date
+            AND lr.status::TEXT IN ('PENDING', 'APPROVED')
+            "#
+        )
+        .bind(team)
+        .bind(date)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        Ok(count.0)
+    }
+
+    pub async fn get_request_by_id(&self, id: Uuid) -> Result<serde_json::Value, String> {
+        let r = sqlx::query(
+            r#"
+            SELECT lr.id, lr.personnel_id, lr.start_date, lr.end_date, lr.reason, lr.status::text as status
+            FROM leave_requests lr
+            WHERE lr.id = $1
+            "#
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        Ok(serde_json::json!({
+            "id": r.get::<Uuid, _>("id"),
+            "personnel_id": r.get::<Uuid, _>("personnel_id"),
+            "start_date": r.get::<chrono::NaiveDate, _>("start_date"),
+            "end_date": r.get::<chrono::NaiveDate, _>("end_date"),
+            "reason": r.get::<String, _>("reason"),
+            "status": r.get::<String, _>("status")
+        }))
+    }
+
     pub async fn update_status(&self, id: Uuid, status: &str) -> Result<(), String> {
         sqlx::query(
             "UPDATE leave_requests SET status = $1::text::leave_status_enum, updated_at = NOW() WHERE id = $2"

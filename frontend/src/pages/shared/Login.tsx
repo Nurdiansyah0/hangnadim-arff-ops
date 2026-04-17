@@ -27,34 +27,38 @@ export default function Login() {
       // Simpan token sementara di localStorage agar interceptor bisa menggunakannya
       localStorage.setItem('arff-token-temp', access_token);
 
-      // Ambil data user asli dari profile me
-      const profileRes = await api.get('/auth/profile/me', {
+      // Ambil data context user lengkap
+      const contextRes = await api.get('/auth/me', {
         headers: { Authorization: `Bearer ${access_token}` }
       });
-
-      const profile = profileRes.data;
+      
+      const ctx = contextRes.data;
       const user = {
-        id: profile.personal.id,
-        username: profile.personal.username,
-        email: profile.personal.email,
-        full_name: profile.personal.full_name,
-        role: profile.role,
-        nip_nik: profile.personal.nip_nik,
-        personnel_id: profile.personal.personnel_id,
-        role_id: profile.personal.role_id
+        id: ctx.id,
+        username: ctx.username,
+        email: ctx.email,
+        full_name: ctx.full_name || ctx.username,
+        role: ctx.role,
+        personnel_id: ctx.personnel_id,
+        role_id: ctx.role_id,
+        remaining_leave: ctx.remaining_leave,
+        annual_leave_quota: ctx.annual_leave_quota,
+        shift_team: ctx.shift_team
       };
 
       setAuth(user, access_token);
       localStorage.removeItem('arff-token-temp');
 
       // Redirect berdasarkan role
-      if (user.role_id === 9 || user.role_id === 8) {
-        navigate('/staff/dashboard');
+      if (user.role_id === 9 || user.role_id === 10) {
+        navigate('/officer/dashboard');
+      } else if (user.role_id === 8 || user.role_id === 7) {
+        navigate('/squad-leader/dashboard');
       } else {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Kredensial tidak valid atau server terputus.');
+      setError(err.response?.data?.error || 'Invalid credentials or server disconnected.');
     } finally {
       setLoading(false);
     }
@@ -88,7 +92,7 @@ export default function Login() {
               ARSI <span className="text-blue-500 italic">V2</span>
             </h1>
             <p className="text-slate-400 mt-2 text-[10px] font-bold uppercase tracking-widest leading-normal">
-              Sistem Informasi Operasional & Pelaporan
+              Operational Information & Reporting System
             </p>
           </div>
         </div>
@@ -112,7 +116,7 @@ export default function Login() {
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="off"
                 className="w-full bg-slate-950/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-10 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-300"
-                placeholder="Masukkan Username"
+                placeholder="Enter Username"
                 required
               />
             </div>
@@ -130,7 +134,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
                 className="w-full bg-slate-950/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-10 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-300"
-                placeholder="Masukkan Password"
+                placeholder="Enter Password"
                 required
               />
               <button
@@ -151,7 +155,7 @@ export default function Login() {
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              'Akses Keamanan'
+              'System Authentication'
             )}
           </button>
         </form>

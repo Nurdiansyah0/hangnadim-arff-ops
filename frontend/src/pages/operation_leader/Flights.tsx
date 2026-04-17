@@ -64,7 +64,7 @@ export default function Flights() {
       });
       fetchFlights();
     } catch (err) {
-      alert('Gagal menambah jadwal penerbangan');
+      alert('Failed to add flight schedule');
     } finally {
       setSubmitting(false);
     }
@@ -140,7 +140,7 @@ export default function Flights() {
                            <div className="text-right">
                               <div className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] mb-1">Schedule Time</div>
                               <div className="text-white font-mono font-black text-xl">
-                                 {new Date(f.actual_time).toLocaleTimeString('id-ID', { hour12: false })}
+                                 {new Date(f.actual_time).toLocaleTimeString('en-GB', { hour12: false })}
                               </div>
                            </div>
                            <div className="col-span-2 lg:col-span-1">
@@ -180,7 +180,7 @@ export default function Flights() {
                      <Activity size={24} />
                   </div>
                   <h4 className="text-2xl font-black italic uppercase leading-none tracking-tighter">Situational<br/>Awareness</h4>
-                  <p className="text-sm text-blue-100/80 font-medium leading-relaxed">Jadwal penerbangan tersinkronisasi otomatis dengan server airside Hang Nadim.</p>
+                  <p className="text-sm text-blue-100/80 font-medium leading-relaxed">Flight schedules are automatically synchronized with the Hang Nadim airside server.</p>
                </div>
             </div>
          </div>

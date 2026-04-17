@@ -15,6 +15,7 @@ pub trait MaintenanceRepository: Send + Sync {
         performed_at: Option<chrono::NaiveDate>,
         cost: Option<BigDecimal>,
         next_due: Option<chrono::NaiveDate>,
+        photo_url: Option<&str>,
     ) -> Result<MaintenanceRecord, Error>;
     
     async fn get_by_vehicle_id(&self, vehicle_id: Uuid) -> Result<Vec<MaintenanceRecord>, Error>;
@@ -42,12 +43,13 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
         performed_at: Option<chrono::NaiveDate>,
         cost: Option<BigDecimal>,
         next_due: Option<chrono::NaiveDate>,
+        photo_url: Option<&str>,
     ) -> Result<MaintenanceRecord, Error> {
         sqlx::query_as::<_, MaintenanceRecord>(
             r#"
-            INSERT INTO maintenance_records (vehicle_id, maintenance_type, description, performed_by, performed_at, cost, next_due)
-            VALUES ($1, $2::maintenance_type_enum, $3, $4, $5, $6, $7)
-            RETURNING id, vehicle_id, maintenance_type::TEXT, description, performed_by, performed_at, cost, next_due, status::TEXT, created_at, updated_at, NULL as vehicle_code, NULL as personnel_name
+            INSERT INTO maintenance_records (vehicle_id, maintenance_type, description, performed_by, performed_at, cost, next_due, photo_url)
+            VALUES ($1, $2::maintenance_type_enum, $3, $4, $5, $6, $7, $8)
+            RETURNING id, vehicle_id, maintenance_type::TEXT AS maintenance_type, description, performed_by, performed_at, cost, next_due, status::TEXT AS status, photo_url, created_at, updated_at, NULL::TEXT as vehicle_code, NULL::TEXT as personnel_name
             "#
         )
         .bind(vehicle_id)
@@ -57,6 +59,7 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
         .bind(performed_at)
         .bind(cost)
         .bind(next_due)
+        .bind(photo_url)
         .fetch_one(&self.db)
         .await
     }
@@ -65,8 +68,9 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
         sqlx::query_as::<_, MaintenanceRecord>(
             r#"
             SELECT 
-                mr.id, mr.vehicle_id, mr.maintenance_type::TEXT, mr.description, 
-                mr.performed_by, mr.performed_at, mr.cost, mr.next_due, mr.status::TEXT, mr.created_at, mr.updated_at,
+                mr.id, mr.vehicle_id, mr.maintenance_type::TEXT AS maintenance_type, mr.description, 
+                mr.performed_by, mr.performed_at, mr.cost, mr.next_due, mr.status::TEXT AS status, 
+                mr.photo_url, mr.created_at, mr.updated_at,
                 v.code as vehicle_code,
                 p.full_name as personnel_name
             FROM maintenance_records mr
@@ -85,8 +89,9 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
         sqlx::query_as::<_, MaintenanceRecord>(
             r#"
             SELECT 
-                mr.id, mr.vehicle_id, mr.maintenance_type::TEXT, mr.description, 
-                mr.performed_by, mr.performed_at, mr.cost, mr.next_due, mr.status::TEXT, mr.created_at, mr.updated_at,
+                mr.id, mr.vehicle_id, mr.maintenance_type::TEXT AS maintenance_type, mr.description, 
+                mr.performed_by, mr.performed_at, mr.cost, mr.next_due, mr.status::TEXT AS status, 
+                mr.photo_url, mr.created_at, mr.updated_at,
                 v.code as vehicle_code,
                 p.full_name as personnel_name
             FROM maintenance_records mr

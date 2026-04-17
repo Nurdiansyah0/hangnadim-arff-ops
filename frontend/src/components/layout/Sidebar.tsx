@@ -19,7 +19,8 @@ import {
   Wifi,
   WifiOff,
   Wrench,
-  Clock
+  Clock,
+  Gauge
 } from 'lucide-react';
 import { useAuth } from '../../store/useAuth';
 
@@ -74,8 +75,8 @@ export default function Sidebar() {
 
   const navItems: NavItem[] = [
     {
-      path: user?.role_id === 9 || user?.role_id === 8 ? '/staff/dashboard' : '/dashboard',
-      label: user?.role_id === 9 || user?.role_id === 8 ? 'Field Dashboard' : 'Tactical Dashboard',
+      path: (user?.role_id === 9 || user?.role_id === 10) ? '/officer/dashboard' : (user?.role_id === 8 || user?.role_id === 7) ? '/squad-leader/dashboard' : '/dashboard',
+      label: (user?.role_id === 9 || user?.role_id === 10 || user?.role_id === 8 || user?.role_id === 7) ? 'Field Dashboard' : 'Tactical Dashboard',
       icon: LayoutDashboard
     },
     { path: '/analytics', label: 'Performance Intel', icon: BarChart3, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
@@ -93,12 +94,13 @@ export default function Sidebar() {
     },
     { path: '/maintenance/request', label: 'Request Maintenance', icon: Wrench, roleLimit: [8, 9] },
     { path: '/watchroom', label: 'Watchroom Journal', icon: ShieldAlert, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
-    { path: '/roster', label: 'Duty Matrix', icon: Calendar, roleLimit: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+    { path: '/roster', label: 'Duty Matrix', icon: Calendar, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
     { path: '/shifts', label: 'Shifts & Rotation', icon: Clock, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
     { path: '/compliance', label: 'Safety & Compliance', icon: ShieldCheck, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
     { path: '/leave', label: user?.role_id === 9 || user?.role_id === 8 ? 'Request Leave' : 'Leave Management', icon: Calendar },
     { path: '/users', label: 'Personnel Master', icon: Users, roleLimit: [1, 7] },
     { path: '/assets', label: 'Asset Fleet', icon: Truck, roleLimit: [1, 2, 3, 4, 5, 6] },
+    { path: '/performance', label: 'Vehicle Performance', icon: Gauge, roleLimit: [1, 4, 5, 7] },
     { path: '/audit-trail', label: 'System Audit Trail', icon: History, roleLimit: [1] },
   ];
 

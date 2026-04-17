@@ -17,3 +17,4 @@ pub mod audit_repository;
 pub mod task_repository;
 pub mod fitness_repository;
 pub mod roster_repository;
+pub mod performance_repository;

@@ -67,7 +67,7 @@ export default function Personnel() {
       setForm({ nip_nik: '', full_name: '', position_id: '', status: 'ACTIVE', shift: '', employment_status: '' });
       fetchData();
     } catch (err) {
-      alert('Gagal menambah personil baru');
+      alert('Failed to add new personnel');
     } finally {
       setSubmitting(false);
     }

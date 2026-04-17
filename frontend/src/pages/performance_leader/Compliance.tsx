@@ -191,11 +191,11 @@ export default function Compliance() {
                           await api.post('/email/send-report', {
                             to: 'admin@hangnadim-arff.id',
                             subject: `SIOPEL: System Audit Log ${new Date().toLocaleDateString()}`,
-                            body: `Berikut adalah ringkasan log audit sistem SIOPEL:\n\n${body}`
+                            body: `Here is the summary of the SIOPEL system audit logs:\n\n${body}`
                           });
-                          alert('Laporan Audit berhasil dikirim via Email!');
+                          alert('Audit Report successfully sent via Email!');
                         } catch (err) {
-                          alert('Gagal mengirim email. Pastikan server SMTP terkonfigurasi.');
+                          alert('Failed to send email. Ensure the SMTP server is configured.');
                         }
                       }}
                       className="text-[10px] font-black text-blue-500 uppercase bg-blue-500/10 px-4 py-2 rounded-xl border border-blue-500/30 hover:bg-blue-500 hover:text-white transition-all shadow-lg shadow-blue-500/20"
@@ -235,7 +235,7 @@ export default function Compliance() {
                              <span className="bg-slate-800 px-2 py-0.5 rounded text-[10px] text-slate-400 font-bold uppercase">{log.target_type}</span>
                           </td>
                           <td className="py-4 px-2 text-right text-slate-500 font-mono text-xs">
-                             {new Date(log.created_at).toLocaleString('id-ID', { hour12: false })}
+                             {new Date(log.created_at).toLocaleString('en-GB', { hour12: false })}
                           </td>
                         </tr>
                       ))}
@@ -254,7 +254,7 @@ export default function Compliance() {
             </div>
             <div>
                <h4 className="text-white font-black uppercase tracking-tight italic mb-2">Compliance Rating: <span className="text-blue-400">CLASS-A</span></h4>
-               <p className="text-sm text-slate-400 leading-relaxed">Unit ARFF Hang Nadim mematuhi seluruh standar ICAO dan DGCA musim ini. Seluruh log audit tersinkronisasi penuh.</p>
+               <p className="text-sm text-slate-400 leading-relaxed">The ARFF Unit at Hang Nadim complies with all ICAO and DGCA standards this season. All audit logs are fully synchronized.</p>
             </div>
          </div>
          

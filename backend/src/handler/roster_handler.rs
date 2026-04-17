@@ -14,11 +14,35 @@ pub struct QueryParams {
     pub year: i32,
 }
 
+#[derive(Deserialize)]
+pub struct UpdateAssignmentPayload {
+    pub vehicle_id: Option<uuid::Uuid>,
+    pub position: String,
+}
+
 pub fn roster_routes(state: AppState) -> Router {
     Router::new()
         .route("/generate-monthly", post(generate_monthly))
         .route("/view", get(get_roster_view))
+        .route("/assignments/{id}", axum::routing::patch(update_assignment))
         .with_state(state)
+}
+
+async fn update_assignment(
+    State(state): State<AppState>,
+    RequireAuth(claims): RequireAuth,
+    axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
+    Json(payload): Json<UpdateAssignmentPayload>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let role_id = claims.role_id.unwrap_or(0);
+    if role_id != 1 && role_id != 3 {
+        return Err((StatusCode::FORBIDDEN, "Unauthorized access".to_string()));
+    }
+
+    match state.roster_service.update_assignment(id, payload.vehicle_id, payload.position).await {
+        Ok(_) => Ok(StatusCode::OK),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
+    }
 }
 
 async fn get_roster_view(

@@ -25,10 +25,20 @@ impl MaintenanceService {
         performed_at: Option<chrono::NaiveDate>,
         cost: Option<BigDecimal>,
         next_due: Option<chrono::NaiveDate>,
+        photo_url: Option<&str>,
     ) -> Result<MaintenanceRecord, String> {
         // 1. Create maintenance record
         let record = self.repo
-            .create_record(vehicle_id, maintenance_type.as_deref(), description, performed_by, performed_at, cost, next_due)
+            .create_record(
+                vehicle_id, 
+                maintenance_type.as_deref(), 
+                description, 
+                performed_by, 
+                performed_at, 
+                cost, 
+                next_due,
+                photo_url
+            )
             .await
             .map_err(|e| e.to_string())?;
 

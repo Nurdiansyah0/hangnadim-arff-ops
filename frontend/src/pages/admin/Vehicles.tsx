@@ -112,7 +112,7 @@ export default function Vehicles() {
       resetForm();
       fetchVehicles();
     } catch (err) {
-      alert(selectedVehicleId ? 'Gagal memperbarui armada' : 'Gagal menambah armada baru');
+      alert(selectedVehicleId ? 'Failed to update vehicle' : 'Failed to add new vehicle');
     } finally {
       setSubmitting(false);
     }

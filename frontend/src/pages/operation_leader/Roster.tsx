@@ -10,7 +10,9 @@ import {
   Filter,
   Download,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  Users,
+  ShieldAlert
 } from 'lucide-react';
 import { api } from '../../lib/axios';
 import { useAuth } from '../../store/useAuth';
@@ -30,21 +32,47 @@ interface RosterEntry {
 
 export default function Roster() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [data, setData] = useState<RosterEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [generating, setGenerating] = useState(false);
-  const [filterTeam, setFilterTeam] = useState<string>('ALL');
-
+  const [filterTeam, setFilterTeam] = useState('ALL');
+  
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ];
 
+  const [showOnlyToday, setShowOnlyToday] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<RosterEntry | null>(null);
+  const [vehicles, setVehicles] = useState<{id: string, code: string}[]>([]);
+  const [updating, setUpdating] = useState(false);
+  
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<string>('RESCUEMAN');
+
   useEffect(() => {
     fetchRoster();
+    fetchVehicles();
   }, [month, year]);
+
+  useEffect(() => {
+    if (selectedAssignment) {
+      setSelectedVehicle(selectedAssignment.vehicle_id);
+      setSelectedPosition(selectedAssignment.position);
+    }
+  }, [selectedAssignment]);
+
+  const fetchVehicles = async () => {
+    try {
+      const res = await api.get('/vehicles');
+      setVehicles(res.data);
+    } catch (err) {
+      console.error('Failed to fetch vehicles');
+    }
+  };
 
   const fetchRoster = async () => {
     try {
@@ -55,6 +83,23 @@ export default function Roster() {
       console.error('Failed to fetch roster:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateAssignment = async () => {
+    if (!selectedAssignment) return;
+    try {
+      setUpdating(true);
+      await api.patch(`/roster/assignments/${selectedAssignment.id}`, {
+        vehicle_id: selectedVehicle,
+        position: selectedPosition
+      });
+      setShowModal(false);
+      await fetchRoster();
+    } catch (err) {
+      alert('Failed to update vehicle assignment.');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -100,7 +145,10 @@ export default function Roster() {
     groupedData[entry.assignment_date].push(entry);
   });
 
-  const dates = Object.keys(groupedData).sort();
+  const todayStr = new Date().toISOString().split('T')[0];
+  const dates = showOnlyToday 
+    ? Object.keys(groupedData).filter(d => d === todayStr)
+    : Object.keys(groupedData).sort();
 
   return (
     <div className="space-y-6">
@@ -132,6 +180,23 @@ export default function Roster() {
               <ChevronRight size={20} />
             </button>
           </div>
+
+          {(user?.role_id === 1 || user?.role_id === 3) && (
+            <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-2xl p-1 gap-1">
+               <button 
+                  onClick={() => setShowOnlyToday(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${!showOnlyToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-500 hover:text-white'}`}
+               >
+                  MONTH
+               </button>
+               <button 
+                  onClick={() => setShowOnlyToday(true)}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${showOnlyToday ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-500 hover:text-white'}`}
+               >
+                  TODAY
+               </button>
+            </div>
+          )}
 
           {(user?.role_id === 1 || user?.role_id === 3) && (
             <button 
@@ -221,14 +286,23 @@ export default function Roster() {
                       const isNight = assignment.shift_name === 'Night';
 
                       return (
-                        <div key={assignment.id} className="p-4 bg-slate-950/40 rounded-2xl border border-slate-800/60 hover:border-slate-700 transition-all">
+                        <div 
+                          key={assignment.id} 
+                          onClick={() => {
+                            if (user?.role_id === 1 || user?.role_id === 3) {
+                              setSelectedAssignment(assignment);
+                              setShowModal(true);
+                            }
+                          }}
+                          className={`p-4 bg-slate-950/40 rounded-2xl border border-slate-800/60 hover:border-blue-500/50 transition-all cursor-pointer group/card ${isToday ? 'hover:bg-slate-900' : ''}`}
+                        >
                            <div className="flex items-start justify-between gap-3 mb-3">
                               <div className="flex items-center gap-3">
                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white ${isMorning ? 'bg-blue-600 shadow-lg shadow-blue-900/50' : isNight ? 'bg-purple-600 shadow-lg shadow-purple-900/50' : 'bg-emerald-600 shadow-lg shadow-emerald-900/50'}`}>
                                     {assignment.shift_name[0]}
                                  </div>
                                  <div>
-                                    <h4 className="text-sm font-bold text-white leading-none">{assignment.personnel_name}</h4>
+                                    <h4 className="text-sm font-bold text-white leading-none group-hover/card:text-blue-400 transition-colors">{assignment.personnel_name}</h4>
                                     <div className="text-[10px] font-black tracking-widest text-slate-500 uppercase mt-2">
                                        Team {assignment.team_name} — {assignment.position}
                                     </div>
@@ -245,7 +319,7 @@ export default function Roster() {
                               ) : (
                                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
                                    <User size={14} />
-                                   Watchroom Duty
+                                   {assignment.position === 'WATCHROOM' ? 'Watchroom Duty' : 'Unassigned'}
                                 </div>
                               )}
                               
@@ -260,6 +334,121 @@ export default function Roster() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Manual Assignment Modal - Premium Redesign */}
+      {showModal && selectedAssignment && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md" onClick={() => !updating && setShowModal(false)} />
+          
+          <div className="relative w-full max-w-xl bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_20px_100px_rgba(0,0,0,0.8)] animate-in zoom-in duration-300">
+            {/* Header / Banner */}
+            <div className="h-28 bg-linear-to-br from-blue-600 to-indigo-900 relative">
+               <div className="absolute inset-0 bg-slate-950/20" />
+               <button 
+                  onClick={() => setShowModal(false)}
+                  className="absolute top-6 right-6 w-10 h-10 rounded-full bg-black/20 text-white flex items-center justify-center hover:bg-black/40 transition-all border border-white/10"
+               >
+                  <Users size={18} />
+               </button>
+            </div>
+
+            {/* Personnel Identity Profile */}
+            <div className="px-10 pb-10 -mt-14 relative">
+               <div className="flex flex-col items-center text-center">
+                  <div className="w-28 h-28 rounded-4xl bg-slate-900 border-4 border-slate-900 shadow-2xl flex items-center justify-center text-3xl font-black text-white bg-linear-to-tr from-slate-800 to-slate-700">
+                    {selectedAssignment.personnel_name.substring(0, 2).toUpperCase()}
+                  </div>
+                  <h3 className="mt-4 text-xl font-black text-white tracking-tight">{selectedAssignment.personnel_name}</h3>
+                  <div className="mt-1 flex items-center gap-2">
+                     <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[9px] font-black uppercase tracking-widest">
+                        Team {selectedAssignment.team_name}
+                     </span>
+                  </div>
+               </div>
+
+               <div className="mt-8 space-y-6">
+                  {/* Vehicle Selection Grid */}
+                  <div>
+                    <label className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">
+                       <Truck size={14} /> 1. Select Unit
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                       <button 
+                         onClick={() => { setSelectedVehicle(null); setSelectedPosition('WATCHROOM'); }}
+                         className={`group relative p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 overflow-hidden ${selectedVehicle === null && selectedPosition === 'WATCHROOM'
+                           ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-600/20' 
+                           : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-600 hover:bg-slate-900'}`}
+                       >
+                          <ShieldAlert size={20} className={selectedVehicle === null && selectedPosition === 'WATCHROOM' ? 'text-white' : 'text-slate-500'} />
+                          <div className={`text-[10px] font-black uppercase tracking-wider ${selectedVehicle === null && selectedPosition === 'WATCHROOM' ? 'text-white' : 'text-slate-300'}`}>Watchroom</div>
+                       </button>
+
+                       {vehicles.map(v => (
+                          <button 
+                            key={v.id}
+                            onClick={() => { setSelectedVehicle(v.id); if (selectedPosition === 'WATCHROOM' || selectedPosition === 'RESCUEMAN') setSelectedPosition('DRIVER'); }}
+                            className={`group relative p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 overflow-hidden ${selectedVehicle === v.id 
+                              ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-600/20' 
+                              : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-600 hover:bg-slate-900'}`}
+                          >
+                             <Truck size={20} className={selectedVehicle === v.id ? 'text-white' : 'text-blue-500'} />
+                             <div className={`text-[10px] font-black uppercase tracking-wider ${selectedVehicle === v.id ? 'text-white' : 'text-slate-300'}`}>{v.code}</div>
+                          </button>
+                       ))}
+
+                       <button 
+                         onClick={() => { setSelectedVehicle(null); setSelectedPosition('RESCUEMAN'); }}
+                         className={`group relative p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 overflow-hidden ${selectedVehicle === null && selectedPosition === 'RESCUEMAN'
+                           ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-600/20' 
+                           : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-600 hover:bg-slate-900'}`}
+                       >
+                          <User size={20} className={selectedVehicle === null && selectedPosition === 'RESCUEMAN' ? 'text-white' : 'text-slate-500'} />
+                          <div className={`text-[10px] font-black uppercase tracking-wider ${selectedVehicle === null && selectedPosition === 'RESCUEMAN' ? 'text-white' : 'text-slate-300'}`}>Standby</div>
+                       </button>
+                    </div>
+                  </div>
+
+                  {/* Position Selection (Only if vehicle is selected) */}
+                  {selectedVehicle && (
+                    <div className="animate-in slide-in-from-top-4 duration-300">
+                      <label className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">
+                         <User size={14} /> 2. Set Duty Role
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {['DRIVER', 'NOZZLEMAN', 'AST_NOZZLEMAN', 'CREW', 'OSC'].map(pos => (
+                          <button
+                            key={pos}
+                            onClick={() => setSelectedPosition(pos)}
+                            className={`px-4 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${selectedPosition === pos ? 'bg-blue-500 border-blue-400 text-white shadow-md' : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-700'}`}
+                          >
+                            {pos.replace('_', ' ')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-4">
+                     <button 
+                       onClick={handleUpdateAssignment}
+                       disabled={updating}
+                       className="w-full py-5 rounded-3xl bg-blue-600 text-white shadow-xl shadow-blue-900/40 hover:bg-blue-500 transition-all flex items-center justify-center gap-3"
+                     >
+                        <span className="text-sm font-black uppercase tracking-widest">Commit Assignment</span>
+                     </button>
+                  </div>
+               </div>
+            </div>
+
+            {updating && (
+               <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+                  <Loader2 size={48} className="animate-spin text-blue-500 mb-4" />
+                  <p className="text-white font-black text-xs uppercase tracking-[0.3em]">Updating Ops Matrix...</p>
+               </div>
+            )}
+          </div>
         </div>
       )}
     </div>

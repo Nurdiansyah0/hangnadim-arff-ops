@@ -205,6 +205,12 @@ impl RosterService {
             .map_err(|e| e.to_string())
     }
 
+    pub async fn update_assignment(&self, id: Uuid, vehicle_id: Option<Uuid>, position: String) -> Result<(), String> {
+        self.roster_repo.update_assignment(id, vehicle_id, position)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
     fn days_in_month(&self, month: u32, year: i32) -> u32 {
         match month {
             1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,

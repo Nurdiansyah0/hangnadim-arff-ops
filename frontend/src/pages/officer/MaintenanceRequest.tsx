@@ -6,6 +6,7 @@ import {
   Truck, 
   Camera, 
   ChevronLeft,
+  X,
   Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +26,10 @@ export default function MaintenanceRequest() {
   const [success, setSuccess] = useState(false);
   const [opsContext, setOpsContext] = useState<OperationalContext | null>(null);
   
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  
   const [formData, setFormData] = useState({
     subject: '',
     description: '',
@@ -43,15 +48,69 @@ export default function MaintenanceRequest() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadFileInChunks = async (file: File): Promise<string> => {
+    const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId = crypto.randomUUID();
+    let finalPath = "";
+
+    for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(file.size, start + CHUNK_SIZE);
+        const chunk = file.slice(start, end);
+
+        const formData = new FormData();
+        formData.append("upload_id", uploadId);
+        formData.append("chunk_index", i.toString());
+        formData.append("total_chunks", totalChunks.toString());
+        formData.append("file_name", file.name);
+        formData.append("chunk", chunk);
+
+        const res = await api.post("/media/upload-chunk", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+            onUploadProgress: (progressEvent) => {
+                const chunkProgress = progressEvent.loaded / (progressEvent.total || 1);
+                const overallProgress = ((i + chunkProgress) / totalChunks) * 100;
+                setUploadProgress(Math.round(overallProgress));
+            }
+        });
+
+        if (res.data.file_path !== "CHUNKING") {
+            finalPath = res.data.file_path;
+        }
+    }
+
+    return finalPath;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!opsContext?.assigned_vehicle_id || !user?.id) {
-       alert("SISTEM DITOLAK: Kendaraan aktif belum ditetapkan (No Assigned Vehicle).");
+    if (!opsContext?.assigned_vehicle_id || !user?.personnel_id) {
+       alert("SYSTEM DENIED: No active vehicle or personnel context found.");
        return;
     }
 
     setLoading(true);
     try {
+      let photoUrl = null;
+      if (selectedFile) {
+        photoUrl = await uploadFileInChunks(selectedFile);
+      }
+
       // Backend expects a single description field. We prepend the subject for clarity.
       const finalDescription = `[${formData.subject.toUpperCase()}] - ${formData.description}`;
       
@@ -59,10 +118,11 @@ export default function MaintenanceRequest() {
         vehicle_id: opsContext.assigned_vehicle_id,
         maintenance_type: null,
         description: finalDescription,
-        performed_by: user.id,
+        performed_by: user.personnel_id,
         performed_at: null,
         cost: null,
-        next_due: null
+        next_due: null,
+        photo_url: photoUrl
       });
 
       setSuccess(true);
@@ -106,7 +166,7 @@ export default function MaintenanceRequest() {
                   <Send size={24} />
                </div>
                <h3 className="text-xl font-bold text-white mb-2 uppercase italic">Request Dispatched</h3>
-               <p className="text-slate-400 text-sm">Tim Teknis telah menerima laporan kerusakan armada. Mohon tunggu investigasi teknisi.</p>
+               <p className="text-slate-400 text-sm">The Technical Team has received the vehicle defect report. Please await technician investigation.</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -170,30 +230,68 @@ export default function MaintenanceRequest() {
                 />
               </div>
 
-              <div className="flex flex-col md:flex-row gap-4 pt-4">
-                 <button 
-                   type="button" 
-                   disabled={isFormLocked || loading}
-                   className="flex items-center justify-center gap-3 px-6 py-4 bg-slate-950 border border-slate-800 rounded-2xl text-slate-500 hover:text-white hover:border-slate-700 transition-all group disabled:opacity-50"
-                 >
-                    <Camera size={18} className="group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Attach Photo</span>
-                 </button>
-                 
-                 <button 
-                   type="submit"
-                   disabled={isFormLocked || loading}
-                   className="flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl shadow-xl shadow-orange-500/20 transition-all disabled:opacity-50 group"
-                 >
-                    {loading ? (
-                      <Loader2 className="w-5 h-5 text-white animate-spin" />
-                    ) : (
-                      <>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Submit Trouble Ticket</span>
-                        <Send size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                      </>
+              <div className="space-y-4">
+                <input 
+                  type="file"
+                  id="photo-upload"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  disabled={isFormLocked || loading}
+                />
+                
+                {previewUrl && (
+                  <div className="relative w-full aspect-video bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden group">
+                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <button 
+                      type="button"
+                      onClick={() => { setSelectedFile(null); setPreviewUrl(null); }}
+                      className="absolute top-4 right-4 w-10 h-10 bg-slate-900/80 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-red-500 transition-all"
+                    >
+                      <X size={20} />
+                    </button>
+                    {loading && (
+                      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm flex flex-col items-center justify-center p-6">
+                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-4">
+                          <div 
+                            className="bg-orange-500 h-full transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                        <div className="text-[10px] font-black text-white uppercase tracking-widest">Uploading Chunked Data... {uploadProgress}%</div>
+                      </div>
                     )}
-                 </button>
+                  </div>
+                )}
+
+                <div className="flex flex-col md:flex-row gap-4">
+                  <button 
+                    type="button" 
+                    onClick={() => document.getElementById('photo-upload')?.click()}
+                    disabled={isFormLocked || loading}
+                    className="flex items-center justify-center gap-3 px-6 py-4 bg-slate-950 border border-slate-800 rounded-2xl text-slate-500 hover:text-white hover:border-slate-700 transition-all group disabled:opacity-50"
+                  >
+                      <Camera size={18} className="group-hover:scale-110 transition-transform" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">
+                        {selectedFile ? 'Change Photo' : 'Attach Photo'}
+                      </span>
+                  </button>
+                  
+                  <button 
+                    type="submit"
+                    disabled={isFormLocked || loading}
+                    className="flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl shadow-xl shadow-orange-500/20 transition-all disabled:opacity-50 group"
+                  >
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 text-white animate-spin" />
+                      ) : (
+                        <>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Submit Trouble Ticket</span>
+                          <Send size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                        </>
+                      )}
+                  </button>
+                </div>
               </div>
             </form>
           )}

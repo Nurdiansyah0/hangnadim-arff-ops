@@ -31,21 +31,23 @@ impl FireExtinguisherService {
     pub async fn create_extinguisher(
         &self,
         serial_number: &str,
-        agent_type: &str,
-        capacity_kg: Decimal,
+        agent_type: Option<&str>,
+        capacity_kg: Option<Decimal>,
         location_description: Option<&str>,
         latitude: Option<f64>,
         longitude: Option<f64>,
         floor: Option<&str>,
         building: Option<&str>,
-        expiry_date: chrono::NaiveDate,
+        expiry_date: Option<chrono::NaiveDate>,
         last_inspection_date: Option<chrono::NaiveDate>,
         status: &str,
         photo_url: Option<&str>,
     ) -> Result<FireExtinguisher, String> {
-        let today = Utc::now().date_naive();
-        if expiry_date < today {
-            return Err("expiry_date cannot be in the past".to_string());
+        if let Some(expiry) = expiry_date {
+            let today = Utc::now().date_naive();
+            if expiry < today {
+                return Err("expiry_date cannot be in the past".to_string());
+            }
         }
 
         self.repo
@@ -167,14 +169,14 @@ mod tests {
         async fn create_extinguisher(
             &self,
             serial_number: &str,
-            agent_type: &str,
-            capacity_kg: Decimal,
+            agent_type: Option<&str>,
+            capacity_kg: Option<Decimal>,
             location_description: Option<&str>,
             latitude: Option<f64>,
             longitude: Option<f64>,
             floor: Option<&str>,
             building: Option<&str>,
-            expiry_date: chrono::NaiveDate,
+            expiry_date: Option<chrono::NaiveDate>,
             last_inspection_date: Option<chrono::NaiveDate>,
             status: &str,
             photo_url: Option<&str>,
@@ -183,7 +185,7 @@ mod tests {
             Ok(FireExtinguisher {
                 id: Uuid::new_v4(),
                 serial_number: serial_number.to_string(),
-                agent_type: agent_type.to_string(),
+                agent_type: agent_type.map(|s| s.to_string()),
                 capacity_kg,
                 location_description: location_description.map(|s| s.to_string()),
                 latitude,
@@ -219,14 +221,14 @@ mod tests {
             Ok(Some(FireExtinguisher {
                 id,
                 serial_number: "SN-TEST".to_string(),
-                agent_type: "DCP".to_string(),
-                capacity_kg: Decimal::new(10, 0),
+                agent_type: Some("DCP".to_string()),
+                capacity_kg: Some(Decimal::new(10, 0)),
                 location_description: Some("Hangar".to_string()),
                 latitude: Some(-6.2),
                 longitude: Some(106.8),
                 floor: Some("Ground".to_string()),
                 building: Some("Tower".to_string()),
-                expiry_date: Utc::now().date_naive(),
+                expiry_date: Some(Utc::now().date_naive()),
                 last_inspection_date: None,
                 status: "ACTIVE".to_string(),
                 photo_url: None,

@@ -19,3 +19,4 @@ pub mod fitness_service;
 pub mod roster_service;
 pub mod holiday_service;
 pub mod task_service;
+pub mod performance_service;

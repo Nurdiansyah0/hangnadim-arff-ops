@@ -6,14 +6,14 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct CreateFireExtinguisherPayload {
     pub serial_number: String,
-    pub agent_type: String,
-    pub capacity_kg: Decimal,
+    pub agent_type: Option<String>,
+    pub capacity_kg: Option<Decimal>,
     pub location_description: Option<String>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
     pub floor: Option<String>,
     pub building: Option<String>,
-    pub expiry_date: chrono::NaiveDate,
+    pub expiry_date: Option<chrono::NaiveDate>,
     pub last_inspection_date: Option<chrono::NaiveDate>,
     pub status: String,
     pub photo_url: Option<String>,
@@ -108,7 +108,7 @@ async fn create_extinguisher(
 
     match state.fire_extinguisher_service.create_extinguisher(
         &payload.serial_number,
-        &payload.agent_type,
+        payload.agent_type.as_deref(),
         payload.capacity_kg,
         payload.location_description.as_deref(),
         payload.latitude,

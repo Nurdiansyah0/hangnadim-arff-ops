@@ -30,6 +30,11 @@ pub struct Personnel {
     pub employment_status: Option<String>,
     pub shift: Option<String>,
     pub status: Option<String>,
+    pub phone_number: Option<String>,
+    pub profile_picture_url: Option<String>,
+    pub corporate_level: Option<String>,
+    pub annual_leave_quota: Option<i32>,
+    pub remaining_leave: Option<i32>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -66,6 +71,10 @@ pub struct UserProfile {
     pub role_id: Option<i32>,
     pub phone_number: Option<String>,
     pub profile_picture_url: Option<String>,
+    pub remaining_leave: Option<i32>,
+    pub annual_leave_quota: Option<i32>,
+    pub shift_team: Option<String>,
+    pub personnel_id: Option<Uuid>,
     pub created_at: Option<DateTime<Utc>>, // Made optional for safety
 }
 
@@ -76,11 +85,17 @@ pub struct AuthContextResponse {
     pub id: Uuid,
     pub username: String,
     pub email: String,
+    pub full_name: Option<String>,
     pub role: String,
     pub position: Option<String>,
     pub phone_number: Option<String>,
     pub profile_picture_url: Option<String>,
     pub permissions: Vec<String>,
+    pub remaining_leave: Option<i32>,
+    pub annual_leave_quota: Option<i32>,
+    pub shift_team: Option<String>,
+    pub personnel_id: Option<Uuid>,
+    pub role_id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -203,6 +218,28 @@ pub struct Vehicle {
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct VehiclePerformanceTest {
+    pub id: Uuid,
+    pub vehicle_id: Uuid,
+    pub inspector_id: Option<Uuid>,
+    pub test_date: DateTime<Utc>,
+    pub top_speed_kmh: f64,
+    pub discharge_range_m: f64,
+    pub discharge_rate_lpm: f64,
+    pub stopping_distance_m: f64,
+    pub remarks: Option<String>,
+    pub status: String, // PASS, FAIL
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    
+    // Optional joined fields
+    #[sqlx(default)]
+    pub vehicle_code: Option<String>,
+    #[sqlx(default)]
+    pub inspector_name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct ExtinguishingAgent {
     pub id: Uuid,
     pub name: String,
@@ -219,14 +256,14 @@ pub struct ExtinguishingAgent {
 pub struct FireExtinguisher {
     pub id: Uuid,
     pub serial_number: String,
-    pub agent_type: String,
-    pub capacity_kg: rust_decimal::Decimal,
+    pub agent_type: Option<String>,
+    pub capacity_kg: Option<rust_decimal::Decimal>,
     pub location_description: Option<String>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
     pub floor: Option<String>,
     pub building: Option<String>,
-    pub expiry_date: chrono::NaiveDate,
+    pub expiry_date: Option<chrono::NaiveDate>,
     pub last_inspection_date: Option<chrono::NaiveDate>,
     pub status: String,
     pub photo_url: Option<String>,
@@ -308,6 +345,7 @@ pub struct MaintenanceRecord {
     pub cost: Option<BigDecimal>,
     pub next_due: Option<chrono::NaiveDate>,
     pub status: String, // REQUESTED, IN_PROGRESS, COMPLETED, REJECTED
+    pub photo_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     

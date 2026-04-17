@@ -8,7 +8,6 @@ import {
   Plus, 
   Users, 
   Loader2,
-  ChevronRight,
   TrendingUp,
   History
 } from 'lucide-react';
@@ -20,6 +19,7 @@ interface Incident {
   description: string;
   location: string | null;
   dispatch_time: string;
+  arrival_time: string | null;
   resolved_at: string | null;
   severity: string | null;
 }
@@ -68,7 +68,7 @@ export default function Incidents() {
       setLocation('');
       fetchIncidents();
     } catch (err) {
-      alert('Gagal melaporkan insiden baru');
+      alert('Failed to report new incident');
     } finally {
       setSubmitting(false);
     }
@@ -83,12 +83,34 @@ export default function Incidents() {
     }
   };
 
+  const handleRecordArrival = async (id: string) => {
+    try {
+      await api.patch(`/incidents/${id}/arrival`, {
+        arrival_time: new Date().toISOString()
+      });
+      fetchIncidents();
+    } catch (err) {
+      alert('Failed to record arrival time');
+    }
+  };
+
+  const handleResolve = async (id: string) => {
+    try {
+      await api.patch(`/incidents/${id}/resolve`, {
+        resolved_at: new Date().toISOString()
+      });
+      fetchIncidents();
+    } catch (err) {
+      alert('Failed to resolve incident');
+    }
+  };
+
   const activeIncidents = incidents.filter(i => !i.resolved_at);
   const resolvedIncidents = incidents.filter(i => i.resolved_at);
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Header & Stats Bundle */}
+      {/* ... rest of the header ... */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-white flex items-center gap-4 tracking-tight">
@@ -127,7 +149,6 @@ export default function Incidents() {
 
       {/* Grid Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
-        {/* Left: Active Incidents (Focus Area) */}
         <div className="xl:col-span-2 space-y-6">
           <h2 className="text-xs font-black text-red-500 uppercase tracking-[0.4em] mb-4 flex items-center gap-2">
             <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
@@ -165,19 +186,33 @@ export default function Incidents() {
                       </div>
                       <div className="flex items-center gap-2 text-slate-400 bg-slate-950/50 px-3 py-1.5 rounded-lg border border-slate-800">
                         <Clock size={16} className="text-blue-500" />
-                        {new Date(incident.dispatch_time).toLocaleTimeString('id-ID', { hour12: false })}
+                        DISPATCH: {new Date(incident.dispatch_time).toLocaleTimeString('en-GB', { hour12: false })}
                       </div>
+                      {incident.arrival_time && (
+                        <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/5 px-3 py-1.5 rounded-lg border border-emerald-500/20 animate-in fade-in zoom-in">
+                          <CheckCircle2 size={16} />
+                          ARRIVAL: {new Date(incident.arrival_time).toLocaleTimeString('en-GB', { hour12: false })}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex flex-row md:flex-col justify-end gap-3 shrink-0">
-                    <button className="flex-1 md:flex-none px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 transition-all">
+                    {!incident.arrival_time && (
+                      <button 
+                        onClick={() => handleRecordArrival(incident.id)}
+                        className="flex-1 md:flex-none px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 transition-all"
+                      >
+                        <Clock size={16} />
+                        Record Arrival
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => handleResolve(incident.id)}
+                      className="flex-1 md:flex-none px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+                    >
                       <CheckCircle2 size={16} />
                       Mark Resolved
-                    </button>
-                    <button className="flex-1 md:flex-none px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all">
-                      <ChevronRight size={16} />
-                      View Details
                     </button>
                   </div>
                 </div>

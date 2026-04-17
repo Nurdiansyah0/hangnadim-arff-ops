@@ -20,6 +20,7 @@ pub struct CreateMaintenancePayload {
     pub performed_at: Option<chrono::NaiveDate>,
     pub cost: Option<BigDecimal>,
     pub next_due: Option<chrono::NaiveDate>,
+    pub photo_url: Option<String>,
 }
 
 pub fn maintenance_routes(state: AppState) -> Router {
@@ -42,9 +43,13 @@ pub async fn create_maintenance(
         payload.performed_at,
         payload.cost,
         payload.next_due,
+        payload.photo_url.as_deref(),
     ).await {
         Ok(record) => (StatusCode::CREATED, Json(record)).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
+        Err(e) => {
+            eprintln!("MAINTENANCE_ERROR: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, e).into_response()
+        },
     }
 }
 

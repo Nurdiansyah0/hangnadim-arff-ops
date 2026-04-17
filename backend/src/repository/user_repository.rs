@@ -119,6 +119,9 @@ impl UserRepository {
                 p.full_name, pos.name as position_name, 
                 r.name as role_name, ur.role_id as role_id,
                 p.phone_number, p.profile_picture_url,
+                p.remaining_leave, p.annual_leave_quota,
+                p.shift::TEXT as shift_team,
+                p.id as personnel_id,
                 u.created_at
             FROM users u
             JOIN personnels p ON u.personnel_id = p.id

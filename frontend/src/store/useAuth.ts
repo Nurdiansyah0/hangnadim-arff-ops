@@ -11,6 +11,9 @@ interface User {
   nip_nik?: string;
   personnel_id: string | null;
   role_id: number | null;
+  remaining_leave?: number;
+  annual_leave_quota?: number;
+  shift_team?: string;
 }
 
 interface AuthState {
@@ -31,7 +34,7 @@ export const useAuth = create<AuthState>()(
       isAuthenticated: () => !!get().token,
     }),
     {
-      name: 'arff-auth-storage', // Disimpan di localStorage secara otomatis
+      name: 'arff-auth-storage', // Automatically stored in localStorage
     }
   )
 );

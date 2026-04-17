@@ -19,10 +19,12 @@ import MaintenanceRequest from './pages/officer/MaintenanceRequest';
 import Roster from './pages/operation_leader/Roster';
 import MyTasks from './pages/officer/MyTasks';
 import TeamLeaderApproval from './pages/operation_leader/TeamLeaderApproval';
+import VehiclePerformance from './pages/operation_leader/VehiclePerformance';
 import MainLayout from './components/layout/MainLayout';
 import { useAuth } from './store/useAuth';
+import { Toaster } from 'react-hot-toast';
 
-// Protected Route Guard: Memastikan hanya user yang login yang bisa masuk
+// Protected Route Guard: Ensure only authenticated users can access
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const token = useAuth((state) => state.token);
 
@@ -33,7 +35,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Pengalihan Berdasarkan Peran: Mengarahkan Staff ke dashboard khusus field ops
+// Role-based Redirection: Direct staff to specific field ops dashboard
 const HomeRedirect = () => {
   const user = useAuth((state) => state.user);
 
@@ -50,11 +52,12 @@ const HomeRedirect = () => {
 function App() {
   return (
     <Router>
+      <Toaster position="top-right" reverseOrder={false} />
       <Routes>
-        {/* Rute Publik */}
+        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
 
-        {/* Rute Terproteksi dengan Layout Utama (Glassmorphism) */}
+        {/* Protected Routes with Main Layout (Glassmorphism) */}
         <Route
           element={
             <ProtectedRoute>
@@ -74,15 +77,16 @@ function App() {
           <Route path="/shifts" element={<Shifts />} />
           <Route path="/flights" element={<Flights />} />
           <Route path="/compliance" element={<Compliance />} />
+          <Route path="/performance" element={<VehiclePerformance />} />
           <Route path="/leave" element={<Leave />} />
 
-          {/* Modul Insiden & Darurat */}
+          {/* Incident & Emergency Modules */}
           <Route path="/incidents" element={<Incidents />} />
 
-          {/* Modul Inspeksi Kendaraan */}
+          {/* Vehicle Inspection Module */}
           <Route path="/inspections" element={<Inspections />} />
 
-          {/* Modul Watchroom Journal */}
+          {/* Watchroom Journal Module */}
           <Route path="/watchroom" element={<Watchroom />} />
 
           {/* Master Data */}
@@ -93,7 +97,7 @@ function App() {
           <Route path="/audit-trail" element={<AuditTrail />} />
         </Route>
 
-        {/* Fallback: Jika rute tidak ditemukan, balikkan ke dashboard */}
+        {/* Fallback: If route not found, return to dashboard */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

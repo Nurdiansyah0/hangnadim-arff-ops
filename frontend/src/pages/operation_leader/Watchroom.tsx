@@ -28,20 +28,19 @@ export default function Watchroom() {
 
     useEffect(() => {
         fetchLogs();
-        const interval = setInterval(fetchLogs, 30000); // Sinkronisasi otomatis setiap 30 detik
+        const interval = setInterval(fetchLogs, 30000);
         return () => clearInterval(interval);
     }, []);
 
     const fetchLogs = async () => {
         try {
             const res = await api.get('/watchroom');
-            // Urutkan berdasarkan waktu terbaru
             const sortedLogs = res.data.sort((a: WatchroomLog, b: WatchroomLog) =>
                 new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             );
             setLogs(sortedLogs);
         } catch (err) {
-            console.error('Gagal memuat log:', err);
+            console.error('Failed to load logs:', err);
         } finally {
             setLoading(false);
         }
@@ -56,12 +55,12 @@ export default function Watchroom() {
             await api.post('/watchroom', {
                 description: description,
                 entry_type: entryType,
-                payload: {} // Metadata tambahan (opsional)
+                payload: {}
             });
             setDescription('');
             fetchLogs();
         } catch (err) {
-            alert('Gagal mengirim laporan ke Watchroom');
+            alert('Failed to send report to Watchroom');
         } finally {
             setSubmitting(false);
         }
@@ -78,148 +77,131 @@ export default function Watchroom() {
 
     return (
         <div className="flex flex-col h-[calc(100vh-140px)] gap-6">
-            {/* Header Statis */}
-            <div className="flex justify-between items-end">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                        <ShieldAlert className="text-blue-500" />
+                    <h1 className="text-3xl font-black text-white flex items-center gap-3 tracking-tighter italic uppercase">
+                        <ShieldAlert className="text-blue-500" size={32} />
                         Watchroom Journal
                     </h1>
-                    <p className="text-slate-400 mt-1">Sistem pencatatan logbook operasional & event tracking</p>
+                    <p className="text-slate-400 mt-1 font-medium italic">Operational logbook & event tracking</p>
                 </div>
 
-                <div className="flex items-center gap-2 bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-400">
+                <div className="flex items-center gap-2 bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                     <Activity size={14} className="text-emerald-500 animate-pulse" />
                     Live Connection Active
                 </div>
             </div>
 
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
-                {/* Kolom Kiri: Timeline Feed */}
-                <div className="lg:col-span-2 flex flex-col bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl overflow-hidden relative">
-                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/20">
-                        <div className="flex items-center gap-2 text-white font-semibold">
-                            <Clock size={18} className="text-slate-500" />
-                            Operational Timeline
+            {/* QUICK INPUT BAR */}
+            <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                   <Send size={120} />
+                </div>
+
+                <form onSubmit={handlePost} className="relative z-10 flex flex-col lg:flex-row gap-6">
+                    <div className="flex flex-col gap-3 min-w-[200px]">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Event Severity</label>
+                        <div className="flex gap-1 p-1 bg-slate-950 rounded-2xl border border-slate-800">
+                            {['INFO', 'ALERT', 'CRITICAL'].map(type => (
+                                <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => setEntryType(type)}
+                                    className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all ${entryType === type
+                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                                            : 'text-slate-500 hover:text-white hover:bg-slate-900'
+                                        }`}
+                                >
+                                    {type}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-                        {loading ? (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                                <Loader2 className="animate-spin mb-2" />
-                                <span>Sinkronisasi database...</span>
-                            </div>
-                        ) : logs.length > 0 ? (
-                            logs.map((log, idx) => (
-                                <div key={log.id} className="relative pl-10 group">
-                                    {/* Garis Timeline */}
-                                    {idx !== logs.length - 1 && (
-                                        <div className="absolute left-[11px] top-8 bottom-[-32px] w-[2px] bg-slate-800 group-hover:bg-blue-500/30 transition-colors" />
-                                    )}
+                    <div className="flex-1 flex flex-col gap-3">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Daily Log / Event Entry</label>
+                        <div className="flex flex-col md:flex-row gap-4">
+                           <textarea
+                                required
+                                rows={1}
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Type your report or operational notes here..."
+                                className="flex-1 bg-slate-950 border border-slate-800 text-white rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none placeholder:text-slate-800 font-medium"
+                           />
+                           <button
+                                type="submit"
+                                disabled={submitting || !description.trim()}
+                                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 transition-all shadow-xl shadow-blue-900/30 shrink-0"
+                           >
+                                {submitting ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> POST LOG</>}
+                           </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
 
-                                    {/* Node Indikator */}
-                                    <div className={`absolute left-0 top-1.5 w-6 h-6 rounded-full border-4 border-slate-900 z-10 flex items-center justify-center ${log.entry_type === 'ALERT' ? 'bg-orange-500' :
-                                            log.entry_type === 'CRITICAL' ? 'bg-red-500' : 'bg-blue-500'
-                                        } shadow-lg shadow-black/20`}>
-                                        {log.entry_type === 'CRITICAL' ? <ShieldAlert size={10} className="text-white" /> : null}
-                                    </div>
-
-                                    <div className="bg-slate-800/30 hover:bg-slate-800/50 border border-slate-800/50 p-5 rounded-2xl transition-all shadow-sm">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div className="flex items-center gap-2">
-                                                {getTypeIcon(log.entry_type)}
-                                                <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">
-                                                    {log.entry_type || 'GENERAL'}
-                                                </span>
-                                            </div>
-                                            <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded">
-                                                {new Date(log.created_at).toLocaleTimeString('id-ID', { hour12: false })}
-                                            </span>
-                                        </div>
-                                        <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
-                                            {log.description}
-                                        </p>
-                                        <div className="mt-4 pt-3 border-t border-slate-800/50 flex items-center justify-between text-[10px]">
-                                            <div className="flex items-center gap-1.5 text-slate-500">
-                                                <User size={10} />
-                                                ACTOR: {log.actor_id?.slice(0, 8) || 'SYSTEM'}
-                                            </div>
-                                            <div className="text-slate-600 font-mono">
-                                                {new Date(log.created_at).toLocaleDateString('id-ID')}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-600 italic">
-                                Belum ada log tercatat hari ini.
-                            </div>
-                        )}
+            {/* Timeline Feed */}
+            <div className="flex-1 flex flex-col bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl overflow-hidden relative">
+                <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/20">
+                    <div className="flex items-center gap-2 text-white font-black uppercase tracking-widest text-xs italic">
+                        <Clock size={16} className="text-blue-500" />
+                        Operational Timeline Feed
                     </div>
                 </div>
 
-                {/* Kolom Kanan: Input Form */}
-                <div className="space-y-6">
-                    <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-3xl p-6 shadow-xl">
-                        <h2 className="text-lg font-semibold text-white mb-6">Quick Report</h2>
+                <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                            <Loader2 className="animate-spin mb-2" />
+                            <span>Database synchronization...</span>
+                        </div>
+                    ) : logs.length > 0 ? (
+                        logs.map((log, idx) => (
+                            <div key={log.id} className="relative pl-10 group">
+                                {idx !== logs.length - 1 && (
+                                    <div className="absolute left-[11px] top-8 bottom-[-32px] w-[2px] bg-slate-800 group-hover:bg-blue-500/30 transition-colors" />
+                                )}
 
-                        <form onSubmit={handlePost} className="space-y-5">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Event Severity</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {['INFO', 'ALERT', 'CRITICAL'].map(type => (
-                                        <button
-                                            key={type}
-                                            type="button"
-                                            onClick={() => setEntryType(type)}
-                                            className={`py-2 text-[10px] font-bold rounded-xl border transition-all ${entryType === type
-                                                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg'
-                                                    : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600'
-                                                }`}
-                                        >
-                                            {type}
-                                        </button>
-                                    ))}
+                                <div className={`absolute left-0 top-1.5 w-6 h-6 rounded-full border-4 border-slate-900 z-10 flex items-center justify-center ${log.entry_type === 'ALERT' ? 'bg-orange-500' :
+                                        log.entry_type === 'CRITICAL' ? 'bg-red-500' : 'bg-blue-500'
+                                    } shadow-lg shadow-black/20`}>
+                                    {log.entry_type === 'CRITICAL' ? <ShieldAlert size={10} className="text-white" /> : null}
+                                </div>
+
+                                <div className="bg-slate-800/30 hover:bg-slate-800/50 border border-slate-800/50 p-5 rounded-2xl transition-all shadow-sm">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="flex items-center gap-2">
+                                            {getTypeIcon(log.entry_type)}
+                                            <span className="text-[10px] font-black text-slate-500 tracking-widest uppercase">
+                                                {log.entry_type || 'GENERAL'}
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded">
+                                            {new Date(log.created_at).toLocaleTimeString('en-GB', { hour12: false })}
+                                        </span>
+                                    </div>
+                                    <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                                        {log.description}
+                                    </p>
+                                    <div className="mt-4 pt-3 border-t border-slate-800/50 flex items-center justify-between text-[10px]">
+                                        <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-widest">
+                                            <User size={10} />
+                                            Operator: {log.actor_id?.slice(0, 8) || 'SYSTEM'}
+                                        </div>
+                                        <div className="text-slate-600 font-mono">
+                                            {new Date(log.created_at).toLocaleDateString('en-GB')}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Detail Kejadian</label>
-                                <textarea
-                                    required
-                                    rows={6}
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Ketik detail laporan di sini..."
-                                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none placeholder:text-slate-700 font-medium"
-                                />
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={submitting || !description.trim()}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/20"
-                            >
-                                {submitting ? (
-                                    <Loader2 className="animate-spin" size={20} />
-                                ) : (
-                                    <>
-                                        <Send size={18} />
-                                        Submit to Journal
-                                    </>
-                                )}
-                            </button>
-                        </form>
-                    </div>
-
-                    <div className="bg-blue-600/10 border border-blue-500/20 rounded-3xl p-6">
-                        <h4 className="text-sm font-bold text-blue-400 mb-2">Audit Protocol</h4>
-                        <p className="text-xs text-slate-400 leading-relaxed">
-                            Setiap catatan di Watchroom akan terikat permanen dengan UID operator sebagai bukti hukum operasional bandara.
-                        </p>
-                    </div>
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-600 italic">
+                            No logs recorded today.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

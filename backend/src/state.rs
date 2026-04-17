@@ -41,5 +41,6 @@ pub struct AppState {
     pub fitness_service: crate::service::fitness_service::FitnessService,
     pub roster_service: RosterService,
     pub task_service: TaskService,
+    pub performance_service: crate::service::performance_service::PerformanceService,
     pub audit_repo: std::sync::Arc<dyn crate::repository::audit_repository::AuditRepoTrait>,
 }

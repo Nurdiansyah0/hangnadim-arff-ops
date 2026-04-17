@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useAuth } from '../store/useAuth';
 
-// Inisialisasi basis URL dari Rust Axum backend
+// Initialize base URL from Rust Axum backend
 export const api = axios.create({
   baseURL: `http://${window.location.hostname}:8000/api`,
   headers: {
@@ -9,7 +9,7 @@ export const api = axios.create({
   },
 });
 
-// Interceptor Request: Selalu lampirkan JWT token jika user sudah login
+// Request Interceptor: Always attach JWT token if user is logged in
 api.interceptors.request.use(
   (config) => {
     const token = useAuth.getState().token;
@@ -21,7 +21,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor Response: Jika token expired / ditolak (401), otomatis logout
+// Response Interceptor: If token expired / rejected (401), automatically logout
 api.interceptors.response.use(
   (response) => response,
   (error) => {

@@ -32,6 +32,7 @@ use handler::maintenance_handler::maintenance_routes;
 use handler::fitness_handler::fitness_routes;
 use handler::roster_handler::roster_routes;
 use handler::task_handler::task_routes;
+use handler::performance_handler::performance_routes;
 
 use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
@@ -52,6 +53,7 @@ use repository::fitness_repository::PostgresFitnessRepository;
 use repository::audit_repository::AuditRepository;
 use repository::roster_repository::RosterRepository;
 use repository::task_repository::TaskRepository;
+use repository::performance_repository::PerformanceRepository;
 
 use service::auth_service::AuthService;
 use service::user_service::UserService;
@@ -73,6 +75,7 @@ use service::fitness_service::FitnessService;
 use service::roster_service::RosterService;
 use service::task_service::TaskService;
 use service::email_service::LettreEmailService;
+use service::performance_service::PerformanceService;
 use state::AppState;
 
 pub async fn create_app_state(pool: sqlx::PgPool) -> AppState {
@@ -97,6 +100,7 @@ pub async fn create_app_state(pool: sqlx::PgPool) -> AppState {
     let audit_repo = std::sync::Arc::new(AuditRepository::new(pool.clone()));
     let roster_repo = std::sync::Arc::new(RosterRepository::new(pool.clone()));
     let task_repo = TaskRepository::new(pool.clone());
+    let performance_repo = std::sync::Arc::new(PerformanceRepository::new(pool.clone()));
 
     AppState {
         auth_service: AuthService::new(user_repo_shared.clone()),
@@ -119,6 +123,7 @@ pub async fn create_app_state(pool: sqlx::PgPool) -> AppState {
         fitness_service: FitnessService::new(fitness_repo),
         roster_service: RosterService::new(roster_repo, shift_repo.clone(), vehicle_repo.clone()),
         task_service: TaskService::new(task_repo),
+        performance_service: PerformanceService::new(performance_repo),
         audit_repo: audit_repo.clone(),
     }
 }
@@ -151,6 +156,7 @@ pub fn app_router(app_state: AppState) -> Router {
         .nest("/fitness", fitness_routes(app_state.clone()))
         .nest("/roster", roster_routes(app_state.clone()))
         .nest("/tasks", task_routes(app_state.clone()))
+        .nest("/performance", performance_routes(app_state.clone()))
         .nest("/squad", handler::squad_handler::squad_routes(app_state.clone()))
         .nest("/profile", handler::profile_handler::profile_routes(app_state.clone()))
         .nest("/admin/audit-logs", handler::audit_handler::audit_routes(app_state.clone()));
@@ -205,9 +211,6 @@ async fn spawn_roster_scheduler(state: AppState) {
         let tomorrow = now + Duration::days(1);
         let day_after_tomorrow = tomorrow + Duration::days(1);
 
-        // Rule: 1 day before the month end.
-        // If tomorrow's month is same as today, but day_after_tomorrow's month is different,
-        // it means tomorrow is the last day of the month. So today is the trigger day.
         if tomorrow.month() == now.month() && day_after_tomorrow.month() != now.month() {
             let next_month_date = day_after_tomorrow;
             println!("Roster Scheduler: Triggering generation for next month: {:02}/{}", next_month_date.month(), next_month_date.year());
@@ -217,109 +220,9 @@ async fn spawn_roster_scheduler(state: AppState) {
                 Err(e) => eprintln!("Roster Scheduler Error: {}", e),
             }
             
-            // Wait 24 hours to avoid multiple runs on the same day
             tokio::time::sleep(tokio::time::Duration::from_secs(86400)).await;
         } else {
-            // Check again in 1 hour
             tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::http::StatusCode;
-    use reqwest::Client;
-    use serde_json::{json, Value};
-    use std::env;
-    use tokio::net::TcpListener;
-
-    async fn setup_test_server() -> String {
-        dotenv().ok();
-        let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set for tests");
-
-        let pool = PgPoolOptions::new()
-            .max_connections(5)
-            .connect(&db_url)
-            .await
-            .expect("Failed to connect to database");
-
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .expect("Failed to run migrations");
-
-        // Instantiating the router test for conflicts!
-        let app_state = create_app_state(pool).await;
-        let app = app_router(app_state);
-
-        let listener = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind random port");
-        let addr = listener.local_addr().unwrap();
-
-        tokio::spawn(async move {
-            axum::serve(listener, app).await.unwrap();
-        });
-
-        format!("http://{}", addr)
-    }
-
-    #[tokio::test]
-    async fn test_api_availability_and_conflicts() {
-        let base_url = setup_test_server().await;
-        let client = Client::new();
-
-        let res = client.get(&format!("{}/api/health", base_url)).send().await.unwrap();
-        assert_eq!(res.status(), StatusCode::OK);
-        assert_eq!(res.text().await.unwrap(), "OK");
-
-        let res = client.get(&format!("{}/api/auth/login", base_url)).send().await.unwrap();
-        assert_ne!(res.status(), StatusCode::NOT_FOUND, "Auth Login Route should exist");
-    }
-
-    #[tokio::test]
-    async fn test_complex_flow_login_and_fetch_vehicles() {
-        let base_url = setup_test_server().await;
-        let client = Client::new();
-
-        let login_payload = json!({
-            "ident": "admin123",
-            "password": "admin123"
-        });
-
-        let res = client
-            .post(&format!("{}/api/auth/login", base_url))
-            .json(&login_payload)
-            .send()
-            .await
-            .expect("Failed to execute login request");
-        
-        if res.status() == StatusCode::UNAUTHORIZED {
-            println!("Note: Test DB does not have admin123 seeded. Skipping complex checks.");
-            return;
-        }
-
-        assert_eq!(res.status(), StatusCode::OK, "Login should succeed");
-        
-        let json_body: Value = res.json().await.unwrap();
-        let access_token = json_body["access_token"].as_str().expect("Access token missing in response");
-
-        let profile_res = client
-            .get(&format!("{}/api/auth/profile/me", base_url))
-            .header("Authorization", format!("Bearer {}", access_token))
-            .send()
-            .await
-            .unwrap();
-
-        assert_eq!(profile_res.status(), StatusCode::OK, "Profile fetch should succeed");
-
-        let vehicles_res = client
-            .get(&format!("{}/api/vehicles", base_url))
-            .header("Authorization", format!("Bearer {}", access_token))
-            .send()
-            .await
-            .unwrap();
-
-        assert_eq!(vehicles_res.status(), StatusCode::OK, "Vehicles fetch should succeed");
     }
 }

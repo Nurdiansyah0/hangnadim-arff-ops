@@ -65,7 +65,7 @@ export default function SquadLeaderDashboard() {
               Operational <span className="text-teal-200">Control</span>
             </h1>
             <p className="text-teal-100/80 font-medium max-w-xl text-sm md:text-base">
-              Selamat bertugas, {user?.full_name || user?.username}. Berikut adalah ringkasan kesiapan regu Anda untuk shift ini.
+              Welcome to duty, {user?.full_name || user?.username}. Here is the readiness summary of your squad for this shift.
             </p>
           </div>
         </div>
@@ -138,7 +138,7 @@ export default function SquadLeaderDashboard() {
                  <h4 className="text-sm font-black uppercase tracking-widest text-red-500">Emergency Alerts</h4>
               </div>
               <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-                 Periksa log insiden terbaru secara berkala untuk memastikan koordinasi tim dalam keadaan optimal.
+                Regularly check the latest incident logs to ensure team coordination remains optimal.
               </p>
            </div>
         </div>

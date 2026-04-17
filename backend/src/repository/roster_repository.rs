@@ -59,7 +59,6 @@ impl RosterRepository {
         Ok(row.exists.unwrap_or(false))
     }
 
-    /// Batch inserts duty assignments.
     pub async fn batch_insert_assignments(&self, assignments: &[DutyAssignment]) -> Result<(), Error> {
         if assignments.is_empty() {
             return Ok(());
@@ -86,6 +85,18 @@ impl RosterRepository {
         }
 
         tx.commit().await?;
+        Ok(())
+    }
+
+    pub async fn update_assignment(&self, id: Uuid, vehicle_id: Option<Uuid>, position: String) -> Result<(), Error> {
+        sqlx::query(
+            "UPDATE duty_assignments SET vehicle_id = $1, position = $2::duty_position_enum, updated_at = NOW() WHERE id = $3"
+        )
+        .bind(vehicle_id)
+        .bind(position)
+        .bind(id)
+        .execute(&self.db)
+        .await?;
         Ok(())
     }
 

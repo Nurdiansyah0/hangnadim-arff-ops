@@ -51,7 +51,7 @@ export default function Shifts() {
       setForm({ name: '', start_time: '07:00:00', end_time: '19:00:00' });
       fetchShifts();
     } catch (err) {
-      alert('Gagal menambah shift baru');
+      alert('Failed to add new shift');
     } finally {
       setSubmitting(false);
     }
