@@ -89,10 +89,10 @@ export default function Login() {
           </div>
           <div className="flex flex-col">
             <h1 className="text-2xl font-black text-white tracking-tight leading-none">
-              ARSI <span className="text-blue-500 italic">V2</span>
+              HAIS
             </h1>
             <p className="text-slate-400 mt-2 text-[10px] font-bold uppercase tracking-widest leading-normal">
-              Operational Information & Reporting System
+              Hang Nadim ARFF Integrated System
             </p>
           </div>
         </div>

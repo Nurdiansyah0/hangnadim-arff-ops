@@ -1,3 +1,4 @@
+// HAIS - Hang Nadim ARFF Integrated System
 pub mod domain;
 pub mod handler;
 pub mod repository;
@@ -174,7 +175,7 @@ async fn main() {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let pool = PgPoolOptions::new()
-        .max_connections(1)
+        .max_connections(20)
         .connect(&db_url)
         .await
         .expect("Failed to connect to database");

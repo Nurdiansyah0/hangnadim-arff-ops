@@ -18,7 +18,7 @@ impl EmailService for LettreEmailService {
         let smtp_password = env::var("SMTP_PASSWORD").map_err(|_| "SMTP_PASSWORD not set".to_string())?;
 
         let email = Message::builder()
-            .from("SIOPEL ARFF <system@siopel.id>".parse().unwrap())
+            .from("HAIS ARFF <system@hais.id>".parse().unwrap())
             .to(to.parse().map_err(|_| "Invalid recipient email".to_string())?)
             .subject(subject)
             .body(body.to_string())

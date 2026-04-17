@@ -1,6 +1,6 @@
-# ARSI V2 - Sistem ERP Unit ARFF Hang Nadim
+# HAIS - Hang Nadim ARFF Integrated System
 
-**ARSI V2** (ARFF Rescue and Safety Information Version 2) adalah sistem ERP yang dirancang khusus untuk operasional dan manajemen Unit ARFF (Aircraft Rescue and Fire Fighting) di Bandara Internasional Hang Nadim. Sistem ini menjamin keselamatan penerbangan melalui manajemen kesiapsiagaan personel, aset, dan kepatuhan terhadap regulasi ICAO serta PR 30 Tahun 2022.
+**HAIS** (Hang Nadim ARFF Integrated System) adalah sistem ERP yang dirancang khusus untuk operasional dan manajemen Unit ARFF (Aircraft Rescue and Fire Fighting) di Bandara Internasional Hang Nadim. Sistem ini menjamin keselamatan penerbangan melalui manajemen kesiapsiagaan personel, aset, dan kepatuhan terhadap regulasi ICAO serta PR 30 Tahun 2022.
 
 ## Arsitektur Proyek
 
@@ -10,26 +10,30 @@ Proyek ini terdiri dari dua bagian utama:
 
 ## Persiapan & Menjalankan Proyek (Windows & Linux)
 
-### 1. Persyaratan Sistem
-Pastikan Anda sudah menginstal perangkat lunak berikut:
-- **PostgreSQL 14+** (Wajib dengan ekstensi **PostGIS**)
-- **Node.js** (Versi 18 atau terbaru)
-- **Rust Compiler** (Stable version)
-- **Redis Server** 
-  - *Windows*: Gunakan **WSL2** (rekomendasi) atau installer Redis msi versi lawas.
-  - *Linux*: `sudo apt install redis-server`
+### 1. Persyaratan Sistem & Instalasi (Windows)
+1. **PostgreSQL & PostGIS**:
+   - Download [PostgreSQL 16 Installer](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads).
+   - Saat instalasi, pastikan **Stack Builder** dicentang.
+   - Setelah instalasi selesai, buka Stack Builder, pilih **Spatial Extensions** > **PostGIS 3.x** untuk diinstal.
+2. **Node.js**: Download [Node.js v20+ LTS](https://nodejs.org/).
+3. **Rust**: Buka PowerShell dan jalankan:
+   ```powershell
+   Set-ExecutionPolicy RemoteSigned -scope CurrentUser
+   iwr -useb https://rustup.rs -outfile rustup-init.exe
+   .\rustup-init.exe
+   ```
+   *Pilih opsi 1 (default) dan pastikan Visual Studio Build Tools sudah terinstal.*
 
-### 2. Konfigurasi Database (PENTING)
-1. Buka **pgAdmin** atau **psql**.
-2. Buat database baru dengan nama `arff_db`.
-3. Pastikan user database Anda memiliki hak akses penuh (Owner) ke database tersebut:
-   ```sql
-   ALTER DATABASE arff_db OWNER TO nama_user_anda;
-   ```
-4. Jalankan perintah SQL ini di database tersebut:
-   ```sql
-   CREATE EXTENSION IF NOT EXISTS postgis;
-   ```
+### 2. Konfigurasi Database via PowerShell (Wajib)
+Setelah PostgreSQL terinstal, buka **PowerShell** dan jalankan perintah berikut untuk membuat database dan mengaktifkan PostGIS (Ganti `postgres` dengan username Anda):
+
+```powershell
+# Buat Database
+& "C:\Program Files\PostgreSQL\16\bin\createdb.exe" -U postgres arff_db
+
+# Aktifkan PostGIS & Ownership (Ganti 'nama_user' jika berbeda)
+& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -d arff_db -c "CREATE EXTENSION IF NOT EXISTS postgis; ALTER DATABASE arff_db OWNER TO postgres;"
+```
 
 ### 3. Variabel Lingkungan (.env)
 File `.env` sudah disertakan di dalam folder `backend/` untuk memudahkan pengembangan lokal. Pastikan isi `DATABASE_URL` di `backend/.env` sudah sesuai dengan username/password PostgreSQL Anda:
@@ -50,11 +54,15 @@ cargo run
 *Catatan: Jika error saat kompilasi di Windows, pastikan Anda sudah menginstal "Desktop development with C++" di Visual Studio Build Tools.*
 
 #### **Frontend (Terminal 2)**
-```powershell
-cd frontend
-npm install
-npm run dev
-```
+1. Masuk ke direktori `frontend`.
+2. Install dependensi (Gunakan flag legacy jika terjadi konflik):
+    ```bash
+    npm install --legacy-peer-deps
+    ```
+3. Jalankan dev server:
+    ```bash
+    npm run dev
+    ```
 Akses sistem melalui: `http://localhost:3000`
 
 ## Akses Akun (Default Data)

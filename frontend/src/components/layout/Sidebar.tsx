@@ -136,12 +136,12 @@ export default function Sidebar() {
     ">
       {/* Brand Logo Section (Desktop Only) */}
       <div className="hidden md:flex p-8 border-b border-slate-800/50 items-center gap-4">
-        <div className="w-10 h-10 rounded-2xl bg-blue-600/20 text-blue-500 flex items-center justify-center ring-1 ring-blue-500/40 shadow-lg shadow-blue-900/20">
-          <ShieldAlert size={24} />
+        <div className="w-10 h-10 rounded-2xl overflow-hidden ring-1 ring-slate-700 shadow-lg shadow-blue-900/20">
+          <img src="/theme/logo-arff.jpg" alt="HAIS Logo" className="w-full h-full object-cover" />
         </div>
         <div>
-          <h2 className="font-bold text-xl text-white tracking-tight leading-none">SIOPEL</h2>
-          <p className="text-[10px] text-blue-500 font-bold uppercase tracking-[0.2em] mt-1">ARFF V2.9 OPS</p>
+          <h2 className="font-bold text-xl text-white tracking-tight leading-none">HAIS</h2>
+          <p className="text-[10px] text-blue-500 font-bold uppercase tracking-[0.2em] mt-1">Integrated System</p>
         </div>
       </div>
 

@@ -12,17 +12,17 @@ export default defineConfig({
         enabled: true
       },
       manifest: {
-        name: 'SIOPEL V2.9 Tactical',
-        short_name: 'SIOPEL',
-        description: 'Sistem Informasi Operasional dan Pelaporan ARFF Hang Nadim Batam',
+        name: 'HAIS - Hang Nadim ARFF Integrated System',
+        short_name: 'HAIS',
+        description: 'Hang Nadim ARFF Integrated System - Operational & Reporting',
         theme_color: '#020617',
         background_color: '#020617',
         display: 'standalone',
         icons: [
           {
-            src: '/favicon.svg',
+            src: '/theme/logo-arff.jpg',
             sizes: 'any',
-            type: 'image/svg+xml'
+            type: 'image/jpeg'
           }
         ]
       }

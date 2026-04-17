@@ -104,8 +104,16 @@ impl AuthService {
 
     pub async fn get_auth_context(&self, user_id: Uuid) -> Result<AuthContextResponse, String> {
         let profile = self.repo.get_user_profile(user_id).await
-            .map_err(|e| format!("DB Error: {}", e))?
-            .ok_or_else(|| "User profile tidak ditemukan".to_string())?;
+            .map_err(|e| {
+                let err = format!("DB Error: {}", e);
+                eprintln!("❌ AUTH SERVICE ERROR: {}", err);
+                err
+            })?
+            .ok_or_else(|| {
+                let err = "User profile tidak ditemukan".to_string();
+                eprintln!("❌ AUTH SERVICE ERROR: {} for user_id {}", err, user_id);
+                err
+            })?;
 
         let permissions = self.repo.get_user_permissions(user_id).await
             .map_err(|e| format!("DB Error: {}", e))?;
@@ -225,6 +233,10 @@ mod tests {
                 role_id: Some(1),
                 phone_number: None,
                 profile_picture_url: None,
+                remaining_leave: Some(12),
+                annual_leave_quota: Some(12),
+                shift_team: Some("ALPHA".to_string()),
+                personnel_id: Some(id),
                 created_at: Some(Utc::now()),
             }))
         }

@@ -190,8 +190,8 @@ export default function Compliance() {
                           
                           await api.post('/email/send-report', {
                             to: 'admin@hangnadim-arff.id',
-                            subject: `SIOPEL: System Audit Log ${new Date().toLocaleDateString()}`,
-                            body: `Here is the summary of the SIOPEL system audit logs:\n\n${body}`
+                            subject: `HAIS: System Audit Log ${new Date().toLocaleDateString()}`,
+                            body: `Here is the summary of the HAIS system audit logs:\n\n${body}`
                           });
                           alert('Audit Report successfully sent via Email!');
                         } catch (err) {
@@ -261,7 +261,7 @@ export default function Compliance() {
          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 flex items-center justify-between group">
             <div className="space-y-1">
                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Latest SOP Release</div>
-               <div className="text-lg font-bold text-white tracking-tight">Emergency Response V2.4</div>
+               <div className="text-lg font-bold text-white tracking-tight">Emergency Response Protocol</div>
             </div>
             <button className="w-12 h-12 bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-center text-slate-500 group-hover:text-blue-500 group-hover:border-blue-500/50 transition-all">
                <ExternalLink size={20} />

@@ -96,6 +96,10 @@ mod tests {
                 role_id: Some(1),
                 phone_number: None,
                 profile_picture_url: None,
+                remaining_leave: Some(12),
+                annual_leave_quota: Some(12),
+                shift_team: Some("ALPHA".to_string()),
+                personnel_id: Some(id),
                 created_at: Some(chrono::Utc::now()),
             }))
         }

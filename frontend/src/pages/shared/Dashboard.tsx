@@ -284,7 +284,7 @@ export default function Dashboard() {
                      <BarChart3 size={24} />
                   </div>
                   <div>
-                     <div className="text-white font-bold leading-tight uppercase italic text-sm">V2 Service Pulse</div>
+                     <div className="text-white font-bold leading-tight uppercase italic text-sm">HAIS Service Pulse</div>
                      <div className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">Active & Secure</div>
                   </div>
                </div>
