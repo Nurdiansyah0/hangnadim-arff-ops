@@ -75,32 +75,34 @@ export default function Sidebar() {
 
   const navItems: NavItem[] = [
     {
-      path: (user?.role_id === 9 || user?.role_id === 10) ? '/officer/dashboard' : (user?.role_id === 8 || user?.role_id === 7) ? '/squad-leader/dashboard' : '/dashboard',
-      label: (user?.role_id === 9 || user?.role_id === 10 || user?.role_id === 8 || user?.role_id === 7) ? 'Field Dashboard' : 'Tactical Dashboard',
+      path: (user?.role_id === 9 || user?.role_id === 10) ? '/officer/dashboard' : (user?.role_id === 8 || user?.role_id === 7) ? '/squad-leader/dashboard' : (user?.role_id === 5) ? '/operation-leader/dashboard' : '/dashboard',
+      label: (user?.role_id === 9 || user?.role_id === 10 || user?.role_id === 8 || user?.role_id === 7) ? 'Field Dashboard' : (user?.role_id === 5) ? 'Command Dashboard' : 'Tactical Dashboard',
       icon: LayoutDashboard
     },
-    { path: '/analytics', label: 'Performance Intel', icon: BarChart3, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
+    { path: '/analytics', label: 'Performance Intel', icon: BarChart3, roleLimit: [1, 2, 3, 4, 6, 7] },
     { path: '/flights', label: 'Flight Watch', icon: Plane, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
     { path: '/my-tasks', label: 'My Daily Tasks', icon: ClipboardCheck, roleLimit: [8, 9, 10, 11] },
     { path: '/shift-approval', label: 'Daily Shift Report', icon: ClipboardCheck, roleLimit: [4, 5, 6] },
-    { path: '/incidents', label: 'Incidents Log', icon: Flame, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
+    { path: '/incidents', label: 'Incidents Log', icon: Flame, roleLimit: [1, 2, 3, 4, 6, 7] },
     {
       label: 'Inspections',
       icon: ClipboardCheck,
+      roleLimit: [1, 2, 3, 4, 6, 7, 8, 9, 10],
       children: [
         { path: '/inspections', label: 'Vehicle Audit', icon: Truck },
         { path: '/fire-extinguishers', label: 'APAR Audit', icon: Flame },
       ]
     },
     { path: '/maintenance/request', label: 'Request Maintenance', icon: Wrench, roleLimit: [8, 9] },
-    { path: '/watchroom', label: 'Watchroom Journal', icon: ShieldAlert, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
+    { path: '/watchroom', label: 'Watchroom Journal', icon: ShieldAlert, roleLimit: [1, 2, 3, 4, 6, 7, 11] },
     { path: '/roster', label: 'Duty Matrix', icon: Calendar, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
-    { path: '/shifts', label: 'Shifts & Rotation', icon: Clock, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
-    { path: '/compliance', label: 'Safety & Compliance', icon: ShieldCheck, roleLimit: [1, 2, 3, 4, 5, 6, 7] },
+    { path: '/shifts', label: 'Shifts & Rotation', icon: Clock, roleLimit: [1, 2, 3, 4, 6, 7] },
+    { path: '/compliance', label: 'Safety & Compliance', icon: ShieldCheck, roleLimit: [1, 2, 3, 4, 6, 7] },
     { path: '/leave', label: user?.role_id === 9 || user?.role_id === 8 ? 'Request Leave' : 'Leave Management', icon: Calendar },
     { path: '/users', label: 'Personnel Master', icon: Users, roleLimit: [1, 7] },
-    { path: '/assets', label: 'Asset Fleet', icon: Truck, roleLimit: [1, 2, 3, 4, 5, 6] },
-    { path: '/performance', label: 'Vehicle Performance', icon: Gauge, roleLimit: [1, 4, 5, 7] },
+    { path: '/assets', label: 'Asset Fleet', icon: Truck, roleLimit: [1, 2, 3, 4, 6] },
+    { path: '/performance', label: 'Vehicle Performance', icon: Gauge, roleLimit: [1, 4] },
+    { path: '/maintenance/dashboard', label: 'Maintenance Approval', icon: Wrench, roleLimit: [1, 6] },
     { path: '/audit-trail', label: 'System Audit Trail', icon: History, roleLimit: [1] },
   ];
 

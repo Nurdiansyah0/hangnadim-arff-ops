@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, CheckCircle, ShieldCheck, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/axios';
+import { useAuth } from '../../store/useAuth';
 
 interface DailyTask {
   task_id: string;
@@ -15,11 +16,15 @@ interface DailyTask {
 }
 
 export default function TeamLeaderApproval() {
+  const { user } = useAuth();
+  const isRestricted = user?.role_id !== 1 && user?.role_id !== 3;
+
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [shiftId, setShiftId] = useState<number>(1); // Mock default for now, logic could load from user's current shift
+  const [availableShifts, setAvailableShifts] = useState<{id: number, name: String}[]>([]);
+  const [shiftId, setShiftId] = useState<number>(0);
   
   // Actually, we need to know the TL's shift_id for today.
   // For the sake of demonstration, we provide a selector or fetch it if the user info has it.
@@ -27,7 +32,33 @@ export default function TeamLeaderApproval() {
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    fetchShiftTasks();
+    const init = async () => {
+      try {
+        // 1. Fetch available shifts
+        const shiftsRes = await api.get('/shifts');
+        const shifts = shiftsRes.data;
+        setAvailableShifts(shifts);
+
+        // 2. Try to get current user's shift from context
+        const contextRes = await api.get('/auth/me/context');
+        if (contextRes.data.shift_id) {
+          setShiftId(contextRes.data.shift_id);
+        } else if (shifts.length > 0) {
+          // Fallback: Default to 'Morning' or the first one if no context
+          const morning = shifts.find((s: any) => s.name.toLowerCase() === 'morning');
+          setShiftId(morning ? morning.id : shifts[0].id);
+        }
+      } catch (err) {
+        console.error('Initialization failed', err);
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (shiftId > 0) {
+      fetchShiftTasks();
+    }
   }, [shiftId]);
 
   const fetchShiftTasks = async () => {
@@ -99,8 +130,16 @@ export default function TeamLeaderApproval() {
              Generate Matrix Tasks
            </button>
            <div className="flex items-center gap-2 bg-slate-950/80 p-1 rounded-2xl border border-slate-800">
-             <button onClick={() => setShiftId(1)} className={`px-4 py-2 rounded-xl text-sm font-bold uppercase transition-all ${shiftId === 1 ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}>Morning Shift</button>
-             <button onClick={() => setShiftId(2)} className={`px-4 py-2 rounded-xl text-sm font-bold uppercase transition-all ${shiftId === 2 ? 'bg-purple-600 text-white' : 'text-slate-500 hover:text-white'}`}>Night Shift</button>
+             {availableShifts.map(s => (
+               <button 
+                  key={s.id}
+                  onClick={() => !isRestricted && setShiftId(s.id)} 
+                  className={`px-4 py-2 rounded-xl text-sm font-bold uppercase transition-all ${shiftId === s.id ? (s.name.toLowerCase().includes('night') ? 'bg-purple-600' : 'bg-blue-600') + ' text-white' : 'text-slate-500 hover:text-white'} ${isRestricted && shiftId !== s.id ? 'hidden' : ''}`}
+                  disabled={isRestricted}
+               >
+                  {s.name} Shift
+               </button>
+             ))}
            </div>
         </div>
       </div>

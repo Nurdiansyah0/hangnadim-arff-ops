@@ -48,4 +48,16 @@ impl TaskService {
             .await
             .map_err(|e| e.to_string())
     }
+
+    pub async fn get_operation_summary(&self, date: NaiveDate) -> Result<serde_json::Value, String> {
+        self.task_repo.get_operation_summary(date)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    pub async fn get_recent_activities(&self) -> Result<serde_json::Value, String> {
+        self.task_repo.get_recent_activities()
+            .await
+            .map_err(|e| e.to_string())
+    }
 }

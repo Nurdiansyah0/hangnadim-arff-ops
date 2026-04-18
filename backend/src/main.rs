@@ -34,6 +34,7 @@ use handler::fitness_handler::fitness_routes;
 use handler::roster_handler::roster_routes;
 use handler::task_handler::task_routes;
 use handler::performance_handler::performance_routes;
+use handler::operation_handler::operation_routes;
 
 use repository::user_repository::UserRepository;
 use repository::personnel_repository::PersonnelRepository;
@@ -160,6 +161,7 @@ pub fn app_router(app_state: AppState) -> Router {
         .nest("/performance", performance_routes(app_state.clone()))
         .nest("/squad", handler::squad_handler::squad_routes(app_state.clone()))
         .nest("/profile", handler::profile_handler::profile_routes(app_state.clone()))
+        .nest("/operation", operation_routes(app_state.clone()))
         .nest("/admin/audit-logs", handler::audit_handler::audit_routes(app_state.clone()));
 
     Router::new()

@@ -167,4 +167,132 @@ impl TaskRepository {
             readiness_percentage: stats.readiness.unwrap_or(0.0) * 100.0,
         })
     }
+
+    pub async fn get_operation_summary(&self, date: NaiveDate) -> Result<serde_json::Value, sqlx::Error> {
+        let personnel_count: i64 = sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*) 
+            FROM duty_assignments da
+            JOIN shifts s ON da.shift_id = s.id
+            WHERE da.assignment_date = $1
+            AND (
+                (s.start_time <= s.end_time AND CURRENT_TIME BETWEEN s.start_time AND s.end_time)
+                OR
+                (s.start_time > s.end_time AND (CURRENT_TIME >= s.start_time OR CURRENT_TIME <= s.end_time))
+            )
+            "#
+        )
+        .bind(date)
+        .fetch_one(&self.db)
+        .await?;
+
+        let pending_approvals: i64 = sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*) 
+            FROM daily_tasks dt
+            JOIN duty_assignments da ON dt.assignment_id = da.id
+            JOIN shifts s ON da.shift_id = s.id
+            WHERE da.assignment_date = $1 
+            AND dt.status = 'COMPLETED'
+            AND (
+                (s.start_time <= s.end_time AND CURRENT_TIME BETWEEN s.start_time AND s.end_time)
+                OR
+                (s.start_time > s.end_time AND (CURRENT_TIME >= s.start_time OR CURRENT_TIME <= s.end_time))
+            )
+            "#
+        )
+        .bind(date)
+        .fetch_one(&self.db)
+        .await?;
+
+        let flight_count: i64 = sqlx::query_scalar("SELECT COUNT(id) FROM flight_routes WHERE actual_time::DATE = $1")
+            .bind(date)
+            .fetch_one(&self.db)
+            .await?;
+
+        let readiness: f64 = sqlx::query_scalar(
+            r#"
+            SELECT (COALESCE(
+                (COUNT(*) FILTER (WHERE dt.status = 'COMPLETED' OR dt.status = 'APPROVED'))::float8 / NULLIF(COUNT(*), 0)::float8,
+                1.0::float8
+            ) * 100.0::float8)::float8
+            FROM daily_tasks dt
+            JOIN duty_assignments da ON dt.assignment_id = da.id
+            JOIN shifts s ON da.shift_id = s.id
+            WHERE da.assignment_date = $1
+            AND (
+                (s.start_time <= s.end_time AND CURRENT_TIME BETWEEN s.start_time AND s.end_time)
+                OR
+                (s.start_time > s.end_time AND (CURRENT_TIME >= s.start_time OR CURRENT_TIME <= s.end_time))
+            )
+            "#
+        )
+        .bind(date)
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok(serde_json::json!({
+            "active_personnel": personnel_count,
+            "pending_approvals": pending_approvals,
+            "active_flights": flight_count,
+            "overall_readiness": readiness
+        }))
+    }
+
+    pub async fn get_recent_activities(&self) -> Result<serde_json::Value, sqlx::Error> {
+        use sqlx::Row;
+        
+        // Union shift reports and watchroom logs for a combined feed
+        // Using non-macro query to avoid potential type inference issues with complex UNIONs
+        let rows = sqlx::query(
+            r#"
+            (
+                SELECT 
+                    sr.id::text as id,
+                    p.full_name as user_name,
+                    'Approved shift report for ' || s.name as action,
+                    sr.created_at as time,
+                    'approval' as activity_type
+                FROM shift_reports sr
+                JOIN personnels p ON sr.team_leader_id = p.id
+                JOIN shifts s ON sr.shift_id = s.id
+                ORDER BY sr.created_at DESC
+                LIMIT 5
+            )
+            UNION ALL
+            (
+                SELECT 
+                    wl.id::text as id,
+                    p.full_name as user_name,
+                    wl.description as action,
+                    wl.created_at as time,
+                    CASE 
+                        WHEN wl.entry_type = 'FLIGHT' THEN 'flight'
+                        WHEN wl.entry_type = 'INCIDENT' THEN 'alert'
+                        ELSE 'alert'
+                    END as activity_type
+                FROM watchroom_logs wl
+                JOIN personnels p ON wl.personnel_id = p.id
+                ORDER BY wl.created_at DESC
+                LIMIT 5
+            )
+            ORDER BY time DESC
+            LIMIT 10
+            "#
+        )
+        .fetch_all(&self.db)
+        .await?;
+
+        let list: Vec<serde_json::Value> = rows.into_iter().map(|row| {
+            serde_json::json!({
+                "id": row.get::<String, _>("id"),
+                "user": row.get::<String, _>("user_name"),
+                "action": row.get::<String, _>("action"),
+                "time": row.get::<chrono::DateTime<chrono::Utc>, _>("time"),
+                "type": row.get::<String, _>("activity_type")
+            })
+        }).collect();
+
+        Ok(serde_json::json!(list))
+    }
 }

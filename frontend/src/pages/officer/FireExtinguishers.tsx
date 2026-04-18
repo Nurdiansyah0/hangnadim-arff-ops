@@ -1,311 +1,81 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Flame, 
   Plus, 
   Loader2, 
   ClipboardCheck, 
-  X,
   Navigation, 
   Locate,
   History as HistoryIcon,
   Calendar,
   QrCode
 } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
-import { QRCodeSVG } from 'qrcode.react';
-import { api } from '../../lib/axios';
+import toast from 'react-hot-toast';
 
-interface FireExtinguisher {
-  id: string;
-  serial_number: string;
-  agent_type: string;
-  capacity_kg: number;
-  location_description: string | null;
-  floor: string | null;
-  building: string | null;
-  expiry_date: string;
-  status: string;
-  latitude: number | null;
-  longitude: number | null;
-}
+// Utils & Types
+import type { FireExtinguisher } from '../../types/fireExtinguisher';
+import { calculateDistance } from '../../utils/distance';
+import { formatDate, formatTime } from '../../utils/dateFormatter';
 
-interface Inspection {
-    id: string;
-    vehicle_id: string | null;
-    fire_extinguisher_id: string | null;
-    tanggal: string;
-    status: string;
-    created_at: string;
-    inspector_name?: string;
-    fire_extinguisher_serial?: string;
-}
+// Hooks
+import { useGeolocation } from '../../hooks/useGeolocation';
+import { useFireExtinguishers } from '../../hooks/useFireExtinguishers';
 
-interface InspectionResult {
-    id: string;
-    item_name?: string;
-    category?: string;
-    result: string;
-    notes: string | null;
-    template_item_id: number;
-}
-
-interface InspectionDetail {
-    inspection: Inspection;
-    results: InspectionResult[];
-}
-
-/**
- * GeoKalmanFilter — 1D Kalman Filter applied independently to lat & lng.
- * R (measurement noise) is derived from the GPS-reported accuracy².
- * Q (process noise) models expected position drift between readings.
- * The filter converges rapidly: after ~5 fixes the estimate is significantly
- * smoother than raw GPS, and after ~15 fixes approaches theoretical maximum
- * precision for the device hardware.
- */
-class GeoKalmanFilter {
-  private _lat = 0;
-  private _lng = 0;
-  private _P_lat = 1;   // error covariance (lat)
-  private _P_lng = 1;   // error covariance (lng)
-  private _Q = 3e-10;   // process noise — tuned for a stationary/slow-walking inspector
-  private _ready = false;
-  public samples = 0;
-
-  // Returns filtered {lat, lng} and the estimated position variance in metres
-  update(lat: number, lng: number, accMetres: number): { lat: number; lng: number; estAccuracy: number } {
-    // Convert GPS accuracy (metres) → degrees² variance
-    // 1 degree ≈ 111,139 m  →  1m ≈ 9e-6 deg
-    const deg_per_metre = 1 / 111_139;
-    const R = Math.pow(accMetres * deg_per_metre, 2);
-
-    if (!this._ready) {
-      this._lat = lat; this._lng = lng;
-      this._P_lat = R;  this._P_lng = R;
-      this._ready = true;
-      this.samples = 1;
-      return { lat, lng, estAccuracy: accMetres };
-    }
-
-    // === Predict ===
-    this._P_lat += this._Q;
-    this._P_lng += this._Q;
-
-    // === Kalman Gain ===
-    const K_lat = this._P_lat / (this._P_lat + R);
-    const K_lng = this._P_lng / (this._P_lng + R);
-
-    // === Update / Correct ===
-    this._lat += K_lat * (lat - this._lat);
-    this._lng += K_lng * (lng - this._lng);
-    this._P_lat *= (1 - K_lat);
-    this._P_lng *= (1 - K_lng);
-    this.samples++;
-
-    // Estimated accuracy in metres from the largest covariance dimension
-    const estVarDeg = Math.max(this._P_lat, this._P_lng);
-    const estAccuracy = Math.sqrt(estVarDeg) * 111_139;
-
-    return { lat: this._lat, lng: this._lng, estAccuracy };
-  }
-
-  reset() { this._ready = false; this.samples = 0; }
-}
+// Components
+import { RegisterAparModal } from './components/RegisterAparModal';
+import { InspectAparModal } from './components/InspectAparModal';
+import { AparAuditReportModal } from './components/AparAuditReportModal';
+import { QrScannerModal } from './components/QrScannerModal';
+import { RegistrationSuccessModal } from './components/RegistrationSuccessModal';
 
 export default function FireExtinguishers() {
-  const [items, setItems] = useState<FireExtinguisher[]>([]);
-  const [inspections, setInspections] = useState<Inspection[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    currentCoords,
+    locationStatus,
+    locationAccuracy,
+    filteredAccuracy,
+    kalmanSamples,
+    locationError,
+    setLocationError,
+    captureLocation
+  } = useGeolocation();
+
+  const {
+    items,
+    inspections,
+    loading,
+    submitting,
+    selectedApar,
+    template,
+    templateItems,
+    checklistResults,
+    setChecklistResults,
+    inspectDate,
+    setInspectDate,
+    detailData,
+    handleCreate,
+    openInspectModal,
+    handleInspectSubmit,
+    handleViewReport
+  } = useFireExtinguishers();
+
   const [showModal, setShowModal] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  
-  // Inspection State
   const [showInspectModal, setShowInspectModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [detailData, setDetailData] = useState<InspectionDetail | null>(null);
-  const [selectedApar, setSelectedApar] = useState<FireExtinguisher | null>(null);
-  const [template, setTemplate] = useState<any>(null);
-  const [templateItems, setTemplateItems] = useState<any[]>([]);
-  const [checklistResults, setChecklistResults] = useState<Record<number, any>>({});
-  const [inspectDate, setInspectDate] = useState('');
-  
-  // GPS & Proximity State
-  const [currentCoords, setCurrentCoords] = useState<{lat: number, lng: number} | null>(null);
-  const [detectedAsset, setDetectedAsset] = useState<any | null>(null);
-  const [minDistance, setMinDistance] = useState<number | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'IDLE' | 'CAPTURING' | 'SUCCESS' | 'ERROR'>('IDLE');
-  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);   // raw GPS accuracy
-  const [filteredAccuracy, setFilteredAccuracy] = useState<number | null>(null);    // Kalman-filtered estimate
-  const [kalmanSamples, setKalmanSamples] = useState(0);  // convergence counter
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [showQrScanner, setShowQrScanner] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const [lastRegistered, setLastRegistered] = useState<FireExtinguisher | null>(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  // Kalman filter instance — persists via ref so it's not recreated on every render
-  const kalman = useRef(new GeoKalmanFilter());
-
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371e3; // metres
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const getLocalISODate = () => {
-    const now = new Date();
-    const offset = now.getTimezoneOffset() * 60000;
-    return new Date(now.getTime() - offset).toISOString().split('T')[0];
-  };
-
-  const captureLocation = (): Promise<{lat: number, lng: number, accuracy: number}> => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        setLocationStatus('ERROR');
-        reject('Geolocation not supported');
-        return;
-      }
-
-      setLocationStatus('CAPTURING');
-      // For audit captures we do multiple samples via watchPosition
-      // and resolve once we get a sufficiently accurate fix (< 20m) or best available after 15s
-      let bestFix: {lat: number, lng: number, accuracy: number} | null = null;
-      let resolvedEarly = false;
-      const GOOD_ACCURACY = 20; // metres — accept immediately if we hit this
-      const MAX_WAIT = 15_000;  // 15 seconds max
-
-      const watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const { latitude, longitude, accuracy } = pos.coords;
-          // Reject junk readings (bad satellite lock)
-          if (accuracy > 150) return;
-
-          const filtered = kalman.current.update(latitude, longitude, accuracy);
-          setLocationAccuracy(accuracy);
-          setFilteredAccuracy(filtered.estAccuracy);
-          setKalmanSamples(kalman.current.samples);
-          setCurrentCoords({ lat: filtered.lat, lng: filtered.lng });
-          setLocationStatus('SUCCESS');
-
-          const fix = { lat: filtered.lat, lng: filtered.lng, accuracy: filtered.estAccuracy };
-          if (!bestFix || filtered.estAccuracy < bestFix.accuracy) bestFix = fix;
-
-          if (filtered.estAccuracy <= GOOD_ACCURACY && !resolvedEarly) {
-            resolvedEarly = true;
-            navigator.geolocation.clearWatch(watchId);
-            resolve(fix);
-          }
-        },
-        (err) => {
-          if (err.code !== 3) console.debug('GPS capture error:', err.message);
-        },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: MAX_WAIT
-        }
-      );
-
-      // After MAX_WAIT, resolve with best available (even if accuracy > 20m)
-      setTimeout(() => {
-        navigator.geolocation.clearWatch(watchId);
-        if (!resolvedEarly) {
-          if (bestFix) {
-            resolve(bestFix);
-          } else {
-            setLocationStatus('ERROR');
-            setLocationError('SIGNAL TIMEOUT (SATELLITE SEARCH FAILED)');
-            reject(new Error('GPS timeout after 15s'));
-          }
-        }
-      }, MAX_WAIT);
-    });
-  };
-
-  const [form, setForm] = useState({
-    serial_number: '',
-    agent_type: 'CO2',
-    capacity_kg: '2.0',
-    location_description: '',
-    floor: '',
-    building: '',
-    expiry_date: '',
-    status: 'READY',
-    latitude: null as number | null,
-    longitude: null as number | null,
-  });
-
-  const openRegisterModal = () => {
-    const oneYearLater = new Date();
-    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-    const defaultExpiry = oneYearLater.toISOString().split('T')[0];
-
-    setForm({
-      serial_number: '',
-      agent_type: 'CO2',
-      capacity_kg: '2.0',
-      location_description: '',
-      floor: '',
-      building: '',
-      expiry_date: defaultExpiry,
-      status: 'READY',
-      latitude: null,
-      longitude: null,
-    });
-    setShowModal(true);
-    captureLocation().catch(() => console.warn('Initial GPS capture timed out.'));
-  };
-
-  useEffect(() => {
-    fetchData();
-    
-    // === Kalman-Filtered Live Radar ===
-    // Continuously feed GPS readings through the Kalman filter.
-    // Readings with accuracy > 80m are silently rejected as too noisy.
-    // The filter converges over ~10–20 fixes to a stable, high-precision estimate.
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-
-        // Accuracy gate: ignore satellite readings that are extremely noisy (> 150m)
-        if (accuracy > 150) {
-          console.debug(`[Radar] GPS fix rejected — accuracy ${accuracy.toFixed(1)}m (> 150m gate)`);
-          return;
-        }
-
-        const filtered = kalman.current.update(latitude, longitude, accuracy);
-        setCurrentCoords({ lat: filtered.lat, lng: filtered.lng });
-        setLocationAccuracy(accuracy);               // show raw for transparency
-        setFilteredAccuracy(filtered.estAccuracy);   // show Kalman estimate
-        setKalmanSamples(kalman.current.samples);
-        setLocationStatus('SUCCESS');
-      },
-      (err) => {
-        if (err.code !== 3) {
-           console.debug('[Radar] GPS recalibrating…', err.message);
-        }
-      },
-      { 
-          enableHighAccuracy: true, 
-          maximumAge: 0,   // always request fresh satellite data
-          timeout: 10_000  // give each fix up to 10s
-      }
-    );
-
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, []);
+  const [detectedAsset, setDetectedAsset] = useState<FireExtinguisher | null>(null);
+  const [minDistance, setMinDistance] = useState<number | null>(null);
 
   useEffect(() => {
     if (!currentCoords || items.length === 0) return;
 
-    let closest: any = null;
+    let closest: FireExtinguisher | null = null;
     let shortestDist = Infinity;
 
-    items.forEach((item: any) => {
+    items.forEach((item) => {
       if (item.latitude && item.longitude) {
         const dist = calculateDistance(
           currentCoords.lat, 
@@ -320,7 +90,7 @@ export default function FireExtinguishers() {
       }
     });
 
-    const PROXIMITY_THRESHOLD = 15; // 15 meters
+    const PROXIMITY_THRESHOLD = 15;
     if (shortestDist <= PROXIMITY_THRESHOLD) {
       setDetectedAsset(closest);
       setMinDistance(shortestDist);
@@ -330,204 +100,54 @@ export default function FireExtinguishers() {
     }
   }, [currentCoords, items]);
 
-  const fetchData = async () => {
+  const onRegisterSubmit = async (form: any) => {
     try {
-      setLoading(true);
-      const [itemsRes, insRes] = await Promise.all([
-        api.get('/fire-extinguishers'),
-        api.get('/inspections')
-      ]);
-      setItems(itemsRes.data);
-      setInspections(insRes.data.filter((i: Inspection) => i.fire_extinguisher_id !== null));
-    } catch (err) {
-      console.error('Failed to fetch data', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setSubmitting(true);
-      let finalLat = form.latitude;
-      let finalLng = form.longitude;
-      
-      try {
-        const freshPos = await captureLocation();
-        finalLat = freshPos.lat;
-        finalLng = freshPos.lng;
-      } catch (gpsErr) {
-        console.warn('Final GPS refresh failed', gpsErr);
-      }
-
-      const res = await api.post('/fire-extinguishers', {
-        serial_number: form.serial_number,
-        agent_type: form.agent_type,
-        capacity_kg: parseFloat(form.capacity_kg),
-        location_description: form.location_description || null,
-        floor: form.floor || null,
-        building: form.building || null,
-        expiry_date: form.expiry_date,
-        last_inspection_date: null,
-        status: form.status === 'ACTIVE' ? 'READY' : form.status,
-        latitude: finalLat,
-        longitude: finalLng,
-        photo_url: null,
-      });
-
-      setLastRegistered(res.data);
+      const data = await handleCreate(form, captureLocation);
+      setLastRegistered(data);
       setShowModal(false);
       setShowSuccessModal(true);
-      
-      setForm({
-        serial_number: '',
-        agent_type: 'CO2',
-        capacity_kg: '2.0',
-        location_description: '',
-        floor: '',
-        building: '',
-        expiry_date: getLocalISODate(),
-        status: 'READY',
-        latitude: null,
-        longitude: null,
-      });
-      fetchData();
-    } catch (err: any) {
-      console.error('Registration Error:', err);
-      const serverMsg = err.response?.data || err.message || 'Operation failed';
-      alert(`Asset Registration Refused: ${serverMsg}`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const openInspectModal = async (apar: FireExtinguisher) => {
-    try {
-      setLoading(true);
-      setSelectedApar(apar);
-      setInspectDate(getLocalISODate());
-      
-      const templatesRes = await api.get('/inspections/templates');
-      const aparTemplate = templatesRes.data.find((t: any) => t.target_type === 'FIRE_EXTINGUISHER');
-      
-      if (!aparTemplate) {
-        alert('No inspection template found for Fire Extinguishers.');
-        return;
-      }
-      setTemplate(aparTemplate);
-
-      const itemsRes = await api.get(`/inspections/templates/${aparTemplate.id}/items`);
-      setTemplateItems(itemsRes.data);
-      
-      const initial: Record<number, any> = {};
-      itemsRes.data.forEach((item: any) => {
-        initial[item.id] = { result: 'N_A', notes: '' };
-      });
-      setChecklistResults(initial);
-      setShowInspectModal(true);
     } catch (err) {
-      alert('Failed to load inspection protocol.');
-    } finally {
-      setLoading(false);
+      // toast is handled in hook
     }
   };
 
-  const handleInspectSubmit = async (e: React.FormEvent) => {
+  const onInspectModalOpen = async (apar: FireExtinguisher) => {
+    const success = await openInspectModal(apar);
+    if (success) setShowInspectModal(true);
+  };
+
+  const onInspectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedApar) return;
+    const success = await handleInspectSubmit(captureLocation);
+    if (success) setShowInspectModal(false);
+  };
 
-    try {
-      setSubmitting(true);
-      
-      // CAPTURE CURRENT LOCATION FOR AUDIT VERIFICATION (Best Effort)
-      const currentLoc = await captureLocation().catch((e) => {
-          console.warn('Audit GPS lock failed, proceeding without location binding', e);
-          return null;
-      }); 
-      
-      const results = templateItems.map(item => ({
-        template_item_id: item.id,
-        result: checklistResults[item.id]?.result || 'N_A',
-        notes: checklistResults[item.id]?.notes || null,
-        photo_url: null,
-      }));
-
-      await api.post('/inspections', {
-        fire_extinguisher_id: selectedApar.id,
-        tanggal: getLocalISODate(),
-        status: 'SUBMITTED',
-        template_id: template?.id,
-        latitude: currentLoc?.lat,
-        longitude: currentLoc?.lng,
-        results,
-      });
-
-      setShowInspectModal(false);
-      setChecklistResults({});
-      fetchData();
-    } catch (err: any) {
-      const msg = err.response?.data || 'Failed to finalize audit report';
-      alert(msg);
-    } finally {
-      setSubmitting(false);
-    }
+  const onViewReport = async (id: string) => {
+    const success = await handleViewReport(id);
+    if (success) setShowDetailModal(true);
   };
 
   const handleQrScanSuccess = (decodedText: string) => {
-    // Expected QR format: Serial Number (e.g. "APAR-061") or full ID
     const found = items.find(item => item.serial_number === decodedText || item.id === decodedText);
     
     if (found) {
         setShowQrScanner(false);
-        
-        // GEOFENCING VERIFICATION
         if (found.latitude && found.longitude && currentCoords) {
             const distance = calculateDistance(currentCoords.lat, currentCoords.lng, found.latitude, found.longitude);
-            const MAX_DISTANCE = 50; // 50 meters tolerance for indoor stability
+            const MAX_DISTANCE = 50;
             
             if (distance > MAX_DISTANCE) {
-                alert(`GEOLOCATION MISMATCH: Scanned unit #${found.serial_number} is registered ${distance.toFixed(1)}m away. You must be within ${MAX_DISTANCE}m to perform an audit.`);
+                toast.error(`GEOLOCATION MISMATCH: Scanned unit #${found.serial_number} is registered ${distance.toFixed(1)}m away.`);
                 return;
             }
         } else if (!currentCoords) {
-            alert('GEOLOCATION REQUIRED: Could not verify your position. Please ensure GPS is active.');
+            toast.error('GEOLOCATION REQUIRED: Could not verify your position.');
             return;
         }
-
-        openInspectModal(found);
+        onInspectModalOpen(found);
     } else {
-        setQrError(`UNRECOGNIZED ASSET: The code "${decodedText}" is not registered in the ARFF database.`);
+        setQrError(`UNRECOGNIZED ASSET: The code "${decodedText}" is not registered.`);
     }
-  };
-
-  const handleViewReport = async (inspectionId: string) => {
-    try {
-        const res = await api.get(`/inspections/${inspectionId}`);
-        setDetailData(res.data);
-        setShowDetailModal(true);
-    } catch (err) {
-        alert('Failed to fetch inspection details');
-    }
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-  };
-
-  const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-  };
-
-  const formatDateTime = (date: string) => {
-    return new Date(date).toLocaleString('en-GB', { 
-        day: '2-digit', 
-        month: 'long', 
-        year: 'numeric',
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: false 
-    });
   };
 
   return (
@@ -543,7 +163,10 @@ export default function FireExtinguishers() {
             </div>
 
             <button
-            onClick={openRegisterModal}
+            onClick={() => {
+              setShowModal(true);
+              captureLocation().catch(() => console.warn('Initial GPS capture timed out.'));
+            }}
             className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 rounded-2xl transition-all shadow-lg shadow-orange-500/20 font-bold"
             >
             <Plus size={20} />
@@ -581,7 +204,7 @@ export default function FireExtinguishers() {
                     </div>
 
                     <button
-                        onClick={() => openInspectModal(detectedAsset)}
+                        onClick={() => onInspectModalOpen(detectedAsset)}
                         className="group relative px-12 py-5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-sm transition-all shadow-2xl shadow-orange-600/20 hover:scale-105 active:scale-95"
                     >
                         <span className="relative z-10 flex items-center gap-3">
@@ -686,7 +309,6 @@ export default function FireExtinguishers() {
         </div>
       </div>
 
-      {/* NEW: APAR Specific History Log */}
       <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-4xl p-8 overflow-hidden relative">
         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
             <HistoryIcon size={120} />
@@ -752,7 +374,7 @@ export default function FireExtinguishers() {
                                 </td>
                                 <td className="py-4 text-right">
                                     <button
-                                        onClick={() => handleViewReport(item.id)}
+                                        onClick={() => onViewReport(item.id)}
                                         className="text-slate-400 hover:text-white transition-all text-xs px-4 py-2 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-orange-500/50"
                                     >
                                         View Log
@@ -773,498 +395,55 @@ export default function FireExtinguishers() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => !submitting && setShowModal(false)} />
-          <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-4xl p-10 shadow-2xl animate-in zoom-in duration-200">
-            <h3 className="text-2xl font-bold text-white mb-8">Register New APAR Unit</h3>
-            <form onSubmit={handleCreate} className="space-y-6">
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Serial Number</label>
-                  <input
-                    required
-                    placeholder="E.g. APAR-001"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    value={form.serial_number}
-                    onChange={(e) => setForm({ ...form, serial_number: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Agent Type</label>
-                  <select
-                    required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    value={form.agent_type}
-                    onChange={(e) => setForm({ ...form, agent_type: e.target.value })}
-                  >
-                    <option value="CO2">CO2</option>
-                    <option value="DCP">DCP</option>
-                    <option value="Foam">Foam</option>
-                    <option value="Water">Water</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Capacity (kg)</label>
-                  <input
-                    required
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    placeholder="2.0"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    value={form.capacity_kg}
-                    onChange={(e) => setForm({ ...form, capacity_kg: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Expiry Date</label>
-                  <input
-                    required
-                    type="date"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    value={form.expiry_date}
-                    onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Location description</label>
-                  <input
-                    placeholder="Hangar area / terminal gate"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    value={form.location_description}
-                    onChange={(e) => setForm({ ...form, location_description: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Building</label>
-                  <input
-                    placeholder="Main Hangar"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    value={form.building}
-                    onChange={(e) => setForm({ ...form, building: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Floor</label>
-                  <input
-                    placeholder="Ground"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    value={form.floor}
-                    onChange={(e) => setForm({ ...form, floor: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Status</label>
-                  <select
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  >
-                    <option value="READY">READY</option>
-                    <option value="MAINTENANCE">MAINTENANCE</option>
-                    <option value="EXPIRED">EXPIRED</option>
-                    <option value="OUT_OF_SERVICE">OUT_OF_SERVICE</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <div className={`p-6 rounded-3xl border transition-all ${
-                    locationStatus === 'CAPTURING' ? 'bg-orange-500/5 border-orange-500/20 animate-pulse' :
-                    locationStatus === 'SUCCESS' ? 'bg-emerald-500/5 border-emerald-500/20' :
-                    locationStatus === 'ERROR' ? 'bg-red-500/5 border-red-500/20' :
-                    'bg-slate-950 border-slate-800'
-                  }`}>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                         <div className={`p-2 rounded-lg ${locationStatus === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
-                           <Navigation size={20} />
-                         </div>
-                         <div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">Auto-Spatial Sync</div>
-                            <div className="text-white font-bold text-sm">
-                              {locationStatus === 'CAPTURING' ? 'Capturing High-Precision GPS...' :
-                               locationStatus === 'SUCCESS' ? 'Accuracy Locked' :
-                               locationStatus === 'ERROR' ? 'GPS Signal Blocked' : 'Waiting for Device...'}
-                            </div>
-                         </div>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => captureLocation()}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-800 text-[10px] font-black uppercase tracking-widest transition-all"
-                      >
-                        <Locate size={14} />
-                        Refresh
-                      </button>
-                    </div>
-
-                    {form.latitude && (
-                      <div className="grid grid-cols-2 gap-4">
-                         <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50">
-                            <div className="text-[9px] uppercase font-black text-slate-500 tracking-tighter">LATITUDE</div>
-                            <div className="text-xs font-mono text-blue-400">{form.latitude?.toFixed(8) || '0.00000000'}</div>
-                         </div>
-                         <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50">
-                            <div className="text-[9px] uppercase font-black text-slate-500 tracking-tighter">LONGITUDE</div>
-                            <div className="text-xs font-mono text-blue-400">{form.longitude?.toFixed(8) || '0.00000000'}</div>
-                         </div>
-                        <div className="col-span-2 flex items-center gap-2 mt-1">
-                           <div className="text-[9px] font-black uppercase tracking-widest text-slate-600">CONFIDENCE:</div>
-                           <div className={`text-[10px] font-bold ${locationAccuracy && locationAccuracy < 10 ? 'text-emerald-500' : 'text-orange-500'}`}>
-                             {locationAccuracy ? `+/- ${locationAccuracy.toFixed(1)} meters` : 'Calculating...'}
-                           </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-6">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 rounded-xl border border-slate-800 text-slate-500 font-bold uppercase transition-all hover:bg-slate-800">Cancel</button>
-                <button type="submit" disabled={submitting} className="flex-1 py-4 rounded-xl bg-orange-600 text-white font-bold uppercase shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
-                  {submitting ? <Loader2 className="animate-spin" size={20} /> : 'Register APAR'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <RegisterAparModal
+          onClose={() => setShowModal(false)}
+          onSubmit={onRegisterSubmit}
+          submitting={submitting}
+          locationStatus={locationStatus}
+          locationAccuracy={locationAccuracy}
+          captureLocation={captureLocation}
+        />
       )}
 
       {showInspectModal && selectedApar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md" onClick={() => !submitting && setShowInspectModal(false)} />
-          <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-            <div className="p-8 pb-4 border-b border-slate-800/50 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-600/20 rounded-lg text-orange-500"><ClipboardCheck size={24} /></div>
-                <div>
-                  <h3 className="text-xl font-bold text-white tracking-tight">Audit APAR: {selectedApar.serial_number}</h3>
-                  <p className="text-sm text-slate-500">Perform periodic safety inspection.</p>
-                </div>
-              </div>
-              <button onClick={() => setShowInspectModal(false)} className="p-2 text-slate-400 hover:text-white transition-colors"><X size={18} /></button>
-            </div>
-
-            <form onSubmit={handleInspectSubmit} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-8 pt-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-1">
-                    <label className="block text-xs font-bold text-orange-500 uppercase tracking-widest mb-2 ml-1">Unit Asset Info</label>
-                    <div className="bg-orange-600/10 border border-orange-500/20 rounded-2xl p-4 flex items-center gap-4">
-                      <div className="w-12 h-12 bg-orange-600/20 rounded-xl flex items-center justify-center text-orange-400">
-                        <Flame size={24} />
-                      </div>
-                      <div>
-                        <div className="text-white font-black text-lg leading-none">{selectedApar.serial_number}</div>
-                        <div className="text-[10px] text-orange-400 font-bold uppercase mt-1">{selectedApar.agent_type} - {selectedApar.capacity_kg}kg</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Inspection Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={inspectDate}
-                      onChange={(e) => setInspectDate(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                    />
-                  </div>
-                </div>
-
-                {templateItems.length > 0 && (
-                  <div className="grid gap-4">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-slate-300 font-bold uppercase tracking-widest">Inspection Protocol</div>
-                      <div className="text-[10px] font-black text-slate-500 px-2 py-1 bg-slate-800 rounded-md uppercase">
-                        {template?.name}
-                      </div>
-                    </div>
-                    {templateItems.map(item => (
-                      <div key={item.id} className="bg-slate-950/50 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-colors">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                          <div>
-                            <div className="text-white font-bold text-sm tracking-tight">{item.item_name}</div>
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-orange-500/80 font-black mt-0.5">{item.category}</div>
-                          </div>
-                          <div className="flex gap-1.5 p-1 bg-slate-900 rounded-lg w-fit">
-                            {(['PASS', 'FAIL', 'N_A'] as const).map(option => (
-                              <button
-                                type="button"
-                                key={option}
-                                onClick={() => setChecklistResults(prev => ({
-                                  ...prev,
-                                  [item.id]: {
-                                    result: option,
-                                    notes: prev[item.id]?.notes || ''
-                                  }
-                                }))}
-                                className={`px-4 py-1.5 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${
-                                  checklistResults[item.id]?.result === option 
-                                  ? (option === 'PASS' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : option === 'FAIL' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-slate-700 text-white') 
-                                  : 'text-slate-500 hover:text-slate-300'
-                                }`}
-                              >
-                                {option}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <textarea
-                            value={checklistResults[item.id]?.notes || ''}
-                            onChange={(e) => setChecklistResults(prev => ({
-                              ...prev,
-                              [item.id]: {
-                                result: prev[item.id]?.result || 'N_A',
-                                notes: e.target.value,
-                              }
-                            }))}
-                            placeholder="Add notes (e.g. pressure low, label damaged)..."
-                            className="w-full min-h-[70px] bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-orange-500/50 placeholder:text-slate-700"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="p-8 pt-4 border-t border-slate-800/50 bg-slate-900/50 flex gap-3">
-                <button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => setShowInspectModal(false)}
-                  className="px-6 py-3.5 rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 transition-all font-bold text-xs uppercase tracking-widest disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || !template}
-                  className="flex-1 px-6 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white shadow-xl shadow-orange-500/20 transition-all font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed group"
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                    <>
-                      <ClipboardCheck size={16} className="group-hover:scale-110 transition-transform" />
-                      Submit & Finalize Audit
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <InspectAparModal
+          selectedApar={selectedApar}
+          onClose={() => setShowInspectModal(false)}
+          onSubmit={onInspectSubmit}
+          submitting={submitting}
+          inspectDate={inspectDate}
+          setInspectDate={setInspectDate}
+          template={template}
+          templateItems={templateItems}
+          checklistResults={checklistResults}
+          setChecklistResults={setChecklistResults}
+        />
       )}
 
-      {/* DETAIL MODAL FOR HISTORY */}
       {showDetailModal && detailData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md" onClick={() => setShowDetailModal(false)} />
-              <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
-                  <div className="flex items-center justify-between gap-3 mb-6">
-                      <div>
-                          <h3 className="text-xl font-bold text-white italic tracking-tighter uppercase">APAR Audit Report</h3>
-                          <p className="text-xs text-slate-400 mt-1">
-                            <span className="text-orange-500 font-black">
-                              {detailData.inspection.fire_extinguisher_serial || 'UNIT'}
-                            </span> • {formatDateTime(detailData.inspection.created_at)}
-                          </p>
-                          <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">
-                            Inspector: <span className="text-slate-300">{detailData.inspection.inspector_name || 'Authorized Personnel'}</span>
-                          </div>
-                      </div>
-                      <button onClick={() => setShowDetailModal(false)} className="p-2 text-slate-400 hover:text-white"><X size={18} /></button>
-                  </div>
-                  <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                      {detailData.results.map(result => (
-                          <div key={result.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 group hover:border-slate-700 transition-colors">
-                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                                  <div>
-                                      <div className="text-white font-bold">{result.item_name || `Item #${result.template_item_id}`}</div>
-                                      <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-black">{result.category || 'GENERAL CHECK'}</div>
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                     <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
-                                       result.result === 'PASS' 
-                                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                                       : result.result === 'FAIL' 
-                                       ? 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' 
-                                       : 'bg-slate-800 text-slate-400 border-slate-700'
-                                     }`}>
-                                         {result.result}
-                                     </span>
-                                  </div>
-                              </div>
-                              {result.notes && (
-                                  <div className="mt-4 p-3 bg-slate-900/50 rounded-xl border border-slate-800/50 text-xs text-slate-400 italic leading-relaxed">
-                                      <span className="text-slate-500 font-bold uppercase text-[9px] block mb-1 not-italic tracking-widest">Inspector Notes:</span>
-                                      "{result.notes}"
-                                  </div>
-                              )}
-                          </div>
-                      ))}
-                  </div>
-                  
-                  <div className="mt-8 pt-6 border-t border-slate-800 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                     <div>Audit Trail ID: {detailData.inspection.id}</div>
-                     <button className="text-orange-500 hover:text-orange-400 transition-colors flex items-center gap-2">
-                        Download Report
-                     </button>
-                  </div>
-              </div>
-          </div>
+        <AparAuditReportModal
+          detailData={detailData}
+          onClose={() => setShowDetailModal(false)}
+        />
       )}
+
       {showQrScanner && (
-        <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-xl" onClick={() => setShowQrScanner(false)} />
-            <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-4xl p-8 shadow-2xl animate-in zoom-in duration-300 overflow-hidden">
-                <div className="absolute top-0 right-0 p-6">
-                    <button onClick={() => setShowQrScanner(false)} className="text-slate-500 hover:text-white transition-colors">
-                        <X size={24} />
-                    </button>
-                </div>
-
-                <div className="flex flex-col items-center text-center space-y-6">
-                    <div className="w-16 h-16 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-500">
-                        <QrCode size={32} />
-                    </div>
-                    
-                    <div>
-                        <h3 className="text-2xl font-black text-white uppercase tracking-tight">Tactical QR Scanner</h3>
-                        <p className="text-slate-500 text-sm mt-1 font-medium">Align the unit QR code within the frame for spatial verification.</p>
-                    </div>
-
-                    <div className="w-full aspect-square bg-black rounded-3xl overflow-hidden border-2 border-slate-800 relative group">
-                        <div id="qr-reader" className="w-full h-full" />
-                        
-                        {/* Scanner Overlay UI */}
-                        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                            <div className="w-64 h-64 border-2 border-blue-500/50 rounded-2xl relative">
-                                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 -translate-x-1 -translate-y-1 rounded-tl-lg" />
-                                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 translate-x-1 -translate-y-1 rounded-tr-lg" />
-                                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 -translate-x-1 translate-y-1 rounded-bl-lg" />
-                                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 translate-x-1 translate-y-1 rounded-br-lg" />
-                                <div className="absolute top-0 left-0 w-full h-0.5 bg-blue-500/50 animate-[scan_2s_ease-in-out_infinite]" />
-                            </div>
-                        </div>
-                    </div>
-
-                    {qrError && (
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 w-full flex items-center gap-3 text-red-400 text-left">
-                            <X className="shrink-0" size={18} />
-                            <span className="text-xs font-bold leading-tight">{qrError}</span>
-                        </div>
-                    )}
-
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-950 px-4 py-2 rounded-full border border-slate-800">
-                        <div className={`w-2 h-2 rounded-full ${currentCoords ? (filteredAccuracy && filteredAccuracy < 20 ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500 animate-pulse') : 'bg-red-500'}`} />
-                        GPS Lock: {currentCoords ? (filteredAccuracy && filteredAccuracy < 50 ? `±${filteredAccuracy.toFixed(1)}m` : 'CALIBRATING...') : 'SEARCHING SIGNAL...'}
-                    </div>
-                </div>
-
-                <QRScannerHandler onSuccess={handleQrScanSuccess} onError={(err) => setQrError(err)} />
-            </div>
-        </div>
+        <QrScannerModal
+          onClose={() => setShowQrScanner(false)}
+          onSuccess={handleQrScanSuccess}
+          onError={(err) => setQrError(err)}
+          qrError={qrError}
+          currentCoords={currentCoords}
+          filteredAccuracy={filteredAccuracy}
+        />
       )}
+
       {showSuccessModal && lastRegistered && (
-        <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl" onClick={() => setShowSuccessModal(false)} />
-            <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-4xl p-10 shadow-2xl animate-in zoom-in duration-300 text-center">
-                <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500 mx-auto mb-6">
-                    <ClipboardCheck size={40} />
-                </div>
-                
-                <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-2">Registration Success</h3>
-                <p className="text-slate-500 text-sm mb-8 font-medium">Asset spatial lock engaged. Please print and affix the QR code to the unit.</p>
-
-                <div className="bg-white p-6 rounded-3xl inline-block shadow-2xl mb-8">
-                    <QRCodeSVG 
-                        id="qr-download"
-                        value={lastRegistered.serial_number} 
-                        size={180}
-                        level="H"
-                        includeMargin={false}
-                    />
-                </div>
-
-                <div className="text-xl font-black text-white uppercase tracking-tighter mb-8">
-                    #{lastRegistered.serial_number}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <button
-                        onClick={() => {
-                            const svg = document.getElementById('qr-download');
-                            if (svg) {
-                                const svgData = new XMLSerializer().serializeToString(svg);
-                                const canvas = document.createElement("canvas");
-                                const ctx = canvas.getContext("2d");
-                                const img = new Image();
-                                img.onload = () => {
-                                    canvas.width = img.width;
-                                    canvas.height = img.height;
-                                    ctx?.drawImage(img, 0, 0);
-                                    const pngFile = canvas.toDataURL("image/png");
-                                    const downloadLink = document.createElement("a");
-                                    downloadLink.download = `QR_${lastRegistered.serial_number}.png`;
-                                    downloadLink.href = `${pngFile}`;
-                                    downloadLink.click();
-                                };
-                                img.src = "data:image/svg+xml;base64," + btoa(svgData);
-                            }
-                        }}
-                        className="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all border border-slate-700"
-                    >
-                        Download PNG
-                    </button>
-                    <button
-                        onClick={() => setShowSuccessModal(false)}
-                        className="px-6 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-lg shadow-orange-600/20"
-                    >
-                        Close
-                    </button>
-                </div>
-            </div>
-        </div>
+        <RegistrationSuccessModal
+          lastRegistered={lastRegistered}
+          onClose={() => setShowSuccessModal(false)}
+        />
       )}
     </div>
   );
-}
-
-// Separate helper component to handle Html5Qrcode lifecycle
-function QRScannerHandler({ onSuccess, onError }: { onSuccess: (text: string) => void, onError: (err: string) => void }) {
-    useEffect(() => {
-        const scanner = new Html5Qrcode("qr-reader");
-        
-        const startScanner = async () => {
-            try {
-                await scanner.start(
-                    { facingMode: "environment" },
-                    {
-                        fps: 10,
-                        qrbox: { width: 250, height: 250 },
-                    },
-                    (decodedText) => {
-                        onSuccess(decodedText);
-                    },
-                    undefined
-                );
-            } catch (err) {
-                console.error("Failed to start QR scanner", err);
-                onError("Camera access denied or hardware not found.");
-            }
-        };
-
-        startScanner();
-
-        return () => {
-            if (scanner.isScanning) {
-                scanner.stop().catch(err => console.error("Error stopping scanner", err));
-            }
-        };
-    }, []);
-
-    return null;
 }

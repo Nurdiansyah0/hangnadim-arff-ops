@@ -30,6 +30,15 @@
 
   --color-border: oklch(0.2 0.03 240);
   --color-input: oklch(0.2 0.03 240);
+
+  @keyframes shimmer {
+    from {
+      transform: translateX(-150%);
+    }
+    to {
+      transform: translateX(150%);
+    }
+  }
 }
 
 @layer base {

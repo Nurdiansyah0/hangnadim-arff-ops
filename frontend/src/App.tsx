@@ -2,7 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/shared/Login';
 import Dashboard from './pages/shared/Dashboard';
 import Inspections from './pages/officer/Inspections';
-import Watchroom from './pages/operation_leader/Watchroom';
+import WatchroomDashboard from './pages/watchroom/Dashboard';
+import VehiclePerformance from './pages/performance_leader/VehiclePerformance';
+import MaintenanceDashboard from './pages/maintenance_leader/Dashboard';
 import Incidents from './pages/squad_leader/Incidents';
 import Vehicles from './pages/admin/Vehicles';
 import Personnel from './pages/admin/Personnel';
@@ -15,11 +17,11 @@ import Leave from './pages/shared/Leave';
 import AuditTrail from './pages/admin/AuditTrail';
 import OfficerDashboard from './pages/officer/Dashboard';
 import SquadLeaderDashboard from './pages/squad_leader/Dashboard';
+import OperationLeaderDashboard from './pages/operation_leader/Dashboard';
 import MaintenanceRequest from './pages/officer/MaintenanceRequest';
 import Roster from './pages/operation_leader/Roster';
 import MyTasks from './pages/officer/MyTasks';
 import TeamLeaderApproval from './pages/operation_leader/TeamLeaderApproval';
-import VehiclePerformance from './pages/operation_leader/VehiclePerformance';
 import MainLayout from './components/layout/MainLayout';
 import { useAuth } from './store/useAuth';
 import { Toaster } from 'react-hot-toast';
@@ -44,6 +46,15 @@ const HomeRedirect = () => {
   }
   if (user?.role_id === 8 || user?.role_id === 7) {
     return <Navigate to="/squad-leader/dashboard" replace />;
+  }
+  if (user?.role_id === 11) {
+    return <Navigate to="/watchroom" replace />;
+  }
+  if (user?.role_id === 6) {
+    return <Navigate to="/maintenance/dashboard" replace />;
+  }
+  if (user?.role_id === 5) {
+    return <Navigate to="/operation-leader/dashboard" replace />;
   }
 
   return <Dashboard />;
@@ -70,6 +81,7 @@ function App() {
           <Route path="/dashboard" element={<HomeRedirect />} />
           <Route path="/officer/dashboard" element={<OfficerDashboard />} />
           <Route path="/squad-leader/dashboard" element={<SquadLeaderDashboard />} />
+          <Route path="/operation-leader/dashboard" element={<OperationLeaderDashboard />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/my-tasks" element={<MyTasks />} />
           <Route path="/shift-approval" element={<TeamLeaderApproval />} />
@@ -78,6 +90,7 @@ function App() {
           <Route path="/flights" element={<Flights />} />
           <Route path="/compliance" element={<Compliance />} />
           <Route path="/performance" element={<VehiclePerformance />} />
+          <Route path="/maintenance/dashboard" element={<MaintenanceDashboard />} />
           <Route path="/leave" element={<Leave />} />
 
           {/* Incident & Emergency Modules */}
@@ -87,7 +100,7 @@ function App() {
           <Route path="/inspections" element={<Inspections />} />
 
           {/* Watchroom Journal Module */}
-          <Route path="/watchroom" element={<Watchroom />} />
+          <Route path="/watchroom" element={<WatchroomDashboard />} />
 
           {/* Master Data */}
           <Route path="/assets" element={<Vehicles />} />

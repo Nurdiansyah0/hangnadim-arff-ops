@@ -413,7 +413,7 @@ export default function Leave() {
                           const isSelected = form.start_date === date?.toISOString().split('T')[0];
                           const isToday = new Date().toISOString().split('T')[0] === date?.toISOString().split('T')[0];
                           const shift = date ? getShiftInfo(date, user?.shift_team || '') : null;
-                          const isPast = date && date < new Date(new Date().setHours(0,0,0,0));
+                          const isPast = !!(date && date < new Date(new Date().setHours(0,0,0,0)));
 
                           return (
                              <button

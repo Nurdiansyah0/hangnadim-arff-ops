@@ -255,13 +255,13 @@ impl UserRepository {
 
         use sqlx::Row;
         Ok(OperationalContextResponse {
-            shift_id: shift_info.as_ref().map(|s| s.get("id")),
-            shift_name: shift_info.as_ref().map(|s| s.get("name")),
-            shift_start: shift_info.as_ref().map(|s| s.get("start_time")),
-            shift_end: shift_info.as_ref().map(|s| s.get("end_time")),
-            duty_position: duty_info.as_ref().map(|d| d.get("position")),
-            assigned_vehicle: duty_info.as_ref().map(|d| d.get("vehicle_code")),
-            assigned_vehicle_id: duty_info.as_ref().and_then(|d| d.get("vehicle_id")),
+            shift_id: shift_info.as_ref().and_then(|s| s.get::<Option<i32>, _>("id")),
+            shift_name: shift_info.as_ref().and_then(|s| s.get::<Option<String>, _>("name")),
+            shift_start: shift_info.as_ref().and_then(|s| s.get::<Option<chrono::NaiveTime>, _>("start_time")),
+            shift_end: shift_info.as_ref().and_then(|s| s.get::<Option<chrono::NaiveTime>, _>("end_time")),
+            duty_position: duty_info.as_ref().and_then(|d| d.get::<Option<String>, _>("position")),
+            assigned_vehicle: duty_info.as_ref().and_then(|d| d.get::<Option<String>, _>("vehicle_code")),
+            assigned_vehicle_id: duty_info.as_ref().and_then(|d| d.get::<Option<Uuid>, _>("vehicle_id")),
             duty_status: duty_info.as_ref().and_then(|d| d.get::<Option<String>, _>("status")).unwrap_or_else(|| "OFF_DUTY".to_string()),
         })
     }

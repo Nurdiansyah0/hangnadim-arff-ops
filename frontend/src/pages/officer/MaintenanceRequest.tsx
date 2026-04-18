@@ -13,6 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { api } from '../../lib/axios';
 import { useAuth } from '../../store/useAuth';
+import { uploadFileInChunks } from '../../lib/upload';
+import { ShieldAlert } from 'lucide-react';
 
 interface OperationalContext {
     assigned_vehicle: string | null;
@@ -34,7 +36,10 @@ export default function MaintenanceRequest() {
   const [formData, setFormData] = useState({
     subject: '',
     description: '',
+    priority: 'Routine',
   });
+  const [errors, setErrors] = useState<{ subject?: string; description?: string }>({});
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     fetchOpsContext();
@@ -61,45 +66,53 @@ export default function MaintenanceRequest() {
     }
   };
 
-  const uploadFileInChunks = async (file: File): Promise<string> => {
-    const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    const uploadId = crypto.randomUUID();
-    let finalPath = "";
-
-    for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(file.size, start + CHUNK_SIZE);
-        const chunk = file.slice(start, end);
-
-        const formData = new FormData();
-        formData.append("upload_id", uploadId);
-        formData.append("chunk_index", i.toString());
-        formData.append("total_chunks", totalChunks.toString());
-        formData.append("file_name", file.name);
-        formData.append("chunk", chunk);
-
-        const res = await api.post("/media/upload-chunk", formData, {
-            headers: {
-                "Content-Type": "multipart/form-data",
-            },
-            onUploadProgress: (progressEvent) => {
-                const chunkProgress = progressEvent.loaded / (progressEvent.total || 1);
-                const overallProgress = ((i + chunkProgress) / totalChunks) * 100;
-                setUploadProgress(Math.round(overallProgress));
-            }
-        });
-
-        if (res.data.file_path !== "CHUNKING") {
-            finalPath = res.data.file_path;
-        }
+  const validateForm = () => {
+    const newErrors: { subject?: string; description?: string } = {};
+    if (!formData.subject.trim()) {
+      newErrors.subject = 'Subject is required';
+    } else if (formData.subject.length > 100) {
+      newErrors.subject = 'Subject must be less than 100 characters';
     }
 
-    return finalPath;
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    } else if (formData.description.length > 1000) {
+      newErrors.description = 'Description must be less than 1000 characters';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else if (file) {
+      toast.error("Invalid file type. Please upload an image.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     if (!opsContext?.assigned_vehicle_id || !user?.personnel_id) {
        toast.error("SYSTEM DENIED: No active vehicle or personnel context found.");
        return;
@@ -109,11 +122,11 @@ export default function MaintenanceRequest() {
     try {
       let photoUrl = null;
       if (selectedFile) {
-        photoUrl = await uploadFileInChunks(selectedFile);
+        photoUrl = await uploadFileInChunks(selectedFile, (progress) => setUploadProgress(progress));
       }
 
-      // Backend expects a single description field. We prepend the subject for clarity.
-      const finalDescription = `[${formData.subject.toUpperCase()}] - ${formData.description}`;
+      // Backend expects a single description field. We prepend the priority and subject for clarity.
+      const finalDescription = `[PRIORITY: ${formData.priority}] [${formData.subject.toUpperCase()}] - ${formData.description}`;
       
       await api.post('/maintenance', {
         vehicle_id: opsContext.assigned_vehicle_id,
@@ -200,35 +213,71 @@ export default function MaintenanceRequest() {
                   <div className="bg-slate-800 animate-pulse h-20 rounded-2xl" />
               )}
 
-              {/* Maintenance Class Dropdown Removed - Deferred to Team Leader */}
-
+              {/* Priority Dropdown */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Subject / Component Defect</label>
+                <label htmlFor="priority" className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Maintenance Priority</label>
                 <div className="relative">
-                  <Wrench className={`absolute left-4 top-1/2 -translate-y-1/2 ${isFormLocked ? 'text-slate-700' : 'text-slate-500'}`} size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Malfunction on foam turret valve"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-white focus:ring-2 focus:ring-orange-500/50 outline-none transition-all disabled:opacity-50"
-                    value={formData.subject}
-                    onChange={(e) => setFormData({...formData, subject: e.target.value})}
-                    required
+                  <ShieldAlert className={`absolute left-4 top-1/2 -translate-y-1/2 ${isFormLocked ? 'text-slate-700' : 'text-slate-500'}`} size={18} />
+                  <select
+                    id="priority"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-white focus:ring-2 focus:ring-orange-500/50 outline-none transition-all appearance-none disabled:opacity-50"
+                    value={formData.priority}
+                    onChange={(e) => setFormData({...formData, priority: e.target.value})}
                     disabled={isFormLocked || loading}
-                  />
+                    aria-disabled={isFormLocked || loading}
+                  >
+                    <option value="Routine">Routine</option>
+                    <option value="Urgent">Urgent</option>
+                    <option value="Emergency">Emergency</option>
+                  </select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Detailed Technical Description</label>
-                <textarea 
-                  rows={4}
-                  placeholder="Describe the nature of the malfunction or defect in detail so engineering can understand the scope..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-3xl p-6 text-white focus:ring-2 focus:ring-orange-500/50 outline-none transition-all resize-none disabled:opacity-50"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  required
-                  disabled={isFormLocked || loading}
-                />
+                <label htmlFor="subject" className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Subject / Component Defect</label>
+                <div className="relative">
+                  <Wrench className={`absolute left-4 top-1/2 -translate-y-1/2 ${isFormLocked ? 'text-slate-700' : 'text-slate-500'}`} size={18} />
+                  <input 
+                    id="subject"
+                    type="text" 
+                    placeholder="e.g. Malfunction on foam turret valve"
+                    className={`w-full bg-slate-950 border ${errors.subject ? 'border-red-500/50' : 'border-slate-800'} rounded-2xl pl-12 pr-4 py-4 text-white focus:ring-2 focus:ring-orange-500/50 outline-none transition-all disabled:opacity-50`}
+                    value={formData.subject}
+                    onChange={(e) => {
+                      setFormData({...formData, subject: e.target.value});
+                      if (errors.subject) setErrors({...errors, subject: undefined});
+                    }}
+                    disabled={isFormLocked || loading}
+                    aria-disabled={isFormLocked || loading}
+                  />
+                  <div className="absolute right-4 -bottom-5 text-[9px] font-bold uppercase tracking-widest text-slate-600">
+                    {formData.subject.length}/100
+                  </div>
+                </div>
+                {errors.subject && <p className="text-red-500 text-[10px] font-bold uppercase tracking-tighter mt-1 ml-1">{errors.subject}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="description" className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Detailed Technical Description</label>
+                <div className="relative">
+                  <textarea 
+                    id="description"
+                    rows={4}
+                    placeholder="Describe the nature of the malfunction or defect in detail so engineering can understand the scope..."
+                    className={`w-full bg-slate-950 border ${errors.description ? 'border-red-500/50' : 'border-slate-800'} rounded-3xl p-6 text-white focus:ring-2 focus:ring-orange-500/50 outline-none transition-all resize-none disabled:opacity-50`}
+                    value={formData.description}
+                    onChange={(e) => {
+                      setFormData({...formData, description: e.target.value});
+                      if (errors.description) setErrors({...errors, description: undefined});
+                    }}
+                    disabled={isFormLocked || loading}
+                    aria-disabled={isFormLocked || loading}
+                  />
+                  <div className="absolute right-6 bottom-4 text-[9px] font-bold uppercase tracking-widest text-slate-600">
+                    {formData.description.length}/1000
+                  </div>
+                </div>
+                {errors.description && <p className="text-red-500 text-[10px] font-bold uppercase tracking-tighter mt-1 ml-1">{errors.description}</p>}
               </div>
 
               <div className="space-y-4">
@@ -265,11 +314,17 @@ export default function MaintenanceRequest() {
                   </div>
                 )}
 
-                <div className="flex flex-col md:flex-row gap-4">
+                <div 
+                  className={`flex flex-col md:flex-row gap-4 p-4 rounded-3xl transition-all ${isDragging ? 'bg-orange-500/10 border-2 border-dashed border-orange-500/50 scale-[1.02]' : 'bg-transparent border-2 border-transparent'}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
                   <button 
                     type="button" 
                     onClick={() => document.getElementById('photo-upload')?.click()}
                     disabled={isFormLocked || loading}
+                    aria-disabled={isFormLocked || loading}
                     className="flex items-center justify-center gap-3 px-6 py-4 bg-slate-950 border border-slate-800 rounded-2xl text-slate-500 hover:text-white hover:border-slate-700 transition-all group disabled:opacity-50"
                   >
                       <Camera size={18} className="group-hover:scale-110 transition-transform" />
@@ -281,6 +336,8 @@ export default function MaintenanceRequest() {
                   <button 
                     type="submit"
                     disabled={isFormLocked || loading}
+                    aria-disabled={isFormLocked || loading}
+                    aria-busy={loading}
                     className="flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl shadow-xl shadow-orange-500/20 transition-all disabled:opacity-50 group"
                   >
                       {loading ? (

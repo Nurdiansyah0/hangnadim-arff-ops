@@ -61,8 +61,8 @@ async fn get_alerts(
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<Vec<crate::domain::models::AlertItem>>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
-    if rid != 1 && rid != 6 {
-        return Err((StatusCode::FORBIDDEN, "Hanya Administrator atau Kasubsie yang bisa melihat alerts".to_string()));
+    if rid < 1 || rid > 6 {
+        return Err((StatusCode::FORBIDDEN, "Unauthorized role for alerts".to_string()));
     }
 
     match state.analytics_service.get_alerts().await {

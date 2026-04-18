@@ -19,7 +19,7 @@ interface WatchroomLog {
     created_at: string;
 }
 
-export default function Watchroom() {
+export default function WatchroomDashboard() {
     const [logs, setLogs] = useState<WatchroomLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [description, setDescription] = useState('');

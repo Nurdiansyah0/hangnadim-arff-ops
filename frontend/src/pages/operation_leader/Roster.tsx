@@ -32,12 +32,20 @@ interface RosterEntry {
 
 export default function Roster() {
   const { user } = useAuth();
+  const isRestricted = user?.role_id !== 1 && user?.role_id !== 3;
+
   const [data, setData] = useState<RosterEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [filterTeam, setFilterTeam] = useState('ALL');
+
+  useEffect(() => {
+    if (isRestricted && user?.shift_team) {
+      setFilterTeam(user.shift_team);
+    }
+  }, [user, isRestricted]);
   
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -181,7 +189,7 @@ export default function Roster() {
             </button>
           </div>
 
-          {(user?.role_id === 1 || user?.role_id === 3) && (
+          {(user?.role_id === 1 || user?.role_id === 3 || user?.role_id === 5) && (
             <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-2xl p-1 gap-1">
                <button 
                   onClick={() => setShowOnlyToday(false)}
@@ -198,7 +206,7 @@ export default function Roster() {
             </div>
           )}
 
-          {(user?.role_id === 1 || user?.role_id === 3) && (
+          {(user?.role_id === 1 || user?.role_id === 3 || user?.role_id === 5) && (
             <button 
               onClick={handleGenerate}
               disabled={generating}
@@ -222,13 +230,20 @@ export default function Roster() {
           <select 
             value={filterTeam}
             onChange={(e) => setFilterTeam(e.target.value)}
-            className="bg-transparent border-none text-white text-sm font-bold outline-none flex-1 appearance-none"
+            className={`bg-transparent border-none text-white text-sm font-bold outline-none flex-1 appearance-none ${isRestricted ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+            disabled={isRestricted}
           >
-            <option value="ALL">All Operational Teams</option>
-            <option value="Alpha">Team Alpha</option>
-            <option value="Bravo">Team Bravo</option>
-            <option value="Charlie">Team Charlie</option>
-            <option value="Normal">Administrative (Normal)</option>
+            {isRestricted && user?.shift_team ? (
+              <option value={user.shift_team}>My Team: {user.shift_team}</option>
+            ) : (
+              <>
+                <option value="ALL">All Operational Teams</option>
+                <option value="Alpha">Team Alpha</option>
+                <option value="Bravo">Team Bravo</option>
+                <option value="Charlie">Team Charlie</option>
+                <option value="Normal">Administrative (Normal)</option>
+              </>
+            )}
           </select>
         </div>
         
@@ -289,7 +304,7 @@ export default function Roster() {
                         <div 
                           key={assignment.id} 
                           onClick={() => {
-                            if (user?.role_id === 1 || user?.role_id === 3) {
+                            if (user?.role_id === 1 || user?.role_id === 3 || user?.role_id === 5) {
                               setSelectedAssignment(assignment);
                               setShowModal(true);
                             }

@@ -24,3 +24,4 @@ pub mod task_handler;
 pub mod squad_handler;
 pub mod profile_handler;
 pub mod performance_handler;
+pub mod operation_handler;
