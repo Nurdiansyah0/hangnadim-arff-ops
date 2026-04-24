@@ -1,4 +1,4 @@
-name: Rust
+name: Rust CI
 
 on:
   push:
@@ -32,7 +32,7 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis
+        image: redis:7
         ports:
           - 6379:6379
         options: >-
@@ -46,36 +46,62 @@ jobs:
         working-directory: backend
 
     steps:
-      - uses: actions/checkout@v4
+      # Checkout source
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Rust toolchain (FIXED)
+      # Setup Rust toolchain
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
+          components: rustfmt, clippy
 
-      # Cache (optional but recommended)
-      - name: Cache
+      # Cache dependencies
+      - name: Cache Rust
         uses: Swatinem/rust-cache@v2
 
-      # Install SQLx CLI (jika Anda pakai SQLx)
+      # Install SQLx CLI
       - name: Install SQLx CLI
         run: cargo install sqlx-cli --no-default-features --features postgres
 
-      # WAIT DB READY (penting untuk CI stabil)
+      # Wait until PostgreSQL ready
       - name: Wait for Postgres
         run: |
-          for i in {1..10}; do
+          for i in {1..15}; do
             pg_isready -h localhost -p 5432 -U arff_user && break
+            echo "Waiting for postgres..."
             sleep 2
           done
 
-      # MIGRATION (FIX UTAMA)
+      # Create database (idempotent)
+      - name: Create database
+        run: sqlx database create
+
+      # Run migrations
       - name: Run migrations
         run: sqlx migrate run
 
-      - name: Build
-        run: cargo build --verbose
+      # Check migration state
+      - name: Check migration status
+        run: sqlx migrate info
 
-      - name: Run tests
-        run: cargo test --verbose
+      # SQLx compile-time verification
+      - name: SQLx prepare check
+        run: cargo sqlx prepare --check
+
+      # Format check
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      # Lint (fail on warning)
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      # Build
+      - name: Build
+        run: cargo build --all-features --verbose
+
+      # Run tests
+      - name: Test
+        run: cargo test --all-features --verbose
