@@ -2,19 +2,20 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
   DATABASE_URL: postgres://arff_user:arff_pass@localhost:5432/arff_db
   REDIS_URL: redis://localhost:6379
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgis/postgis:14-3.2
@@ -25,11 +26,11 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U arff_user"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      
+
       redis:
         image: redis
         ports:
@@ -43,18 +44,38 @@ jobs:
     defaults:
       run:
         working-directory: backend
-        
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        cache-workdir: backend
+      - uses: actions/checkout@v4
 
-    - name: Build
-      run: cargo build --verbose
-      
-    - name: Run tests
-      run: cargo test --verbose
+      # Rust toolchain (FIXED)
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
 
+      # Cache (optional but recommended)
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      # Install SQLx CLI (jika Anda pakai SQLx)
+      - name: Install SQLx CLI
+        run: cargo install sqlx-cli --no-default-features --features postgres
+
+      # WAIT DB READY (penting untuk CI stabil)
+      - name: Wait for Postgres
+        run: |
+          for i in {1..10}; do
+            pg_isready -h localhost -p 5432 -U arff_user && break
+            sleep 2
+          done
+
+      # MIGRATION (FIX UTAMA)
+      - name: Run migrations
+        run: sqlx migrate run
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
