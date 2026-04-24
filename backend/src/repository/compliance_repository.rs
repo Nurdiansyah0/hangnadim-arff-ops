@@ -69,7 +69,7 @@ impl ComplianceRepoTrait for ComplianceRepository {
 
     async fn get_sop_documents(&self) -> Result<Vec<DocumentSOP>, Error> {
         sqlx::query_as::<_, DocumentSOP>(
-            "SELECT id, title, version, file_path, category, created_at FROM documents ORDER BY created_at DESC"
+            "SELECT id, title, version, file_url AS file_path, doc_type AS category, created_at FROM documents ORDER BY created_at DESC"
         )
         .fetch_all(&self.db)
         .await

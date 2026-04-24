@@ -9,6 +9,8 @@ use axum::Router;
 use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
+use std::fs;
+use std::path::Path;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 
@@ -199,7 +201,10 @@ async fn main() {
         .run(&pool)
         .await
         .expect("Failed to run migrations");
-    println!("Running SQL migrations...");
+    println!("Running SQL migrations completed.");
+
+    // Jalankan seeding otomatis setelah migrasi selesai
+    run_seeds(&pool).await;
 
     let app_state = create_app_state(pool).await;
 
@@ -247,5 +252,37 @@ async fn spawn_roster_scheduler(state: AppState) {
         } else {
             tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
         }
+    }
+}
+
+async fn run_seeds(pool: &sqlx::PgPool) {
+    println!("Running database seeds...");
+    let seeds_dir = Path::new("./seeds");
+
+    if seeds_dir.exists() && seeds_dir.is_dir() {
+        let mut entries: Vec<_> = fs::read_dir(seeds_dir)
+            .expect("Failed to read seeds directory")
+            .filter_map(|res| res.ok())
+            .collect();
+
+        // Urutkan file agar dieksekusi secara berurutan sesuai namanya (contoh: 01_, 02_, dst)
+        entries.sort_by_key(|dir| dir.path());
+
+        for entry in entries {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("sql") {
+                let sql = fs::read_to_string(&path).expect("Failed to read seed file");
+                println!("Executing seed: {:?}", path.file_name().unwrap());
+
+                // Eksekusi multiple statements dari file sql
+                match sqlx::raw_sql(&sql).execute(pool).await {
+                    Ok(_) => println!("Successfully seeded {:?}", path.file_name().unwrap()),
+                    Err(e) => eprintln!("Failed to run seed {:?}: {}", path.file_name().unwrap(), e),
+                }
+            }
+        }
+        println!("Database seeding completed.");
+    } else {
+        println!("Seeds directory not found, skipping seeding.");
     }
 }

@@ -78,7 +78,8 @@ impl RosterService {
         let baseline_date = NaiveDate::from_ymd_opt(2026, 4, 12).unwrap();
 
         for day_idx in 1..=num_days {
-            let current_date = NaiveDate::from_ymd_opt(year, month, day_idx).unwrap();
+            let current_date = NaiveDate::from_ymd_opt(year, month, day_idx)
+                .ok_or("Invalid date generated")?;
             let delta = (current_date - baseline_date).num_days();
 
             // Calculate Teams based on 6-day cycle pattern provided by user:
@@ -103,6 +104,8 @@ impl RosterService {
                 _ => unreachable!(),
             };
 
+            let is_holiday = holidays.contains(&current_date);
+
             // Generate assignments for Morning Shift
             self.generate_slot_roster(
                 current_date,
@@ -110,6 +113,7 @@ impl RosterService {
                 morning_shift,
                 &vehicle_map,
                 &replacement_priority,
+                is_holiday,
             )
             .await?;
 
@@ -120,19 +124,21 @@ impl RosterService {
                 night_shift,
                 &vehicle_map,
                 &replacement_priority,
+                is_holiday,
             )
             .await?;
 
             // Generate assignments for Normal Shift (Mon-Fri, not Holiday)
             let is_weekend =
                 current_date.weekday() == Weekday::Sat || current_date.weekday() == Weekday::Sun;
-            if !is_weekend && !holidays.contains(&current_date) {
+            if !is_weekend && !is_holiday {
                 self.generate_slot_roster(
                     current_date,
                     "Normal",
                     normal_shift,
                     &vehicle_map,
                     &replacement_priority,
+                    is_holiday,
                 )
                 .await?;
             }
@@ -148,6 +154,7 @@ impl RosterService {
         shift: &Shift,
         vehicle_map: &HashMap<Uuid, String>,
         replacement_priority: &[&str],
+        is_holiday: bool,
     ) -> Result<(), String> {
         let personnels = self
             .roster_repo
@@ -157,6 +164,11 @@ impl RosterService {
         if personnels.is_empty() {
             return Ok(());
         }
+
+        let commando_car_id = vehicle_map
+            .iter()
+            .find(|(_, code)| code.to_uppercase() == "COMMANDO CAR")
+            .map(|(id, _)| *id);
 
         let _pns_list: Vec<Uuid> = personnels
             .iter()
@@ -180,36 +192,62 @@ impl RosterService {
         // Pick PKWT for Watchroom (simplistic rotation: based on day of year % pkwt count)
         // Adjust logic if user wants strict sequential tracking.
         let mut daily_assignments: HashMap<Uuid, DutyAssignment> = HashMap::new();
-        let watchroom_idx = (date.ordinal() as usize) % pkwt_list.len();
-        let w_id = pkwt_list[watchroom_idx];
+        let w_id = if !pkwt_list.is_empty() {
+            let watchroom_idx = (date.ordinal() as usize) % pkwt_list.len();
+            Some(pkwt_list[watchroom_idx])
+        } else {
+            None
+        };
 
         // 1. Process Assignments
         for (p_id, _, job_title) in &personnels {
-            let is_leader = job_title.contains("Leader");
+            let job_title_lower = job_title.to_lowercase();
             
             let mut assignment =
                 if let Some(base) = baseline.iter().find(|b| b.personnel_id == *p_id) {
-                    let mut a = self.create_assignment(p_id, shift, base, date);
-                    // If they are a leader but stuck in RESCUEMAN from previous bad data, upgrade them
-                    if is_leader && a.position == "RESCUEMAN" {
-                        a.position = "OSC".to_string();
-                    }
-                    a
+                    self.create_assignment(p_id, shift, base, date)
                 } else {
                     self.empty_assignment(p_id, shift, date, job_title)
                 };
 
-            if *p_id == w_id {
+            if job_title_lower.contains("manager") {
+                assignment.position = "OSC".to_string();
+                if let Some(car_id) = commando_car_id {
+                    assignment.vehicle_id = Some(car_id);
+                }
+            } else if job_title_lower.contains("operation") && job_title_lower.contains("leader") {
+                if is_holiday || shift.name.eq_ignore_ascii_case("Night") {
+                    assignment.position = "OSC".to_string();
+                    if let Some(car_id) = commando_car_id {
+                        assignment.vehicle_id = Some(car_id);
+                    }
+                } else {
+                    assignment.position = "TEAM_LEADER".to_string();
+                    if let Some(v_id) = assignment.vehicle_id {
+                        if Some(v_id) == commando_car_id {
+                            assignment.vehicle_id = None;
+                        }
+                    }
+                }
+            } else if job_title_lower.contains("squad") && job_title_lower.contains("leader") {
+                assignment.position = "DRIVER".to_string();
+                // vehicle_id dibiarkan saja mengikuti baseline
+            } else if Some(*p_id) == w_id {
                 assignment.vehicle_id = None;
                 assignment.position = "WATCHROOM".to_string();
+            } else {
+                // Non-special position (and not PKWT Watchroom)
+                // If baseline exists, we already have it from create_assignment
+                // If not, it defaults to RESCUEMAN (set by empty_assignment)
             }
+            
             daily_assignments.insert(*p_id, assignment);
         }
 
         // 2. FT Replacement Logic
         let w_original_vehicle_id = baseline
             .iter()
-            .find(|b| b.personnel_id == w_id)
+            .find(|b| Some(b.personnel_id) == w_id)
             .and_then(|b| b.vehicle_id);
         let w_original_code = w_original_vehicle_id.and_then(|id| vehicle_map.get(&id));
 
@@ -227,7 +265,7 @@ impl RosterService {
                         if let Some(v_id) = a.vehicle_id
                             && let Some(v_code) = vehicle_map.get(&v_id)
                         {
-                            return v_code == prio_code && a.personnel_id != w_id;
+                            return v_code == prio_code && Some(a.personnel_id) != w_id;
                         }
                         false
                     })

@@ -91,6 +91,6 @@ async fn generate_monthly(
         .await
     {
         Ok(_) => Ok(StatusCode::CREATED),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
+        Err(e) => Err((StatusCode::BAD_REQUEST, e)),
     }
 }

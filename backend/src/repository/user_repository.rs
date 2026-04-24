@@ -45,6 +45,8 @@ impl UserRepository {
         email: &str,
         password_hash: &str,
     ) -> Result<User, Error> {
+        let mut tx = self.db.begin().await?;
+
         let user = sqlx::query_as::<_, User>(
             r#"
             INSERT INTO users (personnel_id, username, email, password_hash)
@@ -59,9 +61,33 @@ impl UserRepository {
         .bind(username)
         .bind(email)
         .bind(password_hash)
-        .fetch_one(&self.db)
+        .fetch_one(&mut *tx)
         .await?;
 
+        sqlx::query(
+            r#"
+            INSERT INTO personnel_roles (personnel_id, role_id)
+            SELECT $1, CASE position_id
+                WHEN 1 THEN 3
+                WHEN 2 THEN 2
+                WHEN 3 THEN 4
+                WHEN 4 THEN 5
+                WHEN 5 THEN 6
+                WHEN 6 THEN 8
+                WHEN 7 THEN 9
+                WHEN 8 THEN 1
+                ELSE 9
+            END
+            FROM personnels
+            WHERE id = $1
+            ON CONFLICT DO NOTHING
+            "#
+        )
+        .bind(personnel_id)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
         Ok(user)
     }
 
