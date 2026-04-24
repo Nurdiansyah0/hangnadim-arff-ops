@@ -1,7 +1,7 @@
 use crate::domain::models::FlightRoute;
 use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error};
 use chrono::{DateTime, Utc};
+use sqlx::{Error, Pool, Postgres};
 
 #[async_trait]
 pub trait FlightRepoTrait: Send + Sync {
@@ -50,7 +50,7 @@ impl FlightRepoTrait for FlightRepository {
             INSERT INTO flight_routes (flight_number, origin, destination, runway, actual_time) 
             VALUES ($1, $2, $3, $4::runway_enum, $5) 
             RETURNING id, flight_number, origin, destination, runway::TEXT, actual_time, created_at
-            "#
+            "#,
         )
         .bind(flight_number)
         .bind(origin)

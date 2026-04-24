@@ -1,15 +1,15 @@
+use crate::domain::models::{ChangePasswordRequest, Claims, ProfileUpdateRequest};
+use crate::state::AppState;
 use axum::{
-    extract::{Multipart, State, Extension},
-    response::IntoResponse,
-    routing::{put, post},
     Json, Router,
+    extract::{Extension, Multipart, State},
+    response::IntoResponse,
+    routing::{post, put},
 };
 use std::path::PathBuf;
-use tokio::fs::{OpenOptions, rename, create_dir_all};
+use tokio::fs::{OpenOptions, create_dir_all, rename};
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
-use crate::domain::models::{ProfileUpdateRequest, ChangePasswordRequest, Claims};
-use crate::state::AppState;
 
 pub fn profile_routes(app_state: AppState) -> Router {
     Router::new()
@@ -26,10 +26,20 @@ async fn update_profile(
 ) -> impl IntoResponse {
     let personnel_id = match claims.personnel_id {
         Some(id) => id,
-        None => return (axum::http::StatusCode::BAD_REQUEST, "Profile not fully bound to personnel".to_string()).into_response(),
+        None => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                "Profile not fully bound to personnel".to_string(),
+            )
+                .into_response();
+        }
     };
 
-    match app_state.auth_service.update_user_profile(personnel_id, payload.phone_number, payload.email).await {
+    match app_state
+        .auth_service
+        .update_user_profile(personnel_id, payload.phone_number, payload.email)
+        .await
+    {
         Ok(_) => (axum::http::StatusCode::OK, "Profile updated").into_response(),
         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
     }
@@ -42,15 +52,24 @@ async fn change_password(
 ) -> impl IntoResponse {
     let user_id = match Uuid::parse_str(&claims.sub) {
         Ok(id) => id,
-        Err(_) => return (axum::http::StatusCode::BAD_REQUEST, "Invalid user ID".to_string()).into_response(),
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                "Invalid user ID".to_string(),
+            )
+                .into_response();
+        }
     };
 
-    match app_state.auth_service.change_password(user_id, &payload.current_password, &payload.new_password).await {
+    match app_state
+        .auth_service
+        .change_password(user_id, &payload.current_password, &payload.new_password)
+        .await
+    {
         Ok(_) => (axum::http::StatusCode::OK, "Password changed").into_response(),
         Err(e) => (axum::http::StatusCode::BAD_REQUEST, e).into_response(),
     }
 }
-
 
 async fn upload_photo_chunked(
     State(app_state): State<AppState>,
@@ -59,7 +78,13 @@ async fn upload_photo_chunked(
 ) -> impl IntoResponse {
     let personnel_id = match claims.personnel_id {
         Some(id) => id,
-        None => return (axum::http::StatusCode::BAD_REQUEST, "Invalid personnel ID".to_string()).into_response(),
+        None => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                "Invalid personnel ID".to_string(),
+            )
+                .into_response();
+        }
     };
 
     let mut chunk_index = 0;
@@ -83,7 +108,11 @@ async fn upload_photo_chunked(
     }
 
     if chunk_data.is_empty() || file_name.is_empty() {
-        return (axum::http::StatusCode::BAD_REQUEST, "Missing chunk data or filename").into_response();
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            "Missing chunk data or filename",
+        )
+            .into_response();
     }
 
     // Ensure directories exist
@@ -103,34 +132,60 @@ async fn upload_photo_chunked(
         .await
     {
         Ok(f) => f,
-        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to open temp file: {}", e)).into_response(),
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to open temp file: {}", e),
+            )
+                .into_response();
+        }
     };
 
     if let Err(e) = file.write_all(&chunk_data).await {
-        return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to write chunk: {}", e)).into_response();
+        return (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to write chunk: {}", e),
+        )
+            .into_response();
     }
 
     // Check if it's the last chunk
     if chunk_index == total_chunks - 1 {
         // Build final file path (webp, jpg, png etc) - Just keep the same extension.
         // Actually, let's prefix it with personnel_id and timestamp
-        let ext = file_name.split('.').last().unwrap_or("png");
+        let ext = file_name.split('.').next_back().unwrap_or("png");
         let final_filename = format!("{}.{}", personnel_id, ext);
         let final_file_path = target_dir.join(&final_filename);
 
         // Move temp file to final location
         if let Err(e) = rename(&temp_file_path, &final_file_path).await {
-            return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to move final file: {}", e)).into_response();
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to move final file: {}", e),
+            )
+                .into_response();
         }
 
         // Update DB
         let url_path = format!("/uploads/profiles/{}", final_filename);
-        if let Err(e) = app_state.auth_service.update_profile_picture(personnel_id, &url_path).await {
-            return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, format!("Failed saving DB: {}", e)).into_response();
+        if let Err(e) = app_state
+            .auth_service
+            .update_profile_picture(personnel_id, &url_path)
+            .await
+        {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed saving DB: {}", e),
+            )
+                .into_response();
         }
 
         return (axum::http::StatusCode::OK, url_path).into_response();
     }
 
-    (axum::http::StatusCode::PARTIAL_CONTENT, "Chunk received".to_string()).into_response()
+    (
+        axum::http::StatusCode::PARTIAL_CONTENT,
+        "Chunk received".to_string(),
+    )
+        .into_response()
 }

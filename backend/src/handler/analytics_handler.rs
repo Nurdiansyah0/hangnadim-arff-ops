@@ -1,5 +1,5 @@
 use crate::{handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
+use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 
 pub fn analytics_routes(state: AppState) -> Router {
     Router::new()
@@ -17,7 +17,10 @@ async fn get_performance(
     // Analytics biasanya untuk Admin (1) atau Kasubsie (6)
     let rid = claims.role_id.unwrap_or(0);
     if rid != 1 && rid != 6 {
-        return Err((StatusCode::FORBIDDEN, "Hanya Administrator atau Kasubsie yang bisa melihat performa".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Hanya Administrator atau Kasubsie yang bisa melihat performa".to_string(),
+        ));
     }
 
     match state.analytics_service.get_performance().await {
@@ -32,7 +35,10 @@ async fn get_kpi_report(
 ) -> Result<Json<Vec<crate::domain::models::KpiReport>>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
     if rid != 1 && rid != 6 {
-        return Err((StatusCode::FORBIDDEN, "Hanya Administrator atau Kasubsie yang bisa melihat KPI".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Hanya Administrator atau Kasubsie yang bisa melihat KPI".to_string(),
+        ));
     }
 
     match state.analytics_service.get_kpi_report().await {
@@ -47,7 +53,10 @@ async fn get_fleet_readiness(
 ) -> Result<Json<Vec<crate::domain::models::FleetReadinessItem>>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
     if rid != 1 && rid != 6 {
-        return Err((StatusCode::FORBIDDEN, "Hanya Administrator atau Kasubsie yang bisa melihat readiness".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Hanya Administrator atau Kasubsie yang bisa melihat readiness".to_string(),
+        ));
     }
 
     match state.analytics_service.get_fleet_readiness().await {
@@ -61,8 +70,11 @@ async fn get_alerts(
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<Vec<crate::domain::models::AlertItem>>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
-    if rid < 1 || rid > 6 {
-        return Err((StatusCode::FORBIDDEN, "Unauthorized role for alerts".to_string()));
+    if !(1..=6).contains(&rid) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Unauthorized role for alerts".to_string(),
+        ));
     }
 
     match state.analytics_service.get_alerts().await {

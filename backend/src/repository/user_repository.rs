@@ -1,5 +1,7 @@
-use crate::domain::models::{User, UserProfile, FullProfileResponse, OperationalContextResponse, CertificationDetail};
-use sqlx::{Pool, Postgres, Error};
+use crate::domain::models::{
+    CertificationDetail, FullProfileResponse, OperationalContextResponse, User, UserProfile,
+};
+use sqlx::{Error, Pool, Postgres};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -27,7 +29,7 @@ impl UserRepository {
             LEFT JOIN personnel_roles ur ON p.id = ur.personnel_id
             WHERE u.username = $1 OR u.email = $1
             LIMIT 1
-            "#
+            "#,
         )
         .bind(ident)
         .fetch_optional(&self.db)
@@ -36,7 +38,13 @@ impl UserRepository {
         Ok(user)
     }
 
-    pub async fn create_user(&self, personnel_id: Uuid, username: &str, email: &str, password_hash: &str) -> Result<User, Error> {
+    pub async fn create_user(
+        &self,
+        personnel_id: Uuid,
+        username: &str,
+        email: &str,
+        password_hash: &str,
+    ) -> Result<User, Error> {
         let user = sqlx::query_as::<_, User>(
             r#"
             INSERT INTO users (personnel_id, username, email, password_hash)
@@ -45,7 +53,7 @@ impl UserRepository {
                 id, personnel_id, username, email, password_hash,
                 status::text as status, last_login_at, created_at, updated_at, 
                 NULL::int as role_id, NULL::text as full_name, NULL::text as nip_nik
-            "#
+            "#,
         )
         .bind(personnel_id)
         .bind(username)
@@ -66,10 +74,10 @@ impl UserRepository {
     }
 
     pub async fn update_user_profile(
-        &self, 
-        personnel_id: Uuid, 
-        phone_number: Option<String>, 
-        email: Option<String>
+        &self,
+        personnel_id: Uuid,
+        phone_number: Option<String>,
+        email: Option<String>,
     ) -> Result<(), Error> {
         let mut tx = self.db.begin().await?;
 
@@ -93,7 +101,11 @@ impl UserRepository {
         Ok(())
     }
 
-    pub async fn update_password(&self, user_id: Uuid, new_password_hash: &str) -> Result<(), Error> {
+    pub async fn update_password(
+        &self,
+        user_id: Uuid,
+        new_password_hash: &str,
+    ) -> Result<(), Error> {
         sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
             .bind(new_password_hash)
             .bind(user_id)
@@ -154,13 +166,19 @@ impl UserRepository {
         .fetch_all(&self.db)
         .await?;
 
-        Ok(records.into_iter().map(|row: sqlx::postgres::PgRow| {
-            use sqlx::Row;
-            row.get::<String, _>("name")
-        }).collect())
+        Ok(records
+            .into_iter()
+            .map(|row: sqlx::postgres::PgRow| {
+                use sqlx::Row;
+                row.get::<String, _>("name")
+            })
+            .collect())
     }
 
-    pub async fn get_full_profile(&self, user_id: Uuid) -> Result<Option<FullProfileResponse>, Error> {
+    pub async fn get_full_profile(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Option<FullProfileResponse>, Error> {
         let personal = sqlx::query_as::<_, User>(
             r#"
             SELECT 
@@ -173,7 +191,7 @@ impl UserRepository {
             JOIN personnels p ON u.personnel_id = p.id
             LEFT JOIN personnel_roles ur ON p.id = ur.personnel_id
             WHERE u.id = $1
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_optional(&self.db)
@@ -211,7 +229,7 @@ impl UserRepository {
 
             Ok(Some(FullProfileResponse {
                 personal: u,
-                position, 
+                position,
                 role,
                 certifications,
             }))
@@ -220,7 +238,10 @@ impl UserRepository {
         }
     }
 
-    pub async fn get_operational_context(&self, user_id: Uuid) -> Result<OperationalContextResponse, Error> {
+    pub async fn get_operational_context(
+        &self,
+        user_id: Uuid,
+    ) -> Result<OperationalContextResponse, Error> {
         let shift_info = sqlx::query(
             r#"
             SELECT s.id, s.name, s.start_time, s.end_time
@@ -255,14 +276,31 @@ impl UserRepository {
 
         use sqlx::Row;
         Ok(OperationalContextResponse {
-            shift_id: shift_info.as_ref().and_then(|s| s.get::<Option<i32>, _>("id")),
-            shift_name: shift_info.as_ref().and_then(|s| s.get::<Option<String>, _>("name")),
-            shift_start: shift_info.as_ref().and_then(|s| s.get::<Option<chrono::NaiveTime>, _>("start_time")),
-            shift_end: shift_info.as_ref().and_then(|s| s.get::<Option<chrono::NaiveTime>, _>("end_time")),
-            duty_position: duty_info.as_ref().and_then(|d| d.get::<Option<String>, _>("position")),
-            assigned_vehicle: duty_info.as_ref().and_then(|d| d.get::<Option<String>, _>("vehicle_code")),
-            assigned_vehicle_id: duty_info.as_ref().and_then(|d| d.get::<Option<Uuid>, _>("vehicle_id")),
-            duty_status: duty_info.as_ref().and_then(|d| d.get::<Option<String>, _>("status")).unwrap_or_else(|| "OFF_DUTY".to_string()),
+            shift_id: shift_info
+                .as_ref()
+                .and_then(|s| s.get::<Option<i32>, _>("id")),
+            shift_name: shift_info
+                .as_ref()
+                .and_then(|s| s.get::<Option<String>, _>("name")),
+            shift_start: shift_info
+                .as_ref()
+                .and_then(|s| s.get::<Option<chrono::NaiveTime>, _>("start_time")),
+            shift_end: shift_info
+                .as_ref()
+                .and_then(|s| s.get::<Option<chrono::NaiveTime>, _>("end_time")),
+            duty_position: duty_info
+                .as_ref()
+                .and_then(|d| d.get::<Option<String>, _>("position")),
+            assigned_vehicle: duty_info
+                .as_ref()
+                .and_then(|d| d.get::<Option<String>, _>("vehicle_code")),
+            assigned_vehicle_id: duty_info
+                .as_ref()
+                .and_then(|d| d.get::<Option<Uuid>, _>("vehicle_id")),
+            duty_status: duty_info
+                .as_ref()
+                .and_then(|d| d.get::<Option<String>, _>("status"))
+                .unwrap_or_else(|| "OFF_DUTY".to_string()),
         })
     }
 
@@ -280,7 +318,7 @@ impl UserRepository {
             JOIN personnels p ON u.personnel_id = p.id
             LEFT JOIN personnel_roles ur ON p.id = ur.personnel_id
             ORDER BY u.created_at DESC
-            "#
+            "#,
         )
         .fetch_all(&self.db)
         .await?;

@@ -1,12 +1,18 @@
-use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error};
-use uuid::Uuid;
 use crate::domain::models::VehiclePerformanceTest;
+use async_trait::async_trait;
+use sqlx::{Error, Pool, Postgres};
+use uuid::Uuid;
 
 #[async_trait]
 pub trait PerformanceRepoTrait: Send + Sync {
-    async fn get_vehicle_tests(&self, vehicle_id: Option<Uuid>) -> Result<Vec<VehiclePerformanceTest>, Error>;
-    async fn create_vehicle_test(&self, test: VehiclePerformanceTest) -> Result<VehiclePerformanceTest, Error>;
+    async fn get_vehicle_tests(
+        &self,
+        vehicle_id: Option<Uuid>,
+    ) -> Result<Vec<VehiclePerformanceTest>, Error>;
+    async fn create_vehicle_test(
+        &self,
+        test: VehiclePerformanceTest,
+    ) -> Result<VehiclePerformanceTest, Error>;
 }
 
 #[derive(Clone)]
@@ -22,7 +28,10 @@ impl PerformanceRepository {
 
 #[async_trait]
 impl PerformanceRepoTrait for PerformanceRepository {
-    async fn get_vehicle_tests(&self, vehicle_id: Option<Uuid>) -> Result<Vec<VehiclePerformanceTest>, Error> {
+    async fn get_vehicle_tests(
+        &self,
+        vehicle_id: Option<Uuid>,
+    ) -> Result<Vec<VehiclePerformanceTest>, Error> {
         let query = if let Some(vid) = vehicle_id {
             sqlx::query_as::<_, VehiclePerformanceTest>(
                 r#"
@@ -32,8 +41,9 @@ impl PerformanceRepoTrait for PerformanceRepository {
                 LEFT JOIN personnels p ON t.inspector_id = p.id
                 WHERE t.vehicle_id = $1
                 ORDER BY t.test_date DESC
-                "#
-            ).bind(vid)
+                "#,
+            )
+            .bind(vid)
         } else {
             sqlx::query_as::<_, VehiclePerformanceTest>(
                 r#"
@@ -42,14 +52,17 @@ impl PerformanceRepoTrait for PerformanceRepository {
                 JOIN vehicles v ON t.vehicle_id = v.id
                 LEFT JOIN personnels p ON t.inspector_id = p.id
                 ORDER BY t.test_date DESC
-                "#
+                "#,
             )
         };
 
         query.fetch_all(&self.db).await
     }
 
-    async fn create_vehicle_test(&self, test: VehiclePerformanceTest) -> Result<VehiclePerformanceTest, Error> {
+    async fn create_vehicle_test(
+        &self,
+        test: VehiclePerformanceTest,
+    ) -> Result<VehiclePerformanceTest, Error> {
         sqlx::query_as::<_, VehiclePerformanceTest>(
             r#"
             INSERT INTO vehicle_performance_tests (
@@ -58,7 +71,7 @@ impl PerformanceRepoTrait for PerformanceRepository {
                 remarks, status
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
-            "#
+            "#,
         )
         .bind(test.vehicle_id)
         .bind(test.inspector_id)

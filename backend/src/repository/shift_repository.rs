@@ -1,5 +1,5 @@
 use crate::domain::models::Shift;
-use sqlx::{Pool, Postgres, Error};
+use sqlx::{Error, Pool, Postgres};
 
 #[derive(Clone)]
 pub struct ShiftRepository {
@@ -28,7 +28,7 @@ impl ShiftRepository {
             INSERT INTO shifts (name, start_time, end_time) 
             VALUES ($1, $2, $3) 
             RETURNING id, name, start_time, end_time
-            "#
+            "#,
         )
         .bind(name)
         .bind(start_time)

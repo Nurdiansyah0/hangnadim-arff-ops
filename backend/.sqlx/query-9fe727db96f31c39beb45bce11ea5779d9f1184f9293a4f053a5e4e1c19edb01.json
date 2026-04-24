@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                COUNT(DISTINCT personnel_id) as total_personnel,\n                COUNT(*) FILTER (WHERE dt.status = 'PENDING') as pending,\n                COUNT(*) FILTER (WHERE dt.status = 'COMPLETED' OR dt.status = 'APPROVED') as done,\n                COALESCE(\n                    (COUNT(*) FILTER (WHERE dt.status = 'COMPLETED' OR dt.status = 'APPROVED'))::float / NULLIF(COUNT(*), 0), \n                    0\n                ) as readiness\n            FROM daily_tasks dt\n            JOIN duty_assignments da ON dt.assignment_id = da.id\n            WHERE da.shift_id = $1 AND da.assignment_date = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total_personnel",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "pending",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "done",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "readiness",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9fe727db96f31c39beb45bce11ea5779d9f1184f9293a4f053a5e4e1c19edb01"
+}

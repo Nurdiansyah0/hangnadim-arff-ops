@@ -11,7 +11,13 @@ impl LeaveRepository {
         Self { pool }
     }
 
-    pub async fn create_leave_request(&self, personnel_id: Uuid, start_date: chrono::NaiveDate, end_date: chrono::NaiveDate, reason: &str) -> Result<Uuid, String> {
+    pub async fn create_leave_request(
+        &self,
+        personnel_id: Uuid,
+        start_date: chrono::NaiveDate,
+        end_date: chrono::NaiveDate,
+        reason: &str,
+    ) -> Result<Uuid, String> {
         let id = Uuid::new_v4();
         sqlx::query(
             "INSERT INTO leave_requests (id, personnel_id, start_date, end_date, reason) VALUES ($1, $2, $3, $4, $5)"
@@ -40,22 +46,29 @@ impl LeaveRepository {
         .await
         .map_err(|e| e.to_string())?;
 
-        let data = rows.into_iter().map(|r| {
-            serde_json::json!({
-                "id": r.get::<Uuid, _>("id"),
-                "personnel_id": r.get::<Uuid, _>("personnel_id"),
-                "personnel_name": r.get::<String, _>("personnel_name"),
-                "start_date": r.get::<chrono::NaiveDate, _>("start_date"),
-                "end_date": r.get::<chrono::NaiveDate, _>("end_date"),
-                "reason": r.get::<String, _>("reason"),
-                "status": r.get::<String, _>("status")
+        let data = rows
+            .into_iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.get::<Uuid, _>("id"),
+                    "personnel_id": r.get::<Uuid, _>("personnel_id"),
+                    "personnel_name": r.get::<String, _>("personnel_name"),
+                    "start_date": r.get::<chrono::NaiveDate, _>("start_date"),
+                    "end_date": r.get::<chrono::NaiveDate, _>("end_date"),
+                    "reason": r.get::<String, _>("reason"),
+                    "status": r.get::<String, _>("status")
+                })
             })
-        }).collect();
+            .collect();
 
         Ok(data)
     }
 
-    pub async fn count_overlapping_requests_by_team(&self, team: &str, date: chrono::NaiveDate) -> Result<i64, String> {
+    pub async fn count_overlapping_requests_by_team(
+        &self,
+        team: &str,
+        date: chrono::NaiveDate,
+    ) -> Result<i64, String> {
         let count: (i64,) = sqlx::query_as(
             r#"
             SELECT COUNT(*) 
@@ -64,7 +77,7 @@ impl LeaveRepository {
             WHERE p.shift::TEXT = $1
             AND $2 BETWEEN lr.start_date AND lr.end_date
             AND lr.status::TEXT IN ('PENDING', 'APPROVED')
-            "#
+            "#,
         )
         .bind(team)
         .bind(date)

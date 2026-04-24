@@ -1,5 +1,5 @@
+use crate::domain::models::{AlertItem, FleetReadinessItem, KpiReport};
 use crate::repository::analytics_repository::{AnalyticsRepoTrait, PerformanceMetrics};
-use crate::domain::models::{KpiReport, FleetReadinessItem, AlertItem};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -13,7 +13,10 @@ impl AnalyticsService {
     }
 
     pub async fn get_performance(&self) -> Result<PerformanceMetrics, String> {
-        self.repo.get_performance_metrics().await.map_err(|e| e.to_string())
+        self.repo
+            .get_performance_metrics()
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub async fn get_kpi_report(&self) -> Result<Vec<KpiReport>, String> {
@@ -21,7 +24,10 @@ impl AnalyticsService {
     }
 
     pub async fn get_fleet_readiness(&self) -> Result<Vec<FleetReadinessItem>, String> {
-        self.repo.get_fleet_readiness().await.map_err(|e| e.to_string())
+        self.repo
+            .get_fleet_readiness()
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub async fn get_alerts(&self) -> Result<Vec<AlertItem>, String> {
@@ -68,7 +74,7 @@ mod tests {
         let repo = Arc::new(MockAnalyticsRepo);
         let service = AnalyticsService::new(repo);
         let res = service.get_performance().await;
-        
+
         assert!(res.is_ok());
         let metrics = res.unwrap();
         assert_eq!(metrics.avg_response_time_seconds, Some(180.0));

@@ -1,5 +1,15 @@
-use crate::{domain::models::{Inspection, InspectionResult, InspectionTemplate, TemplateItem}, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::{Path, State}, http::StatusCode, routing::get, Json, Router};
+use crate::{
+    domain::models::{Inspection, InspectionResult, InspectionTemplate, TemplateItem},
+    handler::middleware::RequireAuth,
+    repository::inspection_repository::CreateInspectionParams,
+    state::AppState,
+};
+use axum::{
+    Json, Router,
+    extract::{Path, State},
+    http::StatusCode,
+    routing::get,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -46,8 +56,14 @@ pub struct InspectionDetail {
 pub fn inspection_routes(state: AppState) -> Router {
     Router::new()
         .route("/", get(list_inspections).post(create_inspection))
-        .route("/templates", get(list_inspection_templates).post(create_inspection_template))
-        .route("/templates/{template_id}/items", get(list_template_items).post(create_template_item))
+        .route(
+            "/templates",
+            get(list_inspection_templates).post(create_inspection_template),
+        )
+        .route(
+            "/templates/{template_id}/items",
+            get(list_template_items).post(create_template_item),
+        )
         .route("/{id}", get(get_inspection_by_id))
         .with_state(state)
 }
@@ -57,7 +73,7 @@ async fn list_inspections(
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<Vec<Inspection>>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
-    
+
     // Admin (1), Manager (3), VP (2) see everything.
     // Others (Staff, squad leaders) see only their own.
     let filter_id = if rid == 1 || rid == 2 || rid == 3 {
@@ -66,7 +82,11 @@ async fn list_inspections(
         claims.personnel_id
     };
 
-    match state.inspection_service.get_all_inspections(filter_id).await {
+    match state
+        .inspection_service
+        .get_all_inspections(filter_id)
+        .await
+    {
         Ok(data) => Ok(Json(data)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
@@ -83,7 +103,10 @@ async fn get_inspection_by_id(
 
     match state.inspection_service.get_inspection_by_id(id).await {
         Ok(inspection) => match state.inspection_service.get_inspection_results(id).await {
-            Ok(results) => Ok(Json(InspectionDetail { inspection, results })),
+            Ok(results) => Ok(Json(InspectionDetail {
+                inspection,
+                results,
+            })),
             Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
         },
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
@@ -113,7 +136,11 @@ async fn list_template_items(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
-    match state.inspection_service.get_template_items(template_id).await {
+    match state
+        .inspection_service
+        .get_template_items(template_id)
+        .await
+    {
         Ok(items) => Ok(Json(items)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
@@ -129,11 +156,11 @@ async fn create_inspection_template(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
-    match state.inspection_service.create_template(
-        &payload.name,
-        &payload.target_type,
-        &payload.frequency,
-    ).await {
+    match state
+        .inspection_service
+        .create_template(&payload.name, &payload.target_type, &payload.frequency)
+        .await
+    {
         Ok(template) => Ok(Json(template)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
@@ -150,12 +177,16 @@ async fn create_template_item(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
-    match state.inspection_service.create_template_item(
-        template_id,
-        &payload.category,
-        &payload.item_name,
-        payload.item_order,
-    ).await {
+    match state
+        .inspection_service
+        .create_template_item(
+            template_id,
+            &payload.category,
+            &payload.item_name,
+            payload.item_order,
+        )
+        .await
+    {
         Ok(item) => Ok(Json(item)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
@@ -168,45 +199,50 @@ async fn create_inspection(
 ) -> Result<Json<Inspection>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
     if rid != 1 && rid != 5 && rid != 4 && rid != 8 && rid != 9 {
-        return Err((StatusCode::FORBIDDEN, "Role tidak memiliki izin melakukan inspeksi".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Role tidak memiliki izin melakukan inspeksi".to_string(),
+        ));
     }
 
     let results = payload
         .results
         .into_iter()
-        .map(|item| crate::repository::inspection_repository::InspectionResultCreate {
-            template_item_id: item.template_item_id,
-            result: item.result,
-            notes: item.notes,
-            photo_url: item.photo_url,
-        })
+        .map(
+            |item| crate::repository::inspection_repository::InspectionResultCreate {
+                template_item_id: item.template_item_id,
+                result: item.result,
+                notes: item.notes,
+                photo_url: item.photo_url,
+            },
+        )
         .collect();
 
     // Backend Deep Sync: If user has an active assignment, enforce that vehicle
     let mut final_vehicle_id = payload.vehicle_id;
     let user_id = Uuid::parse_str(&claims.sub).unwrap_or_default();
-    
-    if let Ok(context) = state.auth_service.get_operational_context(user_id).await {
-        if let Some(assigned_id) = context.assigned_vehicle_id {
-            // Force the vehicle_id to match the assignment for non-admins
-            if rid != 1 && rid != 2 && rid != 3 {
-                final_vehicle_id = Some(assigned_id);
-            }
+
+    if let Ok(context) = state.auth_service.get_operational_context(user_id).await
+        && let Some(assigned_id) = context.assigned_vehicle_id
+    {
+        // Force the vehicle_id to match the assignment for non-admins
+        if rid != 1 && rid != 2 && rid != 3 {
+            final_vehicle_id = Some(assigned_id);
         }
     }
 
     match state
         .inspection_service
-        .create_inspection_with_results(
-            final_vehicle_id,
-            payload.fire_extinguisher_id,
-            claims.personnel_id,
-            payload.tanggal,
-            &payload.status,
-            payload.latitude,
-            payload.longitude,
+        .create_inspection_with_results(CreateInspectionParams {
+            vehicle_id: final_vehicle_id,
+            fire_extinguisher_id: payload.fire_extinguisher_id,
+            personnel_id: claims.personnel_id,
+            tanggal: payload.tanggal,
+            status: &payload.status,
+            latitude: payload.latitude,
+            longitude: payload.longitude,
             results,
-        )
+        })
         .await
     {
         Ok(v) => Ok(Json(v)),

@@ -51,10 +51,10 @@ pub struct User {
     pub last_login_at: Option<DateTime<Utc>>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
-    
+
     #[sqlx(default)]
     pub role_id: Option<i32>,
-    
+
     // Optional joined fields for convenience in some queries
     pub full_name: Option<String>,
     pub nip_nik: Option<String>,
@@ -157,8 +157,8 @@ pub struct ChangePasswordRequest {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,         
-    pub role_id: Option<i32>, 
+    pub sub: String,
+    pub role_id: Option<i32>,
     pub personnel_id: Option<Uuid>,
     pub exp: usize,
 }
@@ -183,11 +183,10 @@ pub struct PersonnelCertification {
     pub cert_number: String,
     pub issue_date: chrono::NaiveDate,
     pub expiry_date: chrono::NaiveDate,
-    pub status: String, 
+    pub status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-
 
 // =========================================================
 // 3. MASTER DATA (ARMADA & OPS)
@@ -231,7 +230,7 @@ pub struct VehiclePerformanceTest {
     pub status: String, // PASS, FAIL
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    
+
     // Optional joined fields
     #[sqlx(default)]
     pub vehicle_code: Option<String>,
@@ -317,7 +316,7 @@ pub struct Inspection {
     pub fire_extinguisher_id: Option<Uuid>,
     pub personnel_id: Option<Uuid>,
     pub tanggal: chrono::NaiveDate,
-    pub status: String, 
+    pub status: String,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
     pub approved_by: Option<Uuid>,
@@ -348,7 +347,7 @@ pub struct MaintenanceRecord {
     pub photo_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    
+
     // Optional joined fields
     #[sqlx(default)]
     pub vehicle_code: Option<String>,
@@ -368,7 +367,7 @@ pub struct Finding {
     pub resolution_notes: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    
+
     // Optional joined fields
     #[sqlx(default)]
     pub inspector_name: Option<String>,
@@ -394,7 +393,7 @@ pub struct KpiReport {
     pub name: String,
     pub value: f64,
     pub unit: String,
-    pub status: String, // GREEN, YELLOW, RED
+    pub status: String,     // GREEN, YELLOW, RED
     pub trend: Option<f64>, // Percentage change vs prev period
     pub threshold_green: f64,
     pub threshold_yellow: f64,
@@ -422,7 +421,7 @@ pub struct WatchroomLog {
     pub personnel_id: Option<Uuid>,
     pub entry_type: Option<String>,
     pub description: String,
-    pub payload: Option<serde_json::Value>, 
+    pub payload: Option<serde_json::Value>,
     pub photo_url: Option<String>,
     pub created_at: DateTime<Utc>,
 }
@@ -444,7 +443,7 @@ pub struct DutyAssignment {
 pub struct RosterView {
     pub id: Uuid,
     pub assignment_date: chrono::NaiveDate,
-    pub personnel_id: Uuid,  // Added for linking
+    pub personnel_id: Uuid, // Added for linking
     pub personnel_name: String,
     pub team_name: String,
     pub shift_name: String,
@@ -491,7 +490,7 @@ pub struct AuditLog {
     pub original_data: Option<serde_json::Value>,
     pub new_data: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
-    
+
     // Joined field
     #[sqlx(default)]
     pub actor_name: Option<String>,

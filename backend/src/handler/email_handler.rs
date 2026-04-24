@@ -1,10 +1,10 @@
+use crate::state::AppState;
 use axum::{
-    extract::{State, Json},
-    routing::post,
     Router,
+    extract::{Json, State},
+    routing::post,
 };
 use serde::Deserialize;
-use crate::state::AppState;
 
 #[derive(Deserialize)]
 pub struct SendReportRequest {
@@ -23,9 +23,10 @@ async fn send_email_report(
     State(state): State<AppState>,
     Json(payload): Json<SendReportRequest>,
 ) -> Result<String, String> {
-    state.email_service
+    state
+        .email_service
         .send_report(&payload.to, &payload.subject, &payload.body)
         .await?;
-    
+
     Ok("Report sent successfully".to_string())
 }

@@ -63,7 +63,7 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid credentials or server disconnected.');
+      setError(err.response?.data?.message || err.response?.data?.error || 'Invalid credentials or server disconnected.');
     } finally {
       setLoading(false);
     }

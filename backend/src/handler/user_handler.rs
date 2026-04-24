@@ -1,10 +1,10 @@
 use crate::{domain::models::User, handler::middleware::RequireAuth, state::AppState};
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get},
-    Json, Router,
+    routing::get,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -50,14 +50,21 @@ async fn create_user(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
-    let personnel_id = payload.personnel_id.ok_or((StatusCode::BAD_REQUEST, "personnel_id is required".to_string()))?;
+    let personnel_id = payload.personnel_id.ok_or((
+        StatusCode::BAD_REQUEST,
+        "personnel_id is required".to_string(),
+    ))?;
 
-    match state.user_service.create_user(
-        personnel_id,
-        &payload.username,
-        &payload.email,
-        &payload.password,
-    ).await {
+    match state
+        .user_service
+        .create_user(
+            personnel_id,
+            &payload.username,
+            &payload.email,
+            &payload.password,
+        )
+        .await
+    {
         Ok(user) => Ok(Json(user)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }

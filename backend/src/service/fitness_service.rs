@@ -13,9 +13,16 @@ impl FitnessService {
         Self { repo }
     }
 
-    pub async fn get_my_fitness_trend(&self, personnel_id: Uuid) -> Result<Option<FitnessTrendResponse>, String> {
-        let history = self.repo.get_history_by_personnel_id(personnel_id, 2).await.map_err(|e| e.to_string())?;
-        
+    pub async fn get_my_fitness_trend(
+        &self,
+        personnel_id: Uuid,
+    ) -> Result<Option<FitnessTrendResponse>, String> {
+        let history = self
+            .repo
+            .get_history_by_personnel_id(personnel_id, 2)
+            .await
+            .map_err(|e| e.to_string())?;
+
         if history.is_empty() {
             return Ok(None);
         }
@@ -27,9 +34,6 @@ impl FitnessService {
             None
         };
 
-        Ok(Some(FitnessTrendResponse {
-            current,
-            previous
-        }))
+        Ok(Some(FitnessTrendResponse { current, previous }))
     }
 }

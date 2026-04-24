@@ -1,5 +1,7 @@
 use crate::{handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State as AxumState, http::StatusCode, routing::get, Json, Router, extract::Path};
+use axum::{
+    Json, Router, extract::Path, extract::State as AxumState, http::StatusCode, routing::get,
+};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -37,8 +39,21 @@ async fn submit_leave(
     RequireAuth(claims): RequireAuth,
     Json(payload): Json<CreateLeavePayload>,
 ) -> Result<Json<Uuid>, (StatusCode, String)> {
-    let pid = claims.personnel_id.ok_or((StatusCode::BAD_REQUEST, "User tidak terikat dengan personil".to_string()))?;
-    match state.leave_service.submit_request(pid, payload.start_date, payload.end_date, &payload.reason, &state.personnel_service.repo).await {
+    let pid = claims.personnel_id.ok_or((
+        StatusCode::BAD_REQUEST,
+        "User tidak terikat dengan personil".to_string(),
+    ))?;
+    match state
+        .leave_service
+        .submit_request(
+            pid,
+            payload.start_date,
+            payload.end_date,
+            &payload.reason,
+            &state.personnel_service.repo,
+        )
+        .await
+    {
         Ok(id) => Ok(Json(id)),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),
     }
@@ -52,10 +67,17 @@ async fn update_leave_status(
 ) -> Result<StatusCode, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
     if rid != 1 && rid != 2 {
-         return Err((StatusCode::FORBIDDEN, "Access Denied: Admin only".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Access Denied: Admin only".to_string(),
+        ));
     }
 
-    match state.leave_service.process_request(id, &payload.status, &state.personnel_service.repo).await {
+    match state
+        .leave_service
+        .process_request(id, &payload.status, &state.personnel_service.repo)
+        .await
+    {
         Ok(_) => Ok(StatusCode::OK),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),
     }

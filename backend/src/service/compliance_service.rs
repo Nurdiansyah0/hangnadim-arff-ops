@@ -1,4 +1,6 @@
-use crate::repository::compliance_repository::{ComplianceRepoTrait, AuditLog, DocumentSOP, InventoryAlert};
+use crate::repository::compliance_repository::{
+    AuditLog, ComplianceRepoTrait, DocumentSOP, InventoryAlert,
+};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -12,15 +14,24 @@ impl ComplianceService {
     }
 
     pub async fn get_audit_logs(&self, limit: i64) -> Result<Vec<AuditLog>, String> {
-        self.repo.get_audit_logs(limit).await.map_err(|e| e.to_string())
+        self.repo
+            .get_audit_logs(limit)
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub async fn get_sops(&self) -> Result<Vec<DocumentSOP>, String> {
-        self.repo.get_sop_documents().await.map_err(|e| e.to_string())
+        self.repo
+            .get_sop_documents()
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub async fn get_inventory_alerts(&self) -> Result<Vec<InventoryAlert>, String> {
-        self.repo.get_inventory_alerts().await.map_err(|e| e.to_string())
+        self.repo
+            .get_inventory_alerts()
+            .await
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -32,8 +43,8 @@ impl ComplianceService {
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use uuid::Uuid;
     use chrono::Utc;
+    use uuid::Uuid;
 
     struct MockComplianceRepo;
 
@@ -43,28 +54,24 @@ mod tests {
             Ok(vec![])
         }
         async fn get_sop_documents(&self) -> Result<Vec<DocumentSOP>, sqlx::Error> {
-            Ok(vec![
-                DocumentSOP {
-                    id: Uuid::new_v4(),
-                    title: "SOP-01 Rescue".to_string(),
-                    version: "1.0".to_string(),
-                    file_path: None,
-                    category: "RESCUE".to_string(),
-                    created_at: Utc::now(),
-                }
-            ])
+            Ok(vec![DocumentSOP {
+                id: Uuid::new_v4(),
+                title: "SOP-01 Rescue".to_string(),
+                version: "1.0".to_string(),
+                file_path: None,
+                category: "RESCUE".to_string(),
+                created_at: Utc::now(),
+            }])
         }
         async fn get_inventory_alerts(&self) -> Result<Vec<InventoryAlert>, sqlx::Error> {
-             Ok(vec![
-                InventoryAlert {
-                    id: Uuid::new_v4(),
-                    name: "Water".to_string(),
-                    inventory_level: rust_decimal::Decimal::from(5000),
-                    min_requirement: rust_decimal::Decimal::from(90000),
-                    deficit: rust_decimal::Decimal::from(85000),
-                    percentage: 5.5,
-                }
-             ])
+            Ok(vec![InventoryAlert {
+                id: Uuid::new_v4(),
+                name: "Water".to_string(),
+                inventory_level: rust_decimal::Decimal::from(5000),
+                min_requirement: rust_decimal::Decimal::from(90000),
+                deficit: rust_decimal::Decimal::from(85000),
+                percentage: 5.5,
+            }])
         }
     }
 

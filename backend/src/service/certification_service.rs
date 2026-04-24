@@ -12,8 +12,14 @@ impl CertificationService {
         Self { repo }
     }
 
-    pub async fn get_expiring_soon(&self, days: i32) -> Result<Vec<PersonnelCertification>, String> {
-        self.repo.get_expiring_soon(days).await.map_err(|e| e.to_string())
+    pub async fn get_expiring_soon(
+        &self,
+        days: i32,
+    ) -> Result<Vec<PersonnelCertification>, String> {
+        self.repo
+            .get_expiring_soon(days)
+            .await
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -25,27 +31,28 @@ impl CertificationService {
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use chrono::{Utc, NaiveDate};
+    use chrono::{NaiveDate, Utc};
     use uuid::Uuid;
 
     struct MockCertRepo;
 
     #[async_trait]
     impl CertificationRepoTrait for MockCertRepo {
-        async fn get_expiring_soon(&self, _days: i32) -> Result<Vec<PersonnelCertification>, sqlx::Error> {
-            Ok(vec![
-                PersonnelCertification {
-                    id: Uuid::new_v4(),
-                    personnel_id: Some(Uuid::new_v4()),
-                    training_id: Some(1),
-                    cert_number: "CERT-001".to_string(),
-                    issue_date: NaiveDate::from_ymd_opt(2023, 1, 1).unwrap(),
-                    expiry_date: NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(),
-                    status: "ACTIVE".to_string(),
-                    created_at: Utc::now(),
-                    updated_at: Utc::now(),
-                }
-            ])
+        async fn get_expiring_soon(
+            &self,
+            _days: i32,
+        ) -> Result<Vec<PersonnelCertification>, sqlx::Error> {
+            Ok(vec![PersonnelCertification {
+                id: Uuid::new_v4(),
+                personnel_id: Some(Uuid::new_v4()),
+                training_id: Some(1),
+                cert_number: "CERT-001".to_string(),
+                issue_date: NaiveDate::from_ymd_opt(2023, 1, 1).unwrap(),
+                expiry_date: NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(),
+                status: "ACTIVE".to_string(),
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            }])
         }
     }
 

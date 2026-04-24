@@ -1,7 +1,7 @@
 use crate::domain::models::FlightRoute;
 use crate::repository::flight_repository::FlightRepoTrait;
-use std::sync::Arc;
 use chrono::{DateTime, Utc};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct FlightService {
@@ -54,7 +54,9 @@ mod tests {
     #[async_trait]
     impl FlightRepoTrait for MockFlightRepo {
         async fn get_all_flights(&self) -> Result<Vec<FlightRoute>, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(vec![])
         }
 
@@ -66,7 +68,9 @@ mod tests {
             r: &str,
             t: DateTime<Utc>,
         ) -> Result<FlightRoute, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(FlightRoute {
                 id: Uuid::new_v4(),
                 flight_number: f.to_string(),
@@ -83,7 +87,9 @@ mod tests {
     async fn test_create_flight_success() {
         let repo = Arc::new(MockFlightRepo { should_fail: false });
         let service = FlightService::new(repo);
-        let res = service.create_flight("GA-123", Some("CGK"), Some("BTH"), "04", Utc::now()).await;
+        let res = service
+            .create_flight("GA-123", Some("CGK"), Some("BTH"), "04", Utc::now())
+            .await;
         assert!(res.is_ok(), "Harus berhasil mendaftarkan rute penerbangan");
     }
 
@@ -91,7 +97,9 @@ mod tests {
     async fn test_create_flight_invalid_runway() {
         let repo = Arc::new(MockFlightRepo { should_fail: false });
         let service = FlightService::new(repo);
-        let res = service.create_flight("GA-123", Some("CGK"), Some("BTH"), "99", Utc::now()).await;
+        let res = service
+            .create_flight("GA-123", Some("CGK"), Some("BTH"), "99", Utc::now())
+            .await;
         assert!(res.is_err(), "Harus menolak runway selain 04/22");
     }
 

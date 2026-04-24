@@ -1,5 +1,17 @@
-use crate::{domain::models::FireExtinguisher, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::{Path, Query, State}, http::StatusCode, routing::get, Json, Router};
+use crate::{
+    domain::models::FireExtinguisher,
+    handler::middleware::RequireAuth,
+    repository::fire_extinguisher_repository::{
+        CreateExtinguisherParams, UpdateExtinguisherParams,
+    },
+    state::AppState,
+};
+use axum::{
+    Json, Router,
+    extract::{Path, Query, State},
+    http::StatusCode,
+    routing::get,
+};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
@@ -53,7 +65,12 @@ pub fn fire_extinguisher_routes(state: AppState) -> Router {
         .route("/nearby", get(nearby_extinguishers))
         .route("/geojson", get(geojson_extinguishers))
         .route("/expiring", get(list_expiring_soon))
-        .route("/{id}", get(get_extinguisher).put(update_extinguisher).delete(delete_extinguisher))
+        .route(
+            "/{id}",
+            get(get_extinguisher)
+                .put(update_extinguisher)
+                .delete(delete_extinguisher),
+        )
         .with_state(state)
 }
 
@@ -88,9 +105,16 @@ async fn get_extinguisher(
     _claims: RequireAuth,
     Path(id): Path<uuid::Uuid>,
 ) -> Result<Json<FireExtinguisher>, (StatusCode, String)> {
-    match state.fire_extinguisher_service.get_extinguisher_by_id(id).await {
+    match state
+        .fire_extinguisher_service
+        .get_extinguisher_by_id(id)
+        .await
+    {
         Ok(Some(record)) => Ok(Json(record)),
-        Ok(None) => Err((StatusCode::NOT_FOUND, "Fire extinguisher not found".to_string())),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            "Fire extinguisher not found".to_string(),
+        )),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
 }
@@ -103,29 +127,43 @@ async fn create_extinguisher(
     let rid = claims.role_id.unwrap_or(0);
     // Allow: Superuser (1), Manager (3), Ops TL (5), Maint TL (6), General TL (7), Squad Leader (8), Officer (9)
     if rid != 1 && rid != 3 && rid != 5 && rid != 6 && rid != 7 && rid != 8 && rid != 9 {
-        return Err((StatusCode::FORBIDDEN, "Forbidden: Missing asset management permission".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Forbidden: Missing asset management permission".to_string(),
+        ));
     }
 
-    match state.fire_extinguisher_service.create_extinguisher(
-        &payload.serial_number,
-        payload.agent_type.as_deref(),
-        payload.capacity_kg,
-        payload.location_description.as_deref(),
-        payload.latitude,
-        payload.longitude,
-        payload.floor.as_deref(),
-        payload.building.as_deref(),
-        payload.expiry_date,
-        payload.last_inspection_date,
-        &payload.status,
-        payload.photo_url.as_deref(),
-    ).await {
+    match state
+        .fire_extinguisher_service
+        .create_extinguisher(CreateExtinguisherParams {
+            serial_number: &payload.serial_number,
+            agent_type: payload.agent_type.as_deref(),
+            capacity_kg: payload.capacity_kg,
+            location_description: payload.location_description.as_deref(),
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+            floor: payload.floor.as_deref(),
+            building: payload.building.as_deref(),
+            expiry_date: payload.expiry_date,
+            last_inspection_date: payload.last_inspection_date,
+            status: &payload.status,
+            photo_url: payload.photo_url.as_deref(),
+        })
+        .await
+    {
         Ok(item) => Ok(Json(item)),
         Err(e) => {
             if e.contains("duplicate key value violates unique constraint") {
-                Err((StatusCode::CONFLICT, "Serial number already exists".to_string()))
+                Err((
+                    StatusCode::CONFLICT,
+                    "Serial number already exists".to_string(),
+                ))
             } else if e.contains("invalid_status") {
-                Err((StatusCode::BAD_REQUEST, "Invalid status. Allowed: READY, MAINTENANCE, EXPIRED, OUT_OF_SERVICE".to_string()))
+                Err((
+                    StatusCode::BAD_REQUEST,
+                    "Invalid status. Allowed: READY, MAINTENANCE, EXPIRED, OUT_OF_SERVICE"
+                        .to_string(),
+                ))
             } else if e.contains("expiry_date") {
                 Err((StatusCode::BAD_REQUEST, e))
             } else {
@@ -143,26 +181,36 @@ async fn update_extinguisher(
 ) -> Result<Json<FireExtinguisher>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
     if rid != 1 && rid != 3 && rid != 5 && rid != 6 && rid != 7 && rid != 8 && rid != 9 {
-        return Err((StatusCode::FORBIDDEN, "Forbidden: Missing asset management permission".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Forbidden: Missing asset management permission".to_string(),
+        ));
     }
 
-    match state.fire_extinguisher_service.update_extinguisher(
-        id,
-        payload.serial_number.as_deref(),
-        payload.agent_type.as_deref(),
-        payload.capacity_kg,
-        payload.location_description.as_deref(),
-        payload.latitude,
-        payload.longitude,
-        payload.floor.as_deref(),
-        payload.building.as_deref(),
-        payload.expiry_date,
-        payload.last_inspection_date,
-        payload.status.as_deref(),
-        payload.photo_url.as_deref(),
-    ).await {
+    match state
+        .fire_extinguisher_service
+        .update_extinguisher(UpdateExtinguisherParams {
+            id,
+            serial_number: payload.serial_number.as_deref(),
+            agent_type: payload.agent_type.as_deref(),
+            capacity_kg: payload.capacity_kg,
+            location_description: payload.location_description.as_deref(),
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+            floor: payload.floor.as_deref(),
+            building: payload.building.as_deref(),
+            expiry_date: payload.expiry_date,
+            last_inspection_date: payload.last_inspection_date,
+            status: payload.status.as_deref(),
+            photo_url: payload.photo_url.as_deref(),
+        })
+        .await
+    {
         Ok(Some(item)) => Ok(Json(item)),
-        Ok(None) => Err((StatusCode::NOT_FOUND, "Fire extinguisher not found".to_string())),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            "Fire extinguisher not found".to_string(),
+        )),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),
     }
 }
@@ -174,12 +222,22 @@ async fn delete_extinguisher(
 ) -> Result<StatusCode, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
     if rid != 1 && rid != 3 && rid != 5 && rid != 6 && rid != 7 && rid != 8 && rid != 9 {
-        return Err((StatusCode::FORBIDDEN, "Forbidden: Missing asset management permission".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Forbidden: Missing asset management permission".to_string(),
+        ));
     }
 
-    match state.fire_extinguisher_service.delete_extinguisher(id).await {
+    match state
+        .fire_extinguisher_service
+        .delete_extinguisher(id)
+        .await
+    {
         Ok(1) => Ok(StatusCode::NO_CONTENT),
-        Ok(0) => Err((StatusCode::NOT_FOUND, "Fire extinguisher not found".to_string())),
+        Ok(0) => Err((
+            StatusCode::NOT_FOUND,
+            "Fire extinguisher not found".to_string(),
+        )),
         Ok(_) => Ok(StatusCode::NO_CONTENT),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }

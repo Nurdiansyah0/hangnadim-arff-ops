@@ -1,6 +1,6 @@
 use crate::domain::models::User;
-use crate::service::auth_service::UserRepoTrait; 
-use bcrypt::{hash, DEFAULT_COST};
+use crate::service::auth_service::UserRepoTrait;
+use bcrypt::{DEFAULT_COST, hash};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -53,16 +53,28 @@ mod tests {
 
     #[async_trait]
     impl UserRepoTrait for MockUserRepo {
-        async fn find_by_username_or_email(&self, _i: &str) -> Result<Option<User>, sqlx::Error> { Ok(None) }
-        
+        async fn find_by_username_or_email(&self, _i: &str) -> Result<Option<User>, sqlx::Error> {
+            Ok(None)
+        }
+
         async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             // Simulasi kembalikan 1 user kosong
             Ok(vec![])
         }
 
-        async fn create_user(&self, pid: Uuid, u: &str, e: &str, p: &str) -> Result<User, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+        async fn create_user(
+            &self,
+            pid: Uuid,
+            u: &str,
+            e: &str,
+            p: &str,
+        ) -> Result<User, sqlx::Error> {
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(User {
                 id: Uuid::new_v4(),
                 personnel_id: pid,
@@ -80,12 +92,19 @@ mod tests {
         }
 
         async fn delete_user(&self, _id: Uuid) -> Result<(), sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(())
         }
 
-        async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::RowNotFound); }
+        async fn get_user_profile(
+            &self,
+            id: Uuid,
+        ) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
+            if self.should_fail {
+                return Err(sqlx::Error::RowNotFound);
+            }
             Ok(Some(crate::domain::models::UserProfile {
                 id,
                 username: "testuser".to_string(),
@@ -108,7 +127,10 @@ mod tests {
             Ok(vec![])
         }
 
-        async fn get_full_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
+        async fn get_full_profile(
+            &self,
+            id: Uuid,
+        ) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
             Ok(Some(crate::domain::models::FullProfileResponse {
                 personal: crate::domain::models::User {
                     id,
@@ -130,7 +152,10 @@ mod tests {
             }))
         }
 
-        async fn get_operational_context(&self, _id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
+        async fn get_operational_context(
+            &self,
+            _id: Uuid,
+        ) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
             Ok(crate::domain::models::OperationalContextResponse {
                 shift_id: Some(1),
                 shift_name: Some("Normal".to_string()),
@@ -143,7 +168,12 @@ mod tests {
             })
         }
 
-        async fn update_user_profile(&self, _pid: Uuid, _phone: Option<String>, _email: Option<String>) -> Result<(), sqlx::Error> {
+        async fn update_user_profile(
+            &self,
+            _pid: Uuid,
+            _phone: Option<String>,
+            _email: Option<String>,
+        ) -> Result<(), sqlx::Error> {
             Ok(())
         }
 
@@ -160,8 +190,10 @@ mod tests {
     async fn test_create_user_success() {
         let repo = Arc::new(MockUserRepo { should_fail: false });
         let service = UserService::new(repo);
-        
-        let res = service.create_user(Uuid::new_v4(), "operator", "ops@mail.com", "pass123").await;
+
+        let res = service
+            .create_user(Uuid::new_v4(), "operator", "ops@mail.com", "pass123")
+            .await;
         assert!(res.is_ok(), "Harus berhasil membuat user baru");
     }
 
@@ -169,8 +201,10 @@ mod tests {
     async fn test_create_user_db_error() {
         let repo = Arc::new(MockUserRepo { should_fail: true });
         let service = UserService::new(repo);
-        
-        let res = service.create_user(Uuid::new_v4(), "operator", "ops@mail.com", "pass123").await;
+
+        let res = service
+            .create_user(Uuid::new_v4(), "operator", "ops@mail.com", "pass123")
+            .await;
         assert!(res.is_err(), "Harus gagal jika database error/timeout");
     }
 
@@ -178,8 +212,11 @@ mod tests {
     async fn test_get_all_users_success() {
         let repo = Arc::new(MockUserRepo { should_fail: false });
         let service = UserService::new(repo);
-        
+
         let res = service.get_all_users().await;
-        assert!(res.is_ok(), "Harus berhasil mengambil data seluruh list users");
+        assert!(
+            res.is_ok(),
+            "Harus berhasil mengambil data seluruh list users"
+        );
     }
 }

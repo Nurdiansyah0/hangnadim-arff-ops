@@ -14,12 +14,16 @@ pub struct LettreEmailService;
 impl EmailService for LettreEmailService {
     async fn send_report(&self, to: &str, subject: &str, body: &str) -> Result<(), String> {
         let smtp_server = env::var("SMTP_SERVER").unwrap_or_else(|_| "smtp.gmail.com".to_string());
-        let smtp_username = env::var("SMTP_USERNAME").map_err(|_| "SMTP_USERNAME not set".to_string())?;
-        let smtp_password = env::var("SMTP_PASSWORD").map_err(|_| "SMTP_PASSWORD not set".to_string())?;
+        let smtp_username =
+            env::var("SMTP_USERNAME").map_err(|_| "SMTP_USERNAME not set".to_string())?;
+        let smtp_password =
+            env::var("SMTP_PASSWORD").map_err(|_| "SMTP_PASSWORD not set".to_string())?;
 
         let email = Message::builder()
             .from("HAIS ARFF <system@hais.id>".parse().unwrap())
-            .to(to.parse().map_err(|_| "Invalid recipient email".to_string())?)
+            .to(to
+                .parse()
+                .map_err(|_| "Invalid recipient email".to_string())?)
             .subject(subject)
             .body(body.to_string())
             .map_err(|e| e.to_string())?;

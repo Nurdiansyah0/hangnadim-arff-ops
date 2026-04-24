@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS (\n                SELECT 1 FROM leave_requests \n                WHERE personnel_id = $1 \n                AND $2 BETWEEN start_date AND end_date \n                AND status::TEXT = 'APPROVED'\n            )\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b3c0f2264b69d1673b908d927e5f040310d6d787f804a06ca2b80e7c7a894a00"
+}

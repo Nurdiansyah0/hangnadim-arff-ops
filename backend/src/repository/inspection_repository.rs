@@ -1,6 +1,6 @@
 use crate::domain::models::{Inspection, InspectionResult, InspectionTemplate, TemplateItem};
 use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error};
+use sqlx::{Error, Pool, Postgres};
 use uuid::Uuid;
 
 pub struct InspectionResultCreate {
@@ -10,21 +10,31 @@ pub struct InspectionResultCreate {
     pub photo_url: Option<String>,
 }
 
+pub struct CreateInspectionParams<'a> {
+    pub vehicle_id: Option<Uuid>,
+    pub fire_extinguisher_id: Option<Uuid>,
+    pub personnel_id: Option<Uuid>,
+    pub tanggal: chrono::NaiveDate,
+    pub status: &'a str,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub results: Vec<InspectionResultCreate>,
+}
+
 #[async_trait]
 pub trait InspectionRepoTrait: Send + Sync {
-    async fn get_all_inspections(&self, personnel_id: Option<Uuid>) -> Result<Vec<Inspection>, Error>;
+    async fn get_all_inspections(
+        &self,
+        personnel_id: Option<Uuid>,
+    ) -> Result<Vec<Inspection>, Error>;
     async fn get_inspection_by_id(&self, id: Uuid) -> Result<Inspection, Error>;
-    async fn get_inspection_results(&self, inspection_id: Uuid) -> Result<Vec<InspectionResult>, Error>;
+    async fn get_inspection_results(
+        &self,
+        inspection_id: Uuid,
+    ) -> Result<Vec<InspectionResult>, Error>;
     async fn create_inspection_with_results(
         &self,
-        vehicle_id: Option<Uuid>,
-        fire_extinguisher_id: Option<Uuid>,
-        personnel_id: Option<Uuid>,
-        tanggal: chrono::NaiveDate,
-        status: &str,
-        latitude: Option<f64>,
-        longitude: Option<f64>,
-        results: Vec<InspectionResultCreate>,
+        params: CreateInspectionParams<'_>,
     ) -> Result<Inspection, Error>;
     async fn get_all_templates(&self) -> Result<Vec<InspectionTemplate>, Error>;
     async fn create_template(
@@ -56,8 +66,12 @@ impl InspectionRepository {
 
 #[async_trait]
 impl InspectionRepoTrait for InspectionRepository {
-    async fn get_all_inspections(&self, personnel_id: Option<Uuid>) -> Result<Vec<Inspection>, Error> {
-        let mut query = String::from(r#"
+    async fn get_all_inspections(
+        &self,
+        personnel_id: Option<Uuid>,
+    ) -> Result<Vec<Inspection>, Error> {
+        let mut query = String::from(
+            r#"
             SELECT 
                 i.*, 
                 i.status::TEXT as status,
@@ -68,7 +82,8 @@ impl InspectionRepoTrait for InspectionRepository {
             LEFT JOIN personnels p ON p.id = i.personnel_id
             LEFT JOIN vehicles v ON v.id = i.vehicle_id
             LEFT JOIN fire_extinguishers fe ON fe.id = i.fire_extinguisher_id
-        "#);
+        "#,
+        );
 
         if personnel_id.is_some() {
             query.push_str(" WHERE i.personnel_id = $1 ");
@@ -98,14 +113,17 @@ impl InspectionRepoTrait for InspectionRepository {
             LEFT JOIN vehicles v ON v.id = i.vehicle_id
             LEFT JOIN fire_extinguishers fe ON fe.id = i.fire_extinguisher_id
             WHERE i.id = $1
-            "#
+            "#,
         )
         .bind(id)
         .fetch_one(&self.db)
         .await
     }
 
-    async fn get_inspection_results(&self, inspection_id: Uuid) -> Result<Vec<InspectionResult>, Error> {
+    async fn get_inspection_results(
+        &self,
+        inspection_id: Uuid,
+    ) -> Result<Vec<InspectionResult>, Error> {
         sqlx::query_as::<_, InspectionResult>(
             r#"
             SELECT 
@@ -117,7 +135,7 @@ impl InspectionRepoTrait for InspectionRepository {
             LEFT JOIN template_items ti ON ti.id = ir.template_item_id
             WHERE ir.inspection_id = $1 
             ORDER BY ti.item_order, ir.template_item_id
-            "#
+            "#,
         )
         .bind(inspection_id)
         .fetch_all(&self.db)
@@ -126,14 +144,7 @@ impl InspectionRepoTrait for InspectionRepository {
 
     async fn create_inspection_with_results(
         &self,
-        vehicle_id: Option<Uuid>,
-        fire_extinguisher_id: Option<Uuid>,
-        personnel_id: Option<Uuid>,
-        tanggal: chrono::NaiveDate,
-        status: &str,
-        latitude: Option<f64>,
-        longitude: Option<f64>,
-        results: Vec<InspectionResultCreate>,
+        params: CreateInspectionParams<'_>,
     ) -> Result<Inspection, Error> {
         let mut tx = self.db.begin().await?;
 
@@ -145,23 +156,23 @@ impl InspectionRepoTrait for InspectionRepository {
             RETURNING id, vehicle_id, fire_extinguisher_id, personnel_id, tanggal, status::TEXT, latitude, longitude, approved_by, approved_at, updated_at, created_at
             "#
         )
-        .bind(vehicle_id)
-        .bind(fire_extinguisher_id)
-        .bind(personnel_id)
-        .bind(tanggal)
-        .bind(status)
-        .bind(latitude)
-        .bind(longitude)
+        .bind(params.vehicle_id)
+        .bind(params.fire_extinguisher_id)
+        .bind(params.personnel_id)
+        .bind(params.tanggal)
+        .bind(params.status)
+        .bind(params.latitude)
+        .bind(params.longitude)
         .fetch_one(&mut *tx)
         .await?;
 
         // Insert results
-        for result in results {
+        for result in params.results {
             sqlx::query(
                 "INSERT INTO inspection_results (inspection_id, inspection_date, template_item_id, result, notes, photo_url) VALUES ($1, $2, $3, $4::inspection_result_enum, $5, $6)"
             )
             .bind(inspection.id)
-            .bind(tanggal)
+            .bind(params.tanggal)
             .bind(result.template_item_id)
             .bind(result.result)
             .bind(result.notes)
@@ -177,7 +188,7 @@ impl InspectionRepoTrait for InspectionRepository {
 
     async fn get_all_templates(&self) -> Result<Vec<InspectionTemplate>, Error> {
         sqlx::query_as::<_, InspectionTemplate>(
-            "SELECT id, name, target_type, frequency FROM inspection_templates ORDER BY name"
+            "SELECT id, name, target_type, frequency FROM inspection_templates ORDER BY name",
         )
         .fetch_all(&self.db)
         .await

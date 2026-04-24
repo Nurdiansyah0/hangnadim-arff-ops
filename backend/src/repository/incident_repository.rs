@@ -1,6 +1,6 @@
 use crate::domain::models::Incident;
 use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error};
+use sqlx::{Error, Pool, Postgres};
 use uuid::Uuid;
 
 #[async_trait]
@@ -54,7 +54,7 @@ impl IncidentRepoTrait for IncidentRepository {
             VALUES ($1, $2, $3, NOW(), COALESCE($4, 'LOW')::severity_enum, $5)
             RETURNING id, commander_id, description, location, dispatch_time, arrival_time, resolved_at, severity::TEXT, photo_url
         "#;
-        
+
         sqlx::query_as::<_, Incident>(query)
             .bind(commander_id)
             .bind(description)

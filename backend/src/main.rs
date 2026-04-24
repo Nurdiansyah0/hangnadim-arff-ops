@@ -12,72 +12,72 @@ use std::env;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 
-use handler::auth_handler::auth_routes;
-use handler::user_handler::users_routes;
-use handler::personel_handler::personnel_routes;
-use handler::shift_handler::shift_routes;
-use handler::vehicle_handler::vehicle_routes;
-use handler::fire_extinguisher_handler::fire_extinguisher_routes;
-use handler::inspection_handler::inspection_routes;
-use handler::watchroom_handler::watchroom_routes;
-use handler::approval_handler::approval_routes;
-use handler::flight_handler::flight_routes;
 use handler::analytics_handler::analytics_routes;
+use handler::approval_handler::approval_routes;
+use handler::auth_handler::auth_routes;
 use handler::certification_handler::certification_routes;
 use handler::compliance_handler::compliance_routes;
-use handler::incident_handler::incident_routes;
-use handler::leave_handler::leave_routes;
-use handler::media_handler::media_routes;
 use handler::email_handler::email_routes;
-use handler::maintenance_handler::maintenance_routes;
+use handler::fire_extinguisher_handler::fire_extinguisher_routes;
 use handler::fitness_handler::fitness_routes;
-use handler::roster_handler::roster_routes;
-use handler::task_handler::task_routes;
-use handler::performance_handler::performance_routes;
+use handler::flight_handler::flight_routes;
+use handler::incident_handler::incident_routes;
+use handler::inspection_handler::inspection_routes;
+use handler::leave_handler::leave_routes;
+use handler::maintenance_handler::maintenance_routes;
+use handler::media_handler::media_routes;
 use handler::operation_handler::operation_routes;
+use handler::performance_handler::performance_routes;
+use handler::personel_handler::personnel_routes;
+use handler::roster_handler::roster_routes;
+use handler::shift_handler::shift_routes;
+use handler::task_handler::task_routes;
+use handler::user_handler::users_routes;
+use handler::vehicle_handler::vehicle_routes;
+use handler::watchroom_handler::watchroom_routes;
 
-use repository::user_repository::UserRepository;
-use repository::personnel_repository::PersonnelRepository;
-use repository::shift_repository::ShiftRepository;
-use repository::vehicle_repository::VehicleRepository;
-use repository::fire_extinguisher_repository::FireExtinguisherRepository;
-use repository::inspection_repository::InspectionRepository;
-use repository::watchroom_repository::WatchroomRepository;
-use repository::approval_repository::ApprovalRepository;
-use repository::flight_repository::FlightRepository;
 use repository::analytics_repository::AnalyticsRepository;
+use repository::approval_repository::ApprovalRepository;
+use repository::audit_repository::AuditRepository;
 use repository::certification_repository::CertificationRepository;
 use repository::compliance_repository::ComplianceRepository;
+use repository::fire_extinguisher_repository::FireExtinguisherRepository;
+use repository::fitness_repository::PostgresFitnessRepository;
+use repository::flight_repository::FlightRepository;
 use repository::incident_repository::IncidentRepository;
+use repository::inspection_repository::InspectionRepository;
 use repository::leave_repository::LeaveRepository;
 use repository::maintenance_repository::PostgresMaintenanceRepository;
-use repository::fitness_repository::PostgresFitnessRepository;
-use repository::audit_repository::AuditRepository;
-use repository::roster_repository::RosterRepository;
-use repository::task_repository::TaskRepository;
 use repository::performance_repository::PerformanceRepository;
+use repository::personnel_repository::PersonnelRepository;
+use repository::roster_repository::RosterRepository;
+use repository::shift_repository::ShiftRepository;
+use repository::task_repository::TaskRepository;
+use repository::user_repository::UserRepository;
+use repository::vehicle_repository::VehicleRepository;
+use repository::watchroom_repository::WatchroomRepository;
 
-use service::auth_service::AuthService;
-use service::user_service::UserService;
-use service::personnel_service::PersonnelService;
-use service::shift_service::ShiftService;
-use service::vehicle_service::VehicleService;
-use service::fire_extinguisher_service::FireExtinguisherService;
-use service::inspection_service::InspectionService;
-use service::watchroom_service::WatchroomService;
-use service::approval_service::ApprovalService;
-use service::flight_service::FlightService;
 use service::analytics_service::AnalyticsService;
+use service::approval_service::ApprovalService;
+use service::auth_service::AuthService;
 use service::certification_service::CertificationService;
 use service::compliance_service::ComplianceService;
+use service::email_service::LettreEmailService;
+use service::fire_extinguisher_service::FireExtinguisherService;
+use service::fitness_service::FitnessService;
+use service::flight_service::FlightService;
 use service::incident_service::IncidentService;
+use service::inspection_service::InspectionService;
 use service::leave_service::LeaveService;
 use service::maintenance_service::MaintenanceService;
-use service::fitness_service::FitnessService;
-use service::roster_service::RosterService;
-use service::task_service::TaskService;
-use service::email_service::LettreEmailService;
 use service::performance_service::PerformanceService;
+use service::personnel_service::PersonnelService;
+use service::roster_service::RosterService;
+use service::shift_service::ShiftService;
+use service::task_service::TaskService;
+use service::user_service::UserService;
+use service::vehicle_service::VehicleService;
+use service::watchroom_service::WatchroomService;
 use state::AppState;
 
 pub async fn create_app_state(pool: sqlx::PgPool) -> AppState {
@@ -142,7 +142,10 @@ pub fn app_router(app_state: AppState) -> Router {
         .nest("/personnel", personnel_routes(app_state.clone()))
         .nest("/shifts", shift_routes(app_state.clone()))
         .nest("/vehicles", vehicle_routes(app_state.clone()))
-        .nest("/fire-extinguishers", fire_extinguisher_routes(app_state.clone()))
+        .nest(
+            "/fire-extinguishers",
+            fire_extinguisher_routes(app_state.clone()),
+        )
         .nest("/inspections", inspection_routes(app_state.clone()))
         .nest("/watchroom", watchroom_routes(app_state.clone()))
         .nest("/approvals", approval_routes(app_state.clone()))
@@ -159,10 +162,19 @@ pub fn app_router(app_state: AppState) -> Router {
         .nest("/roster", roster_routes(app_state.clone()))
         .nest("/tasks", task_routes(app_state.clone()))
         .nest("/performance", performance_routes(app_state.clone()))
-        .nest("/squad", handler::squad_handler::squad_routes(app_state.clone()))
-        .nest("/profile", handler::profile_handler::profile_routes(app_state.clone()))
+        .nest(
+            "/squad",
+            handler::squad_handler::squad_routes(app_state.clone()),
+        )
+        .nest(
+            "/profile",
+            handler::profile_handler::profile_routes(app_state.clone()),
+        )
         .nest("/operation", operation_routes(app_state.clone()))
-        .nest("/admin/audit-logs", handler::audit_handler::audit_routes(app_state.clone()));
+        .nest(
+            "/admin/audit-logs",
+            handler::audit_handler::audit_routes(app_state.clone()),
+        );
 
     Router::new()
         .nest("/api", api_routes)
@@ -190,7 +202,7 @@ async fn main() {
     println!("Running SQL migrations...");
 
     let app_state = create_app_state(pool).await;
-    
+
     // Start the Background Roster Scheduler
     let state_for_scheduler = app_state.clone();
     tokio::spawn(async move {
@@ -216,13 +228,21 @@ async fn spawn_roster_scheduler(state: AppState) {
 
         if tomorrow.month() == now.month() && day_after_tomorrow.month() != now.month() {
             let next_month_date = day_after_tomorrow;
-            println!("Roster Scheduler: Triggering generation for next month: {:02}/{}", next_month_date.month(), next_month_date.year());
-            
-            match state.roster_service.generate_monthly_roster(next_month_date.month(), next_month_date.year()).await {
+            println!(
+                "Roster Scheduler: Triggering generation for next month: {:02}/{}",
+                next_month_date.month(),
+                next_month_date.year()
+            );
+
+            match state
+                .roster_service
+                .generate_monthly_roster(next_month_date.month(), next_month_date.year())
+                .await
+            {
                 Ok(_) => println!("Roster Scheduler: Successfully generated next month roster."),
                 Err(e) => eprintln!("Roster Scheduler Error: {}", e),
             }
-            
+
             tokio::time::sleep(tokio::time::Duration::from_secs(86400)).await;
         } else {
             tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;

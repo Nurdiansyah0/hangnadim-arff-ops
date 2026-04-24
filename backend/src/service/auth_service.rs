@@ -1,10 +1,12 @@
-use crate::domain::models::{User, Claims, UserProfile, AuthContextResponse, FullProfileResponse, OperationalContextResponse};
+use crate::domain::models::{
+    AuthContextResponse, Claims, FullProfileResponse, OperationalContextResponse, User, UserProfile,
+};
 use crate::repository::user_repository::UserRepository;
+use async_trait::async_trait;
 use bcrypt::verify;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{EncodingKey, Header, encode};
 use std::env;
-use async_trait::async_trait;
 use uuid::Uuid;
 
 #[async_trait]
@@ -13,11 +15,25 @@ pub trait UserRepoTrait: Send + Sync {
     async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error>;
     async fn create_user(&self, pid: Uuid, u: &str, e: &str, p: &str) -> Result<User, sqlx::Error>;
     async fn delete_user(&self, id: Uuid) -> Result<(), sqlx::Error>;
-    async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error>;
+    async fn get_user_profile(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error>;
     async fn get_user_permissions(&self, user_id: Uuid) -> Result<Vec<String>, sqlx::Error>;
-    async fn get_full_profile(&self, user_id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error>;
-    async fn get_operational_context(&self, user_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error>;
-    async fn update_user_profile(&self, pid: Uuid, phone: Option<String>, email: Option<String>) -> Result<(), sqlx::Error>;
+    async fn get_full_profile(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error>;
+    async fn get_operational_context(
+        &self,
+        user_id: Uuid,
+    ) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error>;
+    async fn update_user_profile(
+        &self,
+        pid: Uuid,
+        phone: Option<String>,
+        email: Option<String>,
+    ) -> Result<(), sqlx::Error>;
     async fn update_password(&self, uid: Uuid, hash: &str) -> Result<(), sqlx::Error>;
     async fn update_profile_picture(&self, pid: Uuid, url: &str) -> Result<(), sqlx::Error>;
 }
@@ -36,19 +52,33 @@ impl UserRepoTrait for UserRepository {
     async fn delete_user(&self, id: Uuid) -> Result<(), sqlx::Error> {
         self.delete_user(id).await
     }
-    async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
+    async fn get_user_profile(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
         self.get_user_profile(id).await
     }
     async fn get_user_permissions(&self, user_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
         self.get_user_permissions(user_id).await
     }
-    async fn get_full_profile(&self, user_id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
+    async fn get_full_profile(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
         self.get_full_profile(user_id).await
     }
-    async fn get_operational_context(&self, user_id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
+    async fn get_operational_context(
+        &self,
+        user_id: Uuid,
+    ) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
         self.get_operational_context(user_id).await
     }
-    async fn update_user_profile(&self, pid: Uuid, phone: Option<String>, email: Option<String>) -> Result<(), sqlx::Error> {
+    async fn update_user_profile(
+        &self,
+        pid: Uuid,
+        phone: Option<String>,
+        email: Option<String>,
+    ) -> Result<(), sqlx::Error> {
         self.update_user_profile(pid, phone, email).await
     }
     async fn update_password(&self, uid: Uuid, hash: &str) -> Result<(), sqlx::Error> {
@@ -58,7 +88,7 @@ impl UserRepoTrait for UserRepository {
         self.update_profile_picture(pid, url).await
     }
 }
-#[derive(Clone)] 
+#[derive(Clone)]
 pub struct AuthService {
     pub repo: std::sync::Arc<dyn UserRepoTrait>,
 }
@@ -69,7 +99,10 @@ impl AuthService {
     }
 
     pub async fn login(&self, ident: &str, password: &str) -> Result<String, String> {
-        let user = self.repo.find_by_username_or_email(ident).await
+        let user = self
+            .repo
+            .find_by_username_or_email(ident)
+            .await
             .map_err(|e| format!("DB Error: {}", e))?
             .ok_or_else(|| "Username/email salah".to_string())?;
 
@@ -80,10 +113,15 @@ impl AuthService {
 
         // 2. Verifikasi Password
         let valid = verify(password, &user.password_hash).unwrap_or(false);
-        if !valid { return Err("Password salah".to_string()); }
+        if !valid {
+            return Err("Password salah".to_string());
+        }
 
         let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
-        let expiration = Utc::now().checked_add_signed(Duration::hours(24)).unwrap().timestamp() as usize;
+        let expiration = Utc::now()
+            .checked_add_signed(Duration::hours(24))
+            .unwrap()
+            .timestamp() as usize;
 
         let claims = Claims {
             sub: user.id.to_string(),
@@ -92,18 +130,27 @@ impl AuthService {
             exp: expiration,
         };
 
-        encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_ref()))
-            .map_err(|e| format!("Token error: {}", e))
+        encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(secret.as_ref()),
+        )
+        .map_err(|e| format!("Token error: {}", e))
     }
 
     pub async fn get_user_profile(&self, id: Uuid) -> Result<UserProfile, String> {
-        self.repo.get_user_profile(id).await
+        self.repo
+            .get_user_profile(id)
+            .await
             .map_err(|e| format!("DB Error: {}", e))?
             .ok_or_else(|| "User profile tidak ditemukan".to_string())
     }
 
     pub async fn get_auth_context(&self, user_id: Uuid) -> Result<AuthContextResponse, String> {
-        let profile = self.repo.get_user_profile(user_id).await
+        let profile = self
+            .repo
+            .get_user_profile(user_id)
+            .await
             .map_err(|e| {
                 let err = format!("DB Error: {}", e);
                 eprintln!("❌ AUTH SERVICE ERROR: {}", err);
@@ -115,7 +162,10 @@ impl AuthService {
                 err
             })?;
 
-        let permissions = self.repo.get_user_permissions(user_id).await
+        let permissions = self
+            .repo
+            .get_user_permissions(user_id)
+            .await
             .map_err(|e| format!("DB Error: {}", e))?;
 
         Ok(AuthContextResponse {
@@ -137,40 +187,78 @@ impl AuthService {
     }
 
     pub async fn get_full_profile(&self, user_id: Uuid) -> Result<FullProfileResponse, String> {
-        self.repo.get_full_profile(user_id).await
+        self.repo
+            .get_full_profile(user_id)
+            .await
             .map_err(|e| format!("DB Error: {}", e))?
             .ok_or_else(|| "User profile lengkap tidak ditemukan".to_string())
     }
 
-    pub async fn get_operational_context(&self, user_id: Uuid) -> Result<OperationalContextResponse, String> {
+    pub async fn get_operational_context(
+        &self,
+        user_id: Uuid,
+    ) -> Result<OperationalContextResponse, String> {
         self.repo
             .get_operational_context(user_id)
             .await
             .map_err(|e| e.to_string())
     }
 
-    pub async fn update_user_profile(&self, personnel_id: Uuid, phone: Option<String>, email: Option<String>) -> Result<(), String> {
-        self.repo.update_user_profile(personnel_id, phone, email).await
+    pub async fn update_user_profile(
+        &self,
+        personnel_id: Uuid,
+        phone: Option<String>,
+        email: Option<String>,
+    ) -> Result<(), String> {
+        self.repo
+            .update_user_profile(personnel_id, phone, email)
+            .await
             .map_err(|e| format!("Gagal membarui profil: {}", e))
     }
 
-    pub async fn change_password(&self, user_id: Uuid, current: &str, new_pass: &str) -> Result<(), String> {
+    pub async fn change_password(
+        &self,
+        user_id: Uuid,
+        current: &str,
+        new_pass: &str,
+    ) -> Result<(), String> {
         // We first need the current pass to verify.
-        let user = self.repo.get_user_profile(user_id).await.map_err(|e| e.to_string())?.ok_or_else(|| "User not found".to_string())?;
+        let user = self
+            .repo
+            .get_user_profile(user_id)
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "User not found".to_string())?;
         // But get_user_profile doesn't return hash! We need to find_by_username_or_email to get the hash.
-        let full_user = self.repo.find_by_username_or_email(&user.username).await.map_err(|e| e.to_string())?.ok_or("User not found")?;
-        
+        let full_user = self
+            .repo
+            .find_by_username_or_email(&user.username)
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or("User not found")?;
+
         let valid = verify(current, &full_user.password_hash).unwrap_or(false);
         if !valid {
             return Err("Password lama tidak sesuai".to_string());
         }
 
-        let new_hashed = bcrypt::hash(new_pass, 12).map_err(|_| "Gagal hash password".to_string())?;
-        self.repo.update_password(user_id, &new_hashed).await.map_err(|e| e.to_string())
+        let new_hashed =
+            bcrypt::hash(new_pass, 12).map_err(|_| "Gagal hash password".to_string())?;
+        self.repo
+            .update_password(user_id, &new_hashed)
+            .await
+            .map_err(|e| e.to_string())
     }
 
-    pub async fn update_profile_picture(&self, personnel_id: Uuid, url: &str) -> Result<(), String> {
-        self.repo.update_profile_picture(personnel_id, url).await.map_err(|e| e.to_string())
+    pub async fn update_profile_picture(
+        &self,
+        personnel_id: Uuid,
+        url: &str,
+    ) -> Result<(), String> {
+        self.repo
+            .update_profile_picture(personnel_id, url)
+            .await
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -189,14 +277,22 @@ mod tests {
 
     #[async_trait]
     impl UserRepoTrait for MockUserRepo {
-        async fn find_by_username_or_email(&self, _ident: &str) -> Result<Option<User>, sqlx::Error> {
+        async fn find_by_username_or_email(
+            &self,
+            _ident: &str,
+        ) -> Result<Option<User>, sqlx::Error> {
             if self.simulation_error {
                 return Err(sqlx::Error::PoolTimedOut);
             }
             Ok(self.user_to_return.clone())
         }
-        async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error> { Ok(vec![]) }
-        async fn get_full_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
+        async fn get_all_users(&self) -> Result<Vec<User>, sqlx::Error> {
+            Ok(vec![])
+        }
+        async fn get_full_profile(
+            &self,
+            id: Uuid,
+        ) -> Result<Option<crate::domain::models::FullProfileResponse>, sqlx::Error> {
             Ok(Some(crate::domain::models::FullProfileResponse {
                 personal: crate::domain::models::User {
                     id,
@@ -222,7 +318,10 @@ mod tests {
             Ok(())
         }
 
-        async fn get_user_profile(&self, id: Uuid) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
+        async fn get_user_profile(
+            &self,
+            id: Uuid,
+        ) -> Result<Option<crate::domain::models::UserProfile>, sqlx::Error> {
             Ok(Some(crate::domain::models::UserProfile {
                 id,
                 username: "tester".to_string(),
@@ -241,7 +340,13 @@ mod tests {
             }))
         }
 
-        async fn create_user(&self, _pid: Uuid, _u: &str, _e: &str, _p: &str) -> Result<User, sqlx::Error> {
+        async fn create_user(
+            &self,
+            _pid: Uuid,
+            _u: &str,
+            _e: &str,
+            _p: &str,
+        ) -> Result<User, sqlx::Error> {
             Err(sqlx::Error::RowNotFound)
         }
 
@@ -249,7 +354,10 @@ mod tests {
             Ok(vec!["p1".to_string(), "p2".to_string()])
         }
 
-        async fn get_operational_context(&self, _id: Uuid) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
+        async fn get_operational_context(
+            &self,
+            _id: Uuid,
+        ) -> Result<crate::domain::models::OperationalContextResponse, sqlx::Error> {
             Ok(crate::domain::models::OperationalContextResponse {
                 shift_id: Some(1),
                 shift_name: Some("Normal".to_string()),
@@ -261,22 +369,31 @@ mod tests {
                 duty_status: "ACTIVE".to_string(),
             })
         }
-        
-        async fn update_user_profile(&self, _pid: Uuid, _phone: Option<String>, _email: Option<String>) -> Result<(), sqlx::Error> {
+
+        async fn update_user_profile(
+            &self,
+            _pid: Uuid,
+            _phone: Option<String>,
+            _email: Option<String>,
+        ) -> Result<(), sqlx::Error> {
             Ok(())
         }
-        
+
         async fn update_password(&self, _uid: Uuid, _hash: &str) -> Result<(), sqlx::Error> {
             Ok(())
         }
-        
+
         async fn update_profile_picture(&self, _pid: Uuid, _url: &str) -> Result<(), sqlx::Error> {
             Ok(())
         }
     }
 
     // Helper untuk membuat user tiruan
-    fn create_mock_user(hashed_pass: &str, personnel_id: Option<Uuid>, role_id: Option<i32>) -> User {
+    fn create_mock_user(
+        hashed_pass: &str,
+        personnel_id: Option<Uuid>,
+        role_id: Option<i32>,
+    ) -> User {
         User {
             id: Uuid::new_v4(),
             personnel_id: personnel_id.unwrap_or_else(Uuid::new_v4),
@@ -300,18 +417,25 @@ mod tests {
     #[tokio::test]
     async fn test_login_success_with_complete_rbac() {
         let hashed = bcrypt::hash("password123", 4).unwrap();
-        let mock_repo = std::sync::Arc::new(MockUserRepo { 
+        let mock_repo = std::sync::Arc::new(MockUserRepo {
             user_to_return: Some(create_mock_user(&hashed, Some(Uuid::new_v4()), Some(1))), // Admin
-            simulation_error: false
+            simulation_error: false,
         });
         let service = AuthService::new(mock_repo);
-        
+
         let result = service.login("tester", "password123").await;
-        assert!(result.is_ok(), "Harus berhasil login dan mendapatkan JWT token.");
-        
+        assert!(
+            result.is_ok(),
+            "Harus berhasil login dan mendapatkan JWT token."
+        );
+
         // Memastikan output adalah string token (JWT format: xxxx.yyyy.zzzz)
         let token = result.unwrap();
-        assert_eq!(token.split('.').count(), 3, "Token harus memiliki 3 bagian (Header, Payload, Signature)");
+        assert_eq!(
+            token.split('.').count(),
+            3,
+            "Token harus memiliki 3 bagian (Header, Payload, Signature)"
+        );
     }
 
     // ---------------------------------------------------------------------------
@@ -321,38 +445,50 @@ mod tests {
     #[tokio::test]
     async fn test_login_wrong_password() {
         let hashed = bcrypt::hash("password123", 4).unwrap();
-        let mock_repo = std::sync::Arc::new(MockUserRepo { 
+        let mock_repo = std::sync::Arc::new(MockUserRepo {
             user_to_return: Some(create_mock_user(&hashed, Some(Uuid::new_v4()), Some(1))),
-            simulation_error: false
+            simulation_error: false,
         });
         let service = AuthService::new(mock_repo);
-        
+
         let result = service.login("tester", "salah_pass").await;
-        assert_eq!(result.err(), Some("Password salah".to_string()), "Harus menolak password yang salah.");
+        assert_eq!(
+            result.err(),
+            Some("Password salah".to_string()),
+            "Harus menolak password yang salah."
+        );
     }
 
     #[tokio::test]
     async fn test_login_user_not_found() {
-        let mock_repo = std::sync::Arc::new(MockUserRepo { 
+        let mock_repo = std::sync::Arc::new(MockUserRepo {
             user_to_return: None,
-            simulation_error: false
+            simulation_error: false,
         });
         let service = AuthService::new(mock_repo);
-        
+
         let result = service.login("ghost_user", "password123").await;
-        assert_eq!(result.err(), Some("Username/email salah".to_string()), "Harus menolak user yang tidak terdaftar di database.");
+        assert_eq!(
+            result.err(),
+            Some("Username/email salah".to_string()),
+            "Harus menolak user yang tidak terdaftar di database."
+        );
     }
 
     #[tokio::test]
     async fn test_login_empty_credentials() {
-        let mock_repo = std::sync::Arc::new(MockUserRepo { 
+        let mock_repo = std::sync::Arc::new(MockUserRepo {
             user_to_return: None,
-            simulation_error: false
+            simulation_error: false,
         });
         let service = AuthService::new(mock_repo);
-        
+
         let result = service.login("", "").await;
-        assert_eq!(result.err(), Some("Username/email salah".to_string()), "Input kosong harus diperlakukan sebagai user tidak ditemukan/salah input.");
+        assert_eq!(
+            result.err(),
+            Some("Username/email salah".to_string()),
+            "Input kosong harus diperlakukan sebagai user tidak ditemukan/salah input."
+        );
     }
 
     // ---------------------------------------------------------------------------
@@ -363,29 +499,35 @@ mod tests {
     async fn test_login_user_without_personnel_id() {
         let hashed = bcrypt::hash("password123", 4).unwrap();
         // Skenario: User terdaftar tapi belum dikaitkan ke data Personnel HR
-        let mock_repo = std::sync::Arc::new(MockUserRepo { 
-            user_to_return: Some(create_mock_user(&hashed, None, Some(1))), 
-            simulation_error: false
+        let mock_repo = std::sync::Arc::new(MockUserRepo {
+            user_to_return: Some(create_mock_user(&hashed, None, Some(1))),
+            simulation_error: false,
         });
         let service = AuthService::new(mock_repo);
-        
+
         let result = service.login("tester", "password123").await;
-        assert!(result.is_ok(), "Harus tetap bisa mendapatkan token meskipun tidak memiliki personnel_id.");
+        assert!(
+            result.is_ok(),
+            "Harus tetap bisa mendapatkan token meskipun tidak memiliki personnel_id."
+        );
     }
 
     #[tokio::test]
     async fn test_login_user_without_role() {
         let hashed = bcrypt::hash("password123", 4).unwrap();
         // Skenario: User dan Personnel ada, tapi Role ID nya None (belum di-assign RBAC)
-        let mock_repo = std::sync::Arc::new(MockUserRepo { 
-            user_to_return: Some(create_mock_user(&hashed, Some(Uuid::new_v4()), None)), 
-            simulation_error: false
+        let mock_repo = std::sync::Arc::new(MockUserRepo {
+            user_to_return: Some(create_mock_user(&hashed, Some(Uuid::new_v4()), None)),
+            simulation_error: false,
         });
         let service = AuthService::new(mock_repo);
-        
+
         let result = service.login("tester", "password123").await;
         // Secara bisnis, login boleh berhasil namun API handler nanti yang akan mem-blokirnya saat validasi bearer token.
-        assert!(result.is_ok(), "User tanpa Role bisa login, tapi tidak bisa akses endpoint manapun nantinya.");
+        assert!(
+            result.is_ok(),
+            "User tanpa Role bisa login, tapi tidak bisa akses endpoint manapun nantinya."
+        );
     }
 
     // ---------------------------------------------------------------------------
@@ -395,14 +537,17 @@ mod tests {
     #[tokio::test]
     async fn test_login_database_timeout_or_error() {
         // Skenario: Koneksi ke PostgreSQL putus atau query error
-        let mock_repo = std::sync::Arc::new(MockUserRepo { 
+        let mock_repo = std::sync::Arc::new(MockUserRepo {
             user_to_return: None,
-            simulation_error: true 
+            simulation_error: true,
         });
         let service = AuthService::new(mock_repo);
-        
+
         let result = service.login("tester", "password123").await;
         let err_msg = result.unwrap_err();
-        assert!(err_msg.contains("DB Error"), "Harus memberikan pesan error database yang jelas, bukan panic abort.");
+        assert!(
+            err_msg.contains("DB Error"),
+            "Harus memberikan pesan error database yang jelas, bukan panic abort."
+        );
     }
 }

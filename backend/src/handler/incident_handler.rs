@@ -1,5 +1,10 @@
 use crate::{domain::models::Incident, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::{State, Path}, http::StatusCode, routing::{get, put}, Json, Router};
+use axum::{
+    Json, Router,
+    extract::{Path, State},
+    http::StatusCode,
+    routing::{get, put},
+};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -31,15 +36,19 @@ async fn list_incidents(
 
 async fn create_incident(
     State(state): State<AppState>,
-    RequireAuth(_): RequireAuth, 
+    RequireAuth(_): RequireAuth,
     Json(payload): Json<CreateIncidentPayload>,
 ) -> Result<Json<Incident>, (StatusCode, String)> {
-    match state.incident_service.create_incident(
-        &payload.description, 
-        payload.location.as_deref(), 
-        payload.severity.as_deref(),
-        payload.photo_url.as_deref()
-    ).await {
+    match state
+        .incident_service
+        .create_incident(
+            &payload.description,
+            payload.location.as_deref(),
+            payload.severity.as_deref(),
+            payload.photo_url.as_deref(),
+        )
+        .await
+    {
         Ok(data) => Ok(Json(data)),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),
     }

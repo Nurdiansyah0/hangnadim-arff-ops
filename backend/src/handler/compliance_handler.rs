@@ -1,5 +1,10 @@
 use crate::{handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::{State, Query}, http::StatusCode, routing::get, Json, Router};
+use axum::{
+    Json, Router,
+    extract::{Query, State},
+    http::StatusCode,
+    routing::get,
+};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -21,7 +26,10 @@ async fn list_audit_logs(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     // Audit logs hanya untuk Admin (1)
     if claims.role_id != Some(1) {
-        return Err((StatusCode::FORBIDDEN, "Hanya Administrator yang bisa melihat log audit".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Hanya Administrator yang bisa melihat log audit".to_string(),
+        ));
     }
 
     let limit = query.limit.unwrap_or(50);

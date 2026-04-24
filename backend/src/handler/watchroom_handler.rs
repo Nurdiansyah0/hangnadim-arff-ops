@@ -1,5 +1,5 @@
 use crate::{domain::models::WatchroomLog, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
+use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -33,13 +33,17 @@ async fn create_log(
     Json(payload): Json<CreateLogPayload>,
 ) -> Result<Json<WatchroomLog>, (StatusCode, String)> {
     // Watchroom Log biasanya bisa diisi oleh siapapun yang login (Petugas/TL/Admin)
-    match state.watchroom_service.create_log(
-        claims.personnel_id, 
-        payload.entry_type.as_deref(), 
-        &payload.description, 
-        payload.payload,
-        payload.photo_url.as_deref()
-    ).await {
+    match state
+        .watchroom_service
+        .create_log(
+            claims.personnel_id,
+            payload.entry_type.as_deref(),
+            &payload.description,
+            payload.payload,
+            payload.photo_url.as_deref(),
+        )
+        .await
+    {
         Ok(log) => Ok(Json(log)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }

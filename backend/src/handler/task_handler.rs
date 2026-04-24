@@ -1,8 +1,13 @@
-use axum::{extract::{State, Path, Query}, http::StatusCode, routing::{get, put, post}, Json, Router};
+use crate::{handler::middleware::RequireAuth, state::AppState};
+use axum::{
+    Json, Router,
+    extract::{Path, Query, State},
+    http::StatusCode,
+    routing::{get, post, put},
+};
+use chrono::NaiveDate;
 use serde::Deserialize;
 use uuid::Uuid;
-use chrono::NaiveDate;
-use crate::{state::AppState, handler::middleware::RequireAuth};
 
 #[derive(Deserialize)]
 pub struct DateQuery {
@@ -43,8 +48,13 @@ async fn get_my_tasks(
     RequireAuth(claims): RequireAuth,
     Query(params): Query<DateQuery>,
 ) -> Result<Json<Vec<crate::domain::models::DailyTaskView>>, (StatusCode, String)> {
-    let personnel_id = claims.personnel_id.ok_or((StatusCode::UNAUTHORIZED, "Missing personnel profile".to_string()))?;
-    let tasks = state.task_service.get_my_tasks(personnel_id, params.date)
+    let personnel_id = claims.personnel_id.ok_or((
+        StatusCode::UNAUTHORIZED,
+        "Missing personnel profile".to_string(),
+    ))?;
+    let tasks = state
+        .task_service
+        .get_my_tasks(personnel_id, params.date)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(tasks))
@@ -57,7 +67,9 @@ async fn submit_task(
     Path(id): Path<Uuid>,
     Json(payload): Json<SubmitTaskPayload>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    state.task_service.submit_task(id, payload.completed_notes)
+    state
+        .task_service
+        .submit_task(id, payload.completed_notes)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(StatusCode::OK)
@@ -69,7 +81,9 @@ async fn get_shift_pending_approval(
     RequireAuth(_): RequireAuth, // In reality, we might assert Role === TL here
     Query(params): Query<PendingApprovalQuery>,
 ) -> Result<Json<Vec<crate::domain::models::DailyTaskView>>, (StatusCode, String)> {
-    let tasks = state.task_service.get_shift_pending_approval(params.shift_id, params.date)
+    let tasks = state
+        .task_service
+        .get_shift_pending_approval(params.shift_id, params.date)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(tasks))
@@ -81,15 +95,15 @@ async fn approve_shift(
     RequireAuth(claims): RequireAuth,
     Json(payload): Json<ApproveShiftPayload>,
 ) -> Result<Json<crate::domain::models::ShiftReport>, (StatusCode, String)> {
-    let leader_id = claims.personnel_id.ok_or((StatusCode::UNAUTHORIZED, "Missing personnel profile".to_string()))?;
-    let report = state.task_service.approve_shift(
-        leader_id,
-        payload.shift_id,
-        payload.date,
-        payload.notes,
-    )
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    let leader_id = claims.personnel_id.ok_or((
+        StatusCode::UNAUTHORIZED,
+        "Missing personnel profile".to_string(),
+    ))?;
+    let report = state
+        .task_service
+        .approve_shift(leader_id, payload.shift_id, payload.date, payload.notes)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
     Ok(Json(report))
 }
@@ -100,7 +114,9 @@ async fn generate_today_tasks(
     RequireAuth(_): RequireAuth,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let today = chrono::Local::now().naive_local().date();
-    state.task_service.generate_tasks_for_date(today)
+    state
+        .task_service
+        .generate_tasks_for_date(today)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(StatusCode::OK)

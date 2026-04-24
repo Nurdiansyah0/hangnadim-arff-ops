@@ -1,6 +1,6 @@
 use crate::domain::models::PersonnelCertification;
 use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error};
+use sqlx::{Error, Pool, Postgres};
 
 #[async_trait]
 pub trait CertificationRepoTrait: Send + Sync {

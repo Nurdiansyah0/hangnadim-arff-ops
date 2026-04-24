@@ -1,8 +1,9 @@
 use crate::domain::models::Vehicle;
-use crate::repository::vehicle_repository::VehicleRepoTrait;
+use crate::repository::vehicle_repository::{
+    CreateVehicleParams, UpdateVehicleParams, VehicleRepoTrait,
+};
 use bigdecimal::BigDecimal;
 use std::sync::Arc;
-use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct VehicleService {
@@ -15,81 +16,46 @@ impl VehicleService {
     }
 
     pub async fn get_all_vehicles(&self) -> Result<Vec<Vehicle>, String> {
-        self.repo.get_all_vehicles().await.map_err(|e| e.to_string())
-    }
-
-    pub async fn create_vehicle(
-        &self,
-        code: &str,
-        name: &str,
-        vehicle_type: Option<&str>,
-        status: &str,
-        water_capacity_l: Option<&BigDecimal>,
-        foam_capacity_l: Option<&BigDecimal>,
-        powder_capacity_kg: Option<&BigDecimal>,
-        last_service_date: Option<&chrono::NaiveDate>,
-        next_service_due: Option<&chrono::NaiveDate>,
-    ) -> Result<Vehicle, String> {
-        // Validation: Capacities must be non-negative
-        if let Some(w) = water_capacity_l {
-            if w < &BigDecimal::from(0) { return Err("Water capacity cannot be negative".to_string()); }
-        }
-        if let Some(f) = foam_capacity_l {
-            if f < &BigDecimal::from(0) { return Err("Foam capacity cannot be negative".to_string()); }
-        }
-        if let Some(p) = powder_capacity_kg {
-            if p < &BigDecimal::from(0) { return Err("Powder capacity cannot be negative".to_string()); }
-        }
-
-        // Validation: Service dates
-        if let (Some(last), Some(next)) = (last_service_date, next_service_due) {
-            if next < last {
-                return Err("Next service due date cannot be before last service date".to_string());
-            }
-        }
-
         self.repo
-            .create_vehicle(
-                code,
-                name,
-                vehicle_type,
-                status,
-                water_capacity_l,
-                foam_capacity_l,
-                powder_capacity_kg,
-                last_service_date,
-                next_service_due,
-            )
+            .get_all_vehicles()
             .await
             .map_err(|e| e.to_string())
     }
 
-    pub async fn update_vehicle(
-        &self,
-        id: Uuid,
-        code: Option<&str>,
-        name: Option<&str>,
-        vehicle_type: Option<&str>,
-        status: Option<&str>,
-        water_capacity_l: Option<&BigDecimal>,
-        foam_capacity_l: Option<&BigDecimal>,
-        powder_capacity_kg: Option<&BigDecimal>,
-        last_service_date: Option<&chrono::NaiveDate>,
-        next_service_due: Option<&chrono::NaiveDate>,
-    ) -> Result<Vehicle, String> {
+    pub async fn create_vehicle(&self, params: CreateVehicleParams<'_>) -> Result<Vehicle, String> {
+        // Validation: Capacities must be non-negative
+        if let Some(w) = params.water_capacity_l
+            && w < &BigDecimal::from(0)
+        {
+            return Err("Water capacity cannot be negative".to_string());
+        }
+        if let Some(f) = params.foam_capacity_l
+            && f < &BigDecimal::from(0)
+        {
+            return Err("Foam capacity cannot be negative".to_string());
+        }
+        if let Some(p) = params.powder_capacity_kg
+            && p < &BigDecimal::from(0)
+        {
+            return Err("Powder capacity cannot be negative".to_string());
+        }
+
+        // Validation: Service dates
+        if let (Some(last), Some(next)) = (params.last_service_date, params.next_service_due)
+            && next < last
+        {
+            return Err("Next service due date cannot be before last service date".to_string());
+        }
+
         self.repo
-            .update_vehicle(
-                id,
-                code,
-                name,
-                vehicle_type,
-                status,
-                water_capacity_l,
-                foam_capacity_l,
-                powder_capacity_kg,
-                last_service_date,
-                next_service_due,
-            )
+            .create_vehicle(params)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    pub async fn update_vehicle(&self, params: UpdateVehicleParams<'_>) -> Result<Vehicle, String> {
+        self.repo
+            .update_vehicle(params)
             .await
             .map_err(|e| e.to_string())
     }
@@ -113,34 +79,30 @@ mod tests {
     #[async_trait]
     impl VehicleRepoTrait for MockVehicleRepo {
         async fn get_all_vehicles(&self) -> Result<Vec<Vehicle>, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(vec![])
         }
 
         async fn create_vehicle(
             &self,
-            c: &str,
-            n: &str,
-            v: Option<&str>,
-            s: &str,
-            w: Option<&BigDecimal>,
-            f: Option<&BigDecimal>,
-            p: Option<&BigDecimal>,
-            ls: Option<&chrono::NaiveDate>,
-            ns: Option<&chrono::NaiveDate>,
+            params: CreateVehicleParams<'_>,
         ) -> Result<Vehicle, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(Vehicle {
                 id: Uuid::new_v4(),
-                code: c.to_string(),
-                name: n.to_string(),
-                vehicle_type: v.map(|x| x.to_string()),
-                status: s.to_string(),
-                water_capacity_l: w.cloned(),
-                foam_capacity_l: f.cloned(),
-                powder_capacity_kg: p.cloned(),
-                last_service_date: ls.cloned(),
-                next_service_due: ns.cloned(),
+                code: params.code.to_string(),
+                name: params.name.to_string(),
+                vehicle_type: params.vehicle_type.map(|x| x.to_string()),
+                status: params.status.to_string(),
+                water_capacity_l: params.water_capacity_l.cloned(),
+                foam_capacity_l: params.foam_capacity_l.cloned(),
+                powder_capacity_kg: params.powder_capacity_kg.cloned(),
+                last_service_date: params.last_service_date.cloned(),
+                next_service_due: params.next_service_due.cloned(),
                 created_at: Utc::now(),
                 updated_at: Utc::now(),
             })
@@ -148,29 +110,22 @@ mod tests {
 
         async fn update_vehicle(
             &self,
-            id: Uuid,
-            code: Option<&str>,
-            name: Option<&str>,
-            vehicle_type: Option<&str>,
-            status: Option<&str>,
-            w: Option<&BigDecimal>,
-            f: Option<&BigDecimal>,
-            p: Option<&BigDecimal>,
-            ls: Option<&chrono::NaiveDate>,
-            ns: Option<&chrono::NaiveDate>,
+            params: UpdateVehicleParams<'_>,
         ) -> Result<Vehicle, sqlx::Error> {
-             if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
-             Ok(Vehicle {
-                id,
-                code: code.unwrap_or("MOCK").to_string(),
-                name: name.unwrap_or("Mock Vehicle").to_string(),
-                vehicle_type: vehicle_type.map(|x| x.to_string()),
-                status: status.unwrap_or("READY").to_string(),
-                water_capacity_l: w.cloned(),
-                foam_capacity_l: f.cloned(),
-                powder_capacity_kg: p.cloned(),
-                last_service_date: ls.cloned(),
-                next_service_due: ns.cloned(),
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
+            Ok(Vehicle {
+                id: params.id,
+                code: params.code.unwrap_or("MOCK").to_string(),
+                name: params.name.unwrap_or("Mock Vehicle").to_string(),
+                vehicle_type: params.vehicle_type.map(|x| x.to_string()),
+                status: params.status.unwrap_or("READY").to_string(),
+                water_capacity_l: params.water_capacity_l.cloned(),
+                foam_capacity_l: params.foam_capacity_l.cloned(),
+                powder_capacity_kg: params.powder_capacity_kg.cloned(),
+                last_service_date: params.last_service_date.cloned(),
+                next_service_due: params.next_service_due.cloned(),
                 created_at: Utc::now(),
                 updated_at: Utc::now(),
             })
@@ -182,13 +137,25 @@ mod tests {
         let repo = Arc::new(MockVehicleRepo { should_fail: false });
         let service = VehicleService::new(repo);
         let water = BigDecimal::from(5000);
-        
-        let res = service.create_vehicle(
-            "FOAM-01", "Foam Tender 1", Some("Type 1"), "READY",
-            Some(&water), None, None, None, None
-        ).await;
-        
-        assert!(res.is_ok(), "Harus berhasil mendaftarkan vehicle baru dengan data kapasitas");
+
+        let res = service
+            .create_vehicle(CreateVehicleParams {
+                code: "FOAM-01",
+                name: "Foam Tender 1",
+                vehicle_type: Some("Type 1"),
+                status: "READY",
+                water_capacity_l: Some(&water),
+                foam_capacity_l: None,
+                powder_capacity_kg: None,
+                last_service_date: None,
+                next_service_due: None,
+            })
+            .await;
+
+        assert!(
+            res.is_ok(),
+            "Harus berhasil mendaftarkan vehicle baru dengan data kapasitas"
+        );
         let v = res.unwrap();
         assert_eq!(v.code, "FOAM-01");
         assert_eq!(v.water_capacity_l, Some(water));
@@ -198,10 +165,19 @@ mod tests {
     async fn test_create_vehicle_db_error() {
         let repo = Arc::new(MockVehicleRepo { should_fail: true });
         let service = VehicleService::new(repo);
-        let res = service.create_vehicle(
-            "FOAM-01", "Foam Tender 1", Some("Type 1"), "READY",
-            None, None, None, None, None
-        ).await;
+        let res = service
+            .create_vehicle(CreateVehicleParams {
+                code: "FOAM-01",
+                name: "Foam Tender 1",
+                vehicle_type: Some("Type 1"),
+                status: "READY",
+                water_capacity_l: None,
+                foam_capacity_l: None,
+                powder_capacity_kg: None,
+                last_service_date: None,
+                next_service_due: None,
+            })
+            .await;
         assert!(res.is_err(), "Harus handle eror bila insert gagal");
     }
 
@@ -212,10 +188,20 @@ mod tests {
         let id = Uuid::new_v4();
         let foam = BigDecimal::from(500);
 
-        let res = service.update_vehicle(
-            id, None, Some("Updated Name"), None, Some("MAINTENANCE"),
-            None, Some(&foam), None, None, None
-        ).await;
+        let res = service
+            .update_vehicle(UpdateVehicleParams {
+                id,
+                code: None,
+                name: Some("Updated Name"),
+                vehicle_type: None,
+                status: Some("MAINTENANCE"),
+                water_capacity_l: None,
+                foam_capacity_l: Some(&foam),
+                powder_capacity_kg: None,
+                last_service_date: None,
+                next_service_due: None,
+            })
+            .await;
 
         assert!(res.is_ok());
         let v = res.unwrap();
@@ -229,12 +215,21 @@ mod tests {
         let repo = Arc::new(MockVehicleRepo { should_fail: false });
         let service = VehicleService::new(repo);
         let water = BigDecimal::from(-100);
-        
-        let res = service.create_vehicle(
-            "FOAM-01", "Foam Tender 1", None, "READY",
-            Some(&water), None, None, None, None
-        ).await;
-        
+
+        let res = service
+            .create_vehicle(CreateVehicleParams {
+                code: "FOAM-01",
+                name: "Foam Tender 1",
+                vehicle_type: None,
+                status: "READY",
+                water_capacity_l: Some(&water),
+                foam_capacity_l: None,
+                powder_capacity_kg: None,
+                last_service_date: None,
+                next_service_due: None,
+            })
+            .await;
+
         assert!(res.is_err());
         assert_eq!(res.unwrap_err(), "Water capacity cannot be negative");
     }
@@ -245,14 +240,26 @@ mod tests {
         let service = VehicleService::new(repo);
         let last = chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
         let next = chrono::NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
-        
-        let res = service.create_vehicle(
-            "FOAM-01", "Foam Tender 1", None, "READY",
-            None, None, None, Some(&last), Some(&next)
-        ).await;
-        
+
+        let res = service
+            .create_vehicle(CreateVehicleParams {
+                code: "FOAM-01",
+                name: "Foam Tender 1",
+                vehicle_type: None,
+                status: "READY",
+                water_capacity_l: None,
+                foam_capacity_l: None,
+                powder_capacity_kg: None,
+                last_service_date: Some(&last),
+                next_service_due: Some(&next),
+            })
+            .await;
+
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err(), "Next service due date cannot be before last service date");
+        assert_eq!(
+            res.unwrap_err(),
+            "Next service due date cannot be before last service date"
+        );
     }
 
     #[tokio::test]

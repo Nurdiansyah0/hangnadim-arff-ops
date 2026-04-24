@@ -1,5 +1,5 @@
 use crate::domain::models::{Personnel, Position};
-use sqlx::{Pool, Postgres, Error};
+use sqlx::{Error, Pool, Postgres};
 
 #[derive(Clone)]
 pub struct PersonnelRepository {

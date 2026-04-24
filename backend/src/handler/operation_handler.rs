@@ -1,6 +1,6 @@
 use crate::{handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
-use serde_json::{json, Value};
+use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
+use serde_json::{Value, json};
 
 pub fn operation_routes(state: AppState) -> Router {
     Router::new()
@@ -13,15 +13,19 @@ async fn get_operation_summary(
     RequireAuth(_): RequireAuth,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let today = chrono::Local::now().naive_local().date();
-    
-    let summary = state.task_service.get_operation_summary(today)
+
+    let summary = state
+        .task_service
+        .get_operation_summary(today)
         .await
         .map_err(|e| {
             eprintln!("Operation Summary Error (Metrics): {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, e)
         })?;
 
-    let activities = state.task_service.get_recent_activities()
+    let activities = state
+        .task_service
+        .get_recent_activities()
         .await
         .map_err(|e| {
             eprintln!("Operation Summary Error (Activities): {}", e);

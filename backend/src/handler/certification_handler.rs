@@ -1,5 +1,10 @@
 use crate::{handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::{State, Query}, http::StatusCode, routing::get, Json, Router};
+use axum::{
+    Json, Router,
+    extract::{Query, State},
+    http::StatusCode,
+    routing::get,
+};
 use serde::Deserialize;
 
 #[derive(Deserialize)]

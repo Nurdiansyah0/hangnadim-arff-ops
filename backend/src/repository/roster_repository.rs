@@ -1,7 +1,7 @@
 use crate::domain::models::DutyAssignment;
-use sqlx::{Pool, Postgres, Error};
-use uuid::Uuid;
 use chrono::NaiveDate;
+use sqlx::{Error, Pool, Postgres};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct RosterRepository {
@@ -28,15 +28,35 @@ impl RosterRepository {
     }
 
     /// Fetches personnel IDs and their employment status (PNS/PKWT) for a specific Team (e.g., Alpha, Bravo, Charlie).
-    pub async fn get_personnel_by_team(&self, team_name: &str) -> Result<Vec<(Uuid, String)>, Error> {
+    pub async fn get_personnel_by_team(
+        &self,
+        team_name: &str,
+    ) -> Result<Vec<(Uuid, String, String)>, Error> {
         let rows = sqlx::query!(
-            "SELECT id, employment_status::TEXT FROM personnels WHERE shift::TEXT = $1 AND status::TEXT = 'ACTIVE'",
+            r#"
+            SELECT 
+                p.id, 
+                p.employment_status::TEXT as "employment_status?",
+                pos.name as "position_name?"
+            FROM personnels p
+            LEFT JOIN positions pos ON p.position_id = pos.id
+            WHERE p.shift::TEXT = $1 AND p.status::TEXT = 'ACTIVE'
+            "#,
             team_name
         )
         .fetch_all(&self.db)
         .await?;
 
-        Ok(rows.into_iter().map(|r| (r.id, r.employment_status.unwrap_or_else(|| "PKWT".to_string()))).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                (
+                    r.id,
+                    r.employment_status.unwrap_or_else(|| "PKWT".to_string()),
+                    r.position_name.unwrap_or_else(|| "Rescue Officer".to_string()),
+                )
+            })
+            .collect())
     }
 
     /// Checks if a personnel is on approved leave for a specific date.
@@ -59,7 +79,10 @@ impl RosterRepository {
         Ok(row.exists.unwrap_or(false))
     }
 
-    pub async fn batch_insert_assignments(&self, assignments: &[DutyAssignment]) -> Result<(), Error> {
+    pub async fn batch_insert_assignments(
+        &self,
+        assignments: &[DutyAssignment],
+    ) -> Result<(), Error> {
         if assignments.is_empty() {
             return Ok(());
         }
@@ -88,7 +111,12 @@ impl RosterRepository {
         Ok(())
     }
 
-    pub async fn update_assignment(&self, id: Uuid, vehicle_id: Option<Uuid>, position: String) -> Result<(), Error> {
+    pub async fn update_assignment(
+        &self,
+        id: Uuid,
+        vehicle_id: Option<Uuid>,
+        position: String,
+    ) -> Result<(), Error> {
         sqlx::query(
             "UPDATE duty_assignments SET vehicle_id = $1, position = $2::duty_position_enum, updated_at = NOW() WHERE id = $3"
         )
@@ -101,7 +129,11 @@ impl RosterRepository {
     }
 
     /// Fetches a high-fidelity view of the roster for a given range.
-    pub async fn get_monthly_view(&self, start_date: NaiveDate, end_date: NaiveDate) -> Result<Vec<crate::domain::models::RosterView>, Error> {
+    pub async fn get_monthly_view(
+        &self,
+        start_date: NaiveDate,
+        end_date: NaiveDate,
+    ) -> Result<Vec<crate::domain::models::RosterView>, Error> {
         sqlx::query_as::<_, crate::domain::models::RosterView>(
             r#"
             SELECT 
@@ -121,7 +153,7 @@ impl RosterRepository {
             LEFT JOIN vehicles v ON da.vehicle_id = v.id
             WHERE da.assignment_date BETWEEN $1 AND $2
             ORDER BY da.assignment_date ASC, s.name ASC, p.full_name ASC
-            "#
+            "#,
         )
         .bind(start_date)
         .bind(end_date)

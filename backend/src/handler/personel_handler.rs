@@ -1,5 +1,9 @@
-use crate::{domain::models::{Personnel, Position}, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
+use crate::{
+    domain::models::{Personnel, Position},
+    handler::middleware::RequireAuth,
+    state::AppState,
+};
+use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -23,7 +27,9 @@ async fn list_positions(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<Vec<Position>>, (StatusCode, String)> {
-    if claims.role_id.is_none() { return Err((StatusCode::FORBIDDEN, "Forbidden".to_string())); }
+    if claims.role_id.is_none() {
+        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
+    }
     match state.personnel_service.get_all_positions().await {
         Ok(pos) => Ok(Json(pos)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
@@ -34,13 +40,15 @@ async fn list_personnels(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<Vec<Personnel>>, (StatusCode, String)> {
-    if claims.role_id.is_none() { return Err((StatusCode::FORBIDDEN, "Forbidden".to_string())); }
+    if claims.role_id.is_none() {
+        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
+    }
     match state.personnel_service.get_all_personnels().await {
         Ok(p) => Ok(Json(p)),
         Err(e) => {
             eprintln!("Error fetching personnels: {:?}", e);
             Err((StatusCode::INTERNAL_SERVER_ERROR, e))
-        },
+        }
     }
 }
 
@@ -50,17 +58,22 @@ async fn create_personnel(
     Json(payload): Json<CreatePersonnelPayload>,
 ) -> Result<Json<Personnel>, (StatusCode, String)> {
     let rid = claims.role_id.unwrap_or(0);
-    if rid != 1 && rid != 7 { // Hanya Admin(1) atau HR(7)
+    if rid != 1 && rid != 7 {
+        // Hanya Admin(1) atau HR(7)
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
-    match state.personnel_service.create_personnel(
-        &payload.nip_nik, 
-        &payload.full_name, 
-        payload.position_id, 
-        &payload.status,
-        payload.employment_status.as_deref(),
-        payload.shift.as_deref()
-    ).await {
+    match state
+        .personnel_service
+        .create_personnel(
+            &payload.nip_nik,
+            &payload.full_name,
+            payload.position_id,
+            &payload.status,
+            payload.employment_status.as_deref(),
+            payload.shift.as_deref(),
+        )
+        .await
+    {
         Ok(p) => Ok(Json(p)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }

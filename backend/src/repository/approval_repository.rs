@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error};
+use sqlx::{Error, Pool, Postgres};
 use uuid::Uuid;
 
 #[async_trait]

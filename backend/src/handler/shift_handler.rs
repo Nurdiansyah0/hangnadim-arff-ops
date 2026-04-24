@@ -1,5 +1,5 @@
 use crate::{domain::models::Shift, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
+use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -19,8 +19,8 @@ async fn list_shifts(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<Vec<Shift>>, (StatusCode, String)> {
-    if claims.role_id.is_none() { 
-        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string())); 
+    if claims.role_id.is_none() {
+        return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
     match state.shift_service.get_all_shifts().await {
@@ -40,11 +40,11 @@ async fn create_shift(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
-    match state.shift_service.create_shift(
-        &payload.name, 
-        payload.start_time, 
-        payload.end_time
-    ).await {
+    match state
+        .shift_service
+        .create_shift(&payload.name, payload.start_time, payload.end_time)
+        .await
+    {
         Ok(s) => Ok(Json(s)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }

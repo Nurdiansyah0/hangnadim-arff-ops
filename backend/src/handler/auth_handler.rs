@@ -1,13 +1,13 @@
+use crate::domain::models::{AuthContextResponse, FullProfileResponse, OperationalContextResponse};
+use crate::handler::middleware::RequireAuth;
+use crate::state::AppState;
 use axum::{
+    Json, Router,
     extract::State,
     http::StatusCode,
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use crate::state::AppState;
-use crate::domain::models::{AuthContextResponse, FullProfileResponse, OperationalContextResponse};
-use crate::handler::middleware::RequireAuth;
 use uuid::Uuid;
 
 #[derive(Deserialize)]
@@ -46,14 +46,25 @@ async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<AuthResponse>, (StatusCode, Json<AuthError>)> {
-    match state.auth_service.login(&payload.ident, &payload.password).await {
+    match state
+        .auth_service
+        .login(&payload.ident, &payload.password)
+        .await
+    {
         Ok(token) => Ok(Json(AuthResponse {
             access_token: token,
             token_type: "Bearer".to_string(),
         })),
         Err(e) => {
-            println!("⚠️ SECURITY ALERT: Failed login attempt for ident '{}' - Reason: {}", payload.ident, e);
-            let code = if e.contains("salah") { StatusCode::UNAUTHORIZED } else { StatusCode::INTERNAL_SERVER_ERROR };
+            println!(
+                "⚠️ SECURITY ALERT: Failed login attempt for ident '{}' - Reason: {}",
+                payload.ident, e
+            );
+            let code = if e.contains("salah") {
+                StatusCode::UNAUTHORIZED
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
             Err((code, Json(AuthError { message: e })))
         }
     }
@@ -63,12 +74,21 @@ async fn get_me(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<AuthContextResponse>, (StatusCode, Json<AuthError>)> {
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| (StatusCode::BAD_REQUEST, Json(AuthError { message: "Invalid user ID".to_string() })))?;
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(AuthError {
+                message: "Invalid user ID".to_string(),
+            }),
+        )
+    })?;
 
     match state.auth_service.get_auth_context(user_id).await {
         Ok(context) => Ok(Json(context)),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(AuthError { message: e })))
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(AuthError { message: e }),
+        )),
     }
 }
 
@@ -76,12 +96,21 @@ async fn get_full_profile(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<FullProfileResponse>, (StatusCode, Json<AuthError>)> {
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| (StatusCode::BAD_REQUEST, Json(AuthError { message: "Invalid user ID in token".to_string() })))?;
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(AuthError {
+                message: "Invalid user ID in token".to_string(),
+            }),
+        )
+    })?;
 
     match state.auth_service.get_full_profile(user_id).await {
         Ok(profile) => Ok(Json(profile)),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(AuthError { message: e })))
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(AuthError { message: e }),
+        )),
     }
 }
 
@@ -89,11 +118,20 @@ async fn get_ops_context(
     State(state): State<AppState>,
     RequireAuth(claims): RequireAuth,
 ) -> Result<Json<OperationalContextResponse>, (StatusCode, Json<AuthError>)> {
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| (StatusCode::BAD_REQUEST, Json(AuthError { message: "Invalid user ID in token".to_string() })))?;
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(AuthError {
+                message: "Invalid user ID in token".to_string(),
+            }),
+        )
+    })?;
 
     match state.auth_service.get_operational_context(user_id).await {
         Ok(context) => Ok(Json(context)),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(AuthError { message: e })))
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(AuthError { message: e }),
+        )),
     }
 }

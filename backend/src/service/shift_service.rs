@@ -72,12 +72,21 @@ mod tests {
     #[async_trait]
     impl ShiftRepoTrait for MockShiftRepo {
         async fn get_all_shifts(&self) -> Result<Vec<Shift>, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(vec![])
         }
 
-        async fn create_shift(&self, n: &str, s: NaiveTime, e: NaiveTime) -> Result<Shift, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+        async fn create_shift(
+            &self,
+            n: &str,
+            s: NaiveTime,
+            e: NaiveTime,
+        ) -> Result<Shift, sqlx::Error> {
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(Shift {
                 id: 1,
                 name: n.to_string(),
@@ -91,10 +100,10 @@ mod tests {
     async fn test_create_shift_success() {
         let repo = Arc::new(MockShiftRepo { should_fail: false });
         let service = ShiftService::new(repo);
-        
+
         let start = NaiveTime::from_hms_opt(7, 0, 0).unwrap();
         let end = NaiveTime::from_hms_opt(19, 0, 0).unwrap();
-        
+
         let res = service.create_shift("Shift Pagi", start, end).await;
         assert!(res.is_ok(), "Harus berhasil membuat shift");
     }
@@ -103,10 +112,10 @@ mod tests {
     async fn test_create_shift_db_error() {
         let repo = Arc::new(MockShiftRepo { should_fail: true });
         let service = ShiftService::new(repo);
-        
+
         let start = NaiveTime::from_hms_opt(7, 0, 0).unwrap();
         let end = NaiveTime::from_hms_opt(19, 0, 0).unwrap();
-        
+
         let res = service.create_shift("Shift Pagi", start, end).await;
         assert!(res.is_err(), "Harus gagal jika database error");
     }
@@ -115,7 +124,7 @@ mod tests {
     async fn test_get_all_shifts_success() {
         let repo = Arc::new(MockShiftRepo { should_fail: false });
         let service = ShiftService::new(repo);
-        
+
         let res = service.get_all_shifts().await;
         assert!(res.is_ok(), "Harus bisa menarik semua data shift");
     }

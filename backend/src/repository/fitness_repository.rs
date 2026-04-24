@@ -5,7 +5,11 @@ use uuid::Uuid;
 
 #[async_trait]
 pub trait FitnessRepository: Send + Sync {
-    async fn get_history_by_personnel_id(&self, personnel_id: Uuid, limit: i64) -> Result<Vec<PhysicalFitnessTest>, Error>;
+    async fn get_history_by_personnel_id(
+        &self,
+        personnel_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<PhysicalFitnessTest>, Error>;
 }
 
 pub struct PostgresFitnessRepository {
@@ -20,7 +24,11 @@ impl PostgresFitnessRepository {
 
 #[async_trait]
 impl FitnessRepository for PostgresFitnessRepository {
-    async fn get_history_by_personnel_id(&self, personnel_id: Uuid, limit: i64) -> Result<Vec<PhysicalFitnessTest>, Error> {
+    async fn get_history_by_personnel_id(
+        &self,
+        personnel_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<PhysicalFitnessTest>, Error> {
         sqlx::query_as::<_, PhysicalFitnessTest>(
             r#"
             SELECT 
@@ -30,7 +38,7 @@ impl FitnessRepository for PostgresFitnessRepository {
             WHERE personnel_id = $1
             ORDER BY test_date DESC
             LIMIT $2
-            "#
+            "#,
         )
         .bind(personnel_id)
         .bind(limit)

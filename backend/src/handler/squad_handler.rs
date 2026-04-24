@@ -1,7 +1,14 @@
-use axum::{extract::{State, Query}, http::StatusCode, routing::get, Json, Router};
-use serde::Deserialize;
+use crate::{
+    domain::models::SquadSummaryResponse, handler::middleware::RequireAuth, state::AppState,
+};
+use axum::{
+    Json, Router,
+    extract::{Query, State},
+    http::StatusCode,
+    routing::get,
+};
 use chrono::NaiveDate;
-use crate::{state::AppState, handler::middleware::RequireAuth, domain::models::SquadSummaryResponse};
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct SquadQuery {
@@ -20,7 +27,9 @@ async fn get_squad_summary(
     RequireAuth(_): RequireAuth,
     Query(params): Query<SquadQuery>,
 ) -> Result<Json<SquadSummaryResponse>, (StatusCode, String)> {
-    let summary = state.task_service.get_squad_summary(params.shift_id, params.date)
+    let summary = state
+        .task_service
+        .get_squad_summary(params.shift_id, params.date)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
     Ok(Json(summary))

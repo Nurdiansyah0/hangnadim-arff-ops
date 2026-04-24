@@ -1,13 +1,13 @@
+use crate::domain::models::AuditLogResponse;
 use crate::{handler::middleware::RequireAuth, state::AppState};
 use axum::{
-    extract::{Path, State, Query},
-    http::StatusCode,
-    routing::{get, post, delete},
     Json, Router,
+    extract::{Path, Query, State},
+    http::StatusCode,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 use uuid::Uuid;
-use crate::domain::models::AuditLogResponse;
 
 #[derive(Deserialize)]
 pub struct PaginationQuery {
@@ -30,7 +30,10 @@ async fn get_audit_logs(
 ) -> Result<Json<AuditLogResponse>, (StatusCode, String)> {
     // Only Admin can see audit logs
     if claims.role_id.unwrap_or(0) != 1 {
-        return Err((StatusCode::FORBIDDEN, "Access denied. Admins only.".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Access denied. Admins only.".to_string(),
+        ));
     }
 
     let page = pagination.page.unwrap_or(1);
@@ -39,7 +42,10 @@ async fn get_audit_logs(
 
     match state.audit_repo.get_logs(offset, limit).await {
         Ok((logs, total)) => Ok(Json(AuditLogResponse { logs, total })),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to fetch logs: {}", e))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to fetch logs: {}", e),
+        )),
     }
 }
 
@@ -49,12 +55,18 @@ async fn rollback_audit_log(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     if claims.role_id.unwrap_or(0) != 1 {
-        return Err((StatusCode::FORBIDDEN, "Access denied. Admins only.".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Access denied. Admins only.".to_string(),
+        ));
     }
 
     match state.audit_repo.rollback_log(id).await {
         Ok(_) => Ok(StatusCode::OK),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Rollback failed: {}", e))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Rollback failed: {}", e),
+        )),
     }
 }
 
@@ -64,11 +76,17 @@ async fn delete_audit_log(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     if claims.role_id.unwrap_or(0) != 1 {
-        return Err((StatusCode::FORBIDDEN, "Access denied. Admins only.".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Access denied. Admins only.".to_string(),
+        ));
     }
 
     match state.audit_repo.delete_log(id).await {
         Ok(_) => Ok(StatusCode::NO_CONTENT),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Deletion failed: {}", e))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Deletion failed: {}", e),
+        )),
     }
 }

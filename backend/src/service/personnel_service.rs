@@ -13,11 +13,17 @@ impl PersonnelService {
     }
 
     pub async fn get_all_positions(&self) -> Result<Vec<Position>, String> {
-        self.repo.get_all_positions().await.map_err(|e| e.to_string())
+        self.repo
+            .get_all_positions()
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub async fn get_all_personnels(&self) -> Result<Vec<Personnel>, String> {
-        self.repo.get_all_personnels().await.map_err(|e| e.to_string())
+        self.repo
+            .get_all_personnels()
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub async fn create_personnel(
@@ -30,7 +36,14 @@ impl PersonnelService {
         shift: Option<&str>,
     ) -> Result<Personnel, String> {
         self.repo
-            .create_personnel(nip_nik, full_name, position_id, status, employment_status, shift)
+            .create_personnel(
+                nip_nik,
+                full_name,
+                position_id,
+                status,
+                employment_status,
+                shift,
+            )
             .await
             .map_err(|e| e.to_string())
     }

@@ -1,23 +1,27 @@
 use crate::domain::models::MaintenanceRecord;
 use async_trait::async_trait;
+use bigdecimal::BigDecimal;
 use sqlx::{Error, PgPool};
 use uuid::Uuid;
-use bigdecimal::BigDecimal;
+
+pub struct CreateMaintenanceParams<'a> {
+    pub vehicle_id: Uuid,
+    pub maintenance_type: Option<&'a str>,
+    pub description: &'a str,
+    pub performed_by: Uuid,
+    pub performed_at: Option<chrono::NaiveDate>,
+    pub cost: Option<BigDecimal>,
+    pub next_due: Option<chrono::NaiveDate>,
+    pub photo_url: Option<&'a str>,
+}
 
 #[async_trait]
 pub trait MaintenanceRepository: Send + Sync {
     async fn create_record(
         &self,
-        vehicle_id: Uuid,
-        maintenance_type: Option<&str>,
-        description: &str,
-        performed_by: Uuid,
-        performed_at: Option<chrono::NaiveDate>,
-        cost: Option<BigDecimal>,
-        next_due: Option<chrono::NaiveDate>,
-        photo_url: Option<&str>,
+        params: CreateMaintenanceParams<'_>,
     ) -> Result<MaintenanceRecord, Error>;
-    
+
     async fn get_by_vehicle_id(&self, vehicle_id: Uuid) -> Result<Vec<MaintenanceRecord>, Error>;
     async fn get_by_id(&self, id: Uuid) -> Result<MaintenanceRecord, Error>;
 }
@@ -36,14 +40,7 @@ impl PostgresMaintenanceRepository {
 impl MaintenanceRepository for PostgresMaintenanceRepository {
     async fn create_record(
         &self,
-        vehicle_id: Uuid,
-        maintenance_type: Option<&str>,
-        description: &str,
-        performed_by: Uuid,
-        performed_at: Option<chrono::NaiveDate>,
-        cost: Option<BigDecimal>,
-        next_due: Option<chrono::NaiveDate>,
-        photo_url: Option<&str>,
+        params: CreateMaintenanceParams<'_>,
     ) -> Result<MaintenanceRecord, Error> {
         sqlx::query_as::<_, MaintenanceRecord>(
             r#"
@@ -52,14 +49,14 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
             RETURNING id, vehicle_id, maintenance_type::TEXT AS maintenance_type, description, performed_by, performed_at, cost, next_due, status::TEXT AS status, photo_url, created_at, updated_at, NULL::TEXT as vehicle_code, NULL::TEXT as personnel_name
             "#
         )
-        .bind(vehicle_id)
-        .bind(maintenance_type)
-        .bind(description)
-        .bind(performed_by)
-        .bind(performed_at)
-        .bind(cost)
-        .bind(next_due)
-        .bind(photo_url)
+        .bind(params.vehicle_id)
+        .bind(params.maintenance_type)
+        .bind(params.description)
+        .bind(params.performed_by)
+        .bind(params.performed_at)
+        .bind(params.cost)
+        .bind(params.next_due)
+        .bind(params.photo_url)
         .fetch_one(&self.db)
         .await
     }
@@ -105,4 +102,3 @@ impl MaintenanceRepository for PostgresMaintenanceRepository {
         .await
     }
 }
-

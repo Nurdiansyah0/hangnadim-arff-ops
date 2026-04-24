@@ -1,8 +1,8 @@
 use crate::domain::models::WatchroomLog;
 use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error};
-use uuid::Uuid;
 use serde_json::Value;
+use sqlx::{Error, Pool, Postgres};
+use uuid::Uuid;
 
 #[async_trait]
 pub trait WatchroomRepoTrait: Send + Sync {
@@ -51,7 +51,7 @@ impl WatchroomRepoTrait for WatchroomRepository {
             INSERT INTO watchroom_logs (personnel_id, entry_type, description, payload, photo_url) 
             VALUES ($1, $2, $3, $4, $5) 
             RETURNING id, personnel_id, entry_type, description, payload, created_at, photo_url
-            "#
+            "#,
         )
         .bind(personnel_id)
         .bind(entry_type)

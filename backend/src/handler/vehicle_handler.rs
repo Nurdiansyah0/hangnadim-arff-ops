@@ -1,5 +1,15 @@
-use crate::{domain::models::Vehicle, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::{Path, State}, http::StatusCode, routing::{get, put}, Json, Router};
+use crate::{
+    domain::models::Vehicle,
+    handler::middleware::RequireAuth,
+    repository::vehicle_repository::{CreateVehicleParams, UpdateVehicleParams},
+    state::AppState,
+};
+use axum::{
+    Json, Router,
+    extract::{Path, State},
+    http::StatusCode,
+    routing::{get, put},
+};
 use bigdecimal::BigDecimal;
 use serde::Deserialize;
 
@@ -60,17 +70,21 @@ async fn create_vehicle(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
-    match state.vehicle_service.create_vehicle(
-        &payload.code,
-        &payload.name,
-        payload.vehicle_type.as_deref(),
-        &payload.status,
-        payload.water_capacity_liters.as_ref(),
-        payload.foam_capacity_liters.as_ref(),
-        payload.dcp_capacity_kg.as_ref(),
-        payload.last_service_date.as_ref(),
-        payload.next_service_due.as_ref(),
-    ).await {
+    match state
+        .vehicle_service
+        .create_vehicle(CreateVehicleParams {
+            code: &payload.code,
+            name: &payload.name,
+            vehicle_type: payload.vehicle_type.as_deref(),
+            status: &payload.status,
+            water_capacity_l: payload.water_capacity_liters.as_ref(),
+            foam_capacity_l: payload.foam_capacity_liters.as_ref(),
+            powder_capacity_kg: payload.dcp_capacity_kg.as_ref(),
+            last_service_date: payload.last_service_date.as_ref(),
+            next_service_due: payload.next_service_due.as_ref(),
+        })
+        .await
+    {
         Ok(v) => Ok(Json(v)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
@@ -87,18 +101,22 @@ async fn update_vehicle(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
-    match state.vehicle_service.update_vehicle(
-        id,
-        payload.code.as_deref(),
-        payload.name.as_deref(),
-        payload.vehicle_type.as_deref(),
-        payload.status.as_deref(),
-        payload.water_capacity_liters.as_ref(),
-        payload.foam_capacity_liters.as_ref(),
-        payload.dcp_capacity_kg.as_ref(),
-        payload.last_service_date.as_ref(),
-        payload.next_service_due.as_ref(),
-    ).await {
+    match state
+        .vehicle_service
+        .update_vehicle(UpdateVehicleParams {
+            id,
+            code: payload.code.as_deref(),
+            name: payload.name.as_deref(),
+            vehicle_type: payload.vehicle_type.as_deref(),
+            status: payload.status.as_deref(),
+            water_capacity_l: payload.water_capacity_liters.as_ref(),
+            foam_capacity_l: payload.foam_capacity_liters.as_ref(),
+            powder_capacity_kg: payload.dcp_capacity_kg.as_ref(),
+            last_service_date: payload.last_service_date.as_ref(),
+            next_service_due: payload.next_service_due.as_ref(),
+        })
+        .await
+    {
         Ok(v) => Ok(Json(v)),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
     }

@@ -1,9 +1,9 @@
 use async_trait::async_trait;
-use sqlx::{Pool, Postgres, Error, FromRow, Row};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use sqlx::{Error, FromRow, Pool, Postgres, Row};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct AuditLog {
@@ -84,7 +84,7 @@ impl ComplianceRepoTrait for ComplianceRepository {
             FROM extinguishing_agents
             WHERE inventory_level < min_requirement
             ORDER BY percentage ASC
-            "#
+            "#,
         )
         .fetch_all(&self.db)
         .await?;

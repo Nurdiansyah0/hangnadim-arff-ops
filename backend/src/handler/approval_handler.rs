@@ -1,5 +1,5 @@
 use crate::{handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -21,17 +21,24 @@ async fn approve_inspection(
     RequireAuth(claims): RequireAuth,
     Json(payload): Json<TransitionPayload>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    let role_id = claims.role_id.ok_or((StatusCode::FORBIDDEN, "Role ID missing".to_string()))?;
+    let role_id = claims
+        .role_id
+        .ok_or((StatusCode::FORBIDDEN, "Role ID missing".to_string()))?;
 
-    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| (StatusCode::BAD_REQUEST, "Invalid user ID".to_string()))?;
+    let user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid user ID".to_string()))?;
 
-    match state.approval_service.transition_inspection(
-        payload.entity_id, 
-        &payload.current_status, 
-        &payload.target_status, 
-        role_id,
-        Some(user_id)
-    ).await {
+    match state
+        .approval_service
+        .transition_inspection(
+            payload.entity_id,
+            &payload.current_status,
+            &payload.target_status,
+            role_id,
+            Some(user_id),
+        )
+        .await
+    {
         Ok(_) => Ok(StatusCode::OK),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),
     }

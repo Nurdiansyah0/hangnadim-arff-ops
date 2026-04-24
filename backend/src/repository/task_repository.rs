@@ -1,7 +1,7 @@
+use crate::domain::models::{DailyTaskView, ShiftReport};
+use chrono::NaiveDate;
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::NaiveDate;
-use crate::domain::models::{DailyTaskView, ShiftReport};
 
 #[derive(Clone)]
 pub struct TaskRepository {
@@ -25,7 +25,7 @@ impl TaskRepository {
             JOIN task_templates tt ON da.position::TEXT = tt.position
             WHERE da.assignment_date = $1
             ON CONFLICT (assignment_id, task_name) DO NOTHING
-            "#
+            "#,
         )
         .bind(target_date)
         .execute(&self.db)
@@ -35,7 +35,11 @@ impl TaskRepository {
     }
 
     /// Get tasks for a specific personnel on a specific date
-    pub async fn get_my_tasks(&self, personnel_id: Uuid, target_date: NaiveDate) -> Result<Vec<DailyTaskView>, sqlx::Error> {
+    pub async fn get_my_tasks(
+        &self,
+        personnel_id: Uuid,
+        target_date: NaiveDate,
+    ) -> Result<Vec<DailyTaskView>, sqlx::Error> {
         sqlx::query_as::<_, DailyTaskView>(
             r#"
             SELECT 
@@ -60,13 +64,17 @@ impl TaskRepository {
     }
 
     /// Submit a task (mark as COMPLETED)
-    pub async fn submit_task(&self, task_id: Uuid, notes: Option<String>) -> Result<(), sqlx::Error> {
+    pub async fn submit_task(
+        &self,
+        task_id: Uuid,
+        notes: Option<String>,
+    ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
             UPDATE daily_tasks 
             SET status = 'COMPLETED', completed_at = NOW(), completed_notes = $1, updated_at = NOW()
             WHERE id = $2 AND status = 'PENDING'
-            "#
+            "#,
         )
         .bind(notes)
         .bind(task_id)
@@ -76,7 +84,11 @@ impl TaskRepository {
     }
 
     /// Fetch all tasks for a specific shift and date, typically used by Team Leader for approval.
-    pub async fn get_shift_tasks_for_approval(&self, shift_id: i32, target_date: NaiveDate) -> Result<Vec<DailyTaskView>, sqlx::Error> {
+    pub async fn get_shift_tasks_for_approval(
+        &self,
+        shift_id: i32,
+        target_date: NaiveDate,
+    ) -> Result<Vec<DailyTaskView>, sqlx::Error> {
         sqlx::query_as::<_, DailyTaskView>(
             r#"
             SELECT 
@@ -101,7 +113,13 @@ impl TaskRepository {
     }
 
     /// Approves all COMPLETED tasks for a shift and generates the summary report
-    pub async fn approve_shift_report(&self, leader_id: Uuid, shift_id: i32, target_date: NaiveDate, notes: Option<String>) -> Result<ShiftReport, sqlx::Error> {
+    pub async fn approve_shift_report(
+        &self,
+        leader_id: Uuid,
+        shift_id: i32,
+        target_date: NaiveDate,
+        notes: Option<String>,
+    ) -> Result<ShiftReport, sqlx::Error> {
         let mut tx = self.db.begin().await?;
 
         // 1. Bulk update tasks to APPROVED
@@ -139,7 +157,11 @@ impl TaskRepository {
     }
 
     /// Get summary stats for a squad (based on personnel's shift)
-    pub async fn get_squad_summary(&self, shift_id: i32, date: NaiveDate) -> Result<crate::domain::models::SquadSummaryResponse, sqlx::Error> {
+    pub async fn get_squad_summary(
+        &self,
+        shift_id: i32,
+        date: NaiveDate,
+    ) -> Result<crate::domain::models::SquadSummaryResponse, sqlx::Error> {
         let stats = sqlx::query!(
             r#"
             SELECT 
@@ -168,7 +190,10 @@ impl TaskRepository {
         })
     }
 
-    pub async fn get_operation_summary(&self, date: NaiveDate) -> Result<serde_json::Value, sqlx::Error> {
+    pub async fn get_operation_summary(
+        &self,
+        date: NaiveDate,
+    ) -> Result<serde_json::Value, sqlx::Error> {
         let personnel_count: i64 = sqlx::query_scalar(
             r#"
             SELECT COUNT(*) 
@@ -205,10 +230,11 @@ impl TaskRepository {
         .fetch_one(&self.db)
         .await?;
 
-        let flight_count: i64 = sqlx::query_scalar("SELECT COUNT(id) FROM flight_routes WHERE actual_time::DATE = $1")
-            .bind(date)
-            .fetch_one(&self.db)
-            .await?;
+        let flight_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(id) FROM flight_routes WHERE actual_time::DATE = $1")
+                .bind(date)
+                .fetch_one(&self.db)
+                .await?;
 
         let readiness: f64 = sqlx::query_scalar(
             r#"
@@ -241,7 +267,7 @@ impl TaskRepository {
 
     pub async fn get_recent_activities(&self) -> Result<serde_json::Value, sqlx::Error> {
         use sqlx::Row;
-        
+
         // Union shift reports and watchroom logs for a combined feed
         // Using non-macro query to avoid potential type inference issues with complex UNIONs
         let rows = sqlx::query(
@@ -278,20 +304,23 @@ impl TaskRepository {
             )
             ORDER BY time DESC
             LIMIT 10
-            "#
+            "#,
         )
         .fetch_all(&self.db)
         .await?;
 
-        let list: Vec<serde_json::Value> = rows.into_iter().map(|row| {
-            serde_json::json!({
-                "id": row.get::<String, _>("id"),
-                "user": row.get::<String, _>("user_name"),
-                "action": row.get::<String, _>("action"),
-                "time": row.get::<chrono::DateTime<chrono::Utc>, _>("time"),
-                "type": row.get::<String, _>("activity_type")
+        let list: Vec<serde_json::Value> = rows
+            .into_iter()
+            .map(|row| {
+                serde_json::json!({
+                    "id": row.get::<String, _>("id"),
+                    "user": row.get::<String, _>("user_name"),
+                    "action": row.get::<String, _>("action"),
+                    "time": row.get::<chrono::DateTime<chrono::Utc>, _>("time"),
+                    "type": row.get::<String, _>("activity_type")
+                })
             })
-        }).collect();
+            .collect();
 
         Ok(serde_json::json!(list))
     }

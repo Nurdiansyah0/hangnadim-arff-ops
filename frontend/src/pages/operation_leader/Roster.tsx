@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/axios';
 import { useAuth } from '../../store/useAuth';
+import toast from 'react-hot-toast';
 
 interface RosterEntry {
   id: string;
@@ -57,6 +58,7 @@ export default function Roster() {
   const [selectedAssignment, setSelectedAssignment] = useState<RosterEntry | null>(null);
   const [vehicles, setVehicles] = useState<{id: string, code: string}[]>([]);
   const [updating, setUpdating] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedPosition, setSelectedPosition] = useState<string>('RESCUEMAN');
@@ -104,21 +106,23 @@ export default function Roster() {
       });
       setShowModal(false);
       await fetchRoster();
+      toast.success('Assignment updated successfully.');
     } catch (err) {
-      alert('Failed to update vehicle assignment.');
+      toast.error('Failed to update vehicle assignment.');
     } finally {
       setUpdating(false);
     }
   };
 
   const handleGenerate = async () => {
-    if (!window.confirm(`Generate automated roster for ${monthNames[month-1]} ${year}? Existing data for this month will be overwritten if collisions occur.`)) return;
     try {
       setGenerating(true);
+      setShowConfirmModal(false);
       await api.post('/roster/generate-monthly', { month, year });
       await fetchRoster();
+      toast.success(`Roster for ${monthNames[month-1]} ${year} generated successfully.`);
     } catch (err) {
-      alert('Failed to generate roster. Ensure all personnel and shift data are seeded.');
+      toast.error('Failed to generate roster. Ensure all personnel and shift data are seeded.');
     } finally {
       setGenerating(false);
     }
@@ -208,7 +212,7 @@ export default function Roster() {
 
           {(user?.role_id === 1 || user?.role_id === 3 || user?.role_id === 5) && (
             <button 
-              onClick={handleGenerate}
+              onClick={() => setShowConfirmModal(true)}
               disabled={generating}
               className="px-6 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl transition-all shadow-xl shadow-blue-900/40 flex items-center gap-3 font-bold group"
             >
@@ -354,10 +358,10 @@ export default function Roster() {
 
       {/* Manual Assignment Modal - Premium Redesign */}
       {showModal && selectedAssignment && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center p-4 overflow-y-auto py-10">
           <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md" onClick={() => !updating && setShowModal(false)} />
           
-          <div className="relative w-full max-w-xl bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_20px_100px_rgba(0,0,0,0.8)] animate-in zoom-in duration-300">
+          <div className="relative w-full max-w-xl bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-[3rem] overflow-hidden shadow-[0_20px_100px_rgba(0,0,0,0.8)] animate-in zoom-in duration-300 my-auto">
             {/* Header / Banner */}
             <div className="h-28 bg-linear-to-br from-blue-600 to-indigo-900 relative">
                <div className="absolute inset-0 bg-slate-950/20" />
@@ -389,7 +393,7 @@ export default function Roster() {
                     <label className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">
                        <Truck size={14} /> 1. Select Unit
                     </label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar p-1">
                        <button 
                          onClick={() => { setSelectedVehicle(null); setSelectedPosition('WATCHROOM'); }}
                          className={`group relative p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 overflow-hidden ${selectedVehicle === null && selectedPosition === 'WATCHROOM'
@@ -463,6 +467,39 @@ export default function Roster() {
                   <p className="text-white font-black text-xs uppercase tracking-[0.3em]">Updating Ops Matrix...</p>
                </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* Confirmation Modal for Roster Generation */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center p-4 overflow-y-auto py-10">
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={() => setShowConfirmModal(false)} />
+          <div className="relative w-full max-w-md bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300 my-auto">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-3xl bg-blue-600/20 text-blue-500 flex items-center justify-center mb-6 ring-1 ring-blue-500/30">
+                <RotateCcw size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-white tracking-tight">Generate Automated Roster?</h3>
+              <p className="text-slate-400 mt-4 text-sm leading-relaxed">
+                This will generate a new roster for <span className="text-white font-bold">{monthNames[month-1]} {year}</span>. 
+                Existing assignments for this period will be <span className="text-red-400 font-bold">overwritten</span> if collisions occur.
+              </p>
+              
+              <div className="flex gap-4 w-full mt-10">
+                <button 
+                  onClick={() => setShowConfirmModal(false)}
+                  className="flex-1 py-4 rounded-2xl bg-slate-800 text-slate-300 font-bold hover:bg-slate-700 transition-all border border-slate-700"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleGenerate}
+                  className="flex-1 py-4 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/40"
+                >
+                  Generate Now
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

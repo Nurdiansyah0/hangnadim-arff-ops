@@ -1,8 +1,8 @@
 use crate::domain::models::WatchroomLog;
 use crate::repository::watchroom_repository::WatchroomRepoTrait;
+use serde_json::Value;
 use std::sync::Arc;
 use uuid::Uuid;
-use serde_json::Value;
 
 #[derive(Clone)]
 pub struct WatchroomService {
@@ -51,7 +51,9 @@ mod tests {
     #[async_trait]
     impl WatchroomRepoTrait for MockWatchroomRepo {
         async fn get_all_logs(&self) -> Result<Vec<WatchroomLog>, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(vec![])
         }
 
@@ -63,7 +65,9 @@ mod tests {
             p: Option<Value>,
             ph: Option<&str>,
         ) -> Result<WatchroomLog, sqlx::Error> {
-            if self.should_fail { return Err(sqlx::Error::PoolTimedOut); }
+            if self.should_fail {
+                return Err(sqlx::Error::PoolTimedOut);
+            }
             Ok(WatchroomLog {
                 id: Uuid::new_v4(),
                 personnel_id: pid,
@@ -81,8 +85,16 @@ mod tests {
         let repo = Arc::new(MockWatchroomRepo { should_fail: false });
         let service = WatchroomService::new(repo);
         let payload = Some(json!({"event": "shift_change"}));
-        
-        let res = service.create_log(Some(Uuid::new_v4()), Some("INFO"), "Testing log", payload, None).await;
+
+        let res = service
+            .create_log(
+                Some(Uuid::new_v4()),
+                Some("INFO"),
+                "Testing log",
+                payload,
+                None,
+            )
+            .await;
         assert!(res.is_ok(), "Harus bisa simpan log ke watchroom");
     }
 

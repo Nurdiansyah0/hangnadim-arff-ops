@@ -1,12 +1,12 @@
 use crate::domain::models::{DutyAssignment, Shift};
 use crate::repository::roster_repository::RosterRepository;
 use crate::repository::shift_repository::ShiftRepository;
-use crate::repository::vehicle_repository::{VehicleRepository, VehicleRepoTrait};
+use crate::repository::vehicle_repository::{VehicleRepoTrait, VehicleRepository};
 use crate::service::holiday_service::HolidayService;
-use chrono::{NaiveDate, Datelike, Weekday};
+use chrono::{Datelike, NaiveDate, Weekday};
+use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
-use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct RosterService {
@@ -31,26 +31,47 @@ impl RosterService {
     /// Generates a roster for an entire month based on RACI and rotation rules.
     pub async fn generate_monthly_roster(&self, month: u32, year: i32) -> Result<(), String> {
         // 1. Fetch Master Data
-        let all_shifts = self.shift_repo.get_all_shifts().await.map_err(|e| e.to_string())?;
-        let all_vehicles = self.vehicle_repo.get_all_vehicles().await.map_err(|e| e.to_string())?;
+        let all_shifts = self
+            .shift_repo
+            .get_all_shifts()
+            .await
+            .map_err(|e| e.to_string())?;
+        let all_vehicles = self
+            .vehicle_repo
+            .get_all_vehicles()
+            .await
+            .map_err(|e| e.to_string())?;
         let holidays = HolidayService::get_holidays(year).await.unwrap_or_default();
-        
+
         let mut vehicle_map: HashMap<Uuid, String> = HashMap::new();
         for v in &all_vehicles {
             vehicle_map.insert(v.id, v.code.clone());
         }
 
         // Map Shift IDs by Name (Morning, Night, Normal)
-        let morning_shift = all_shifts.iter().find(|s| s.name == "Morning").ok_or("Morning shift not defined")?;
-        let night_shift = all_shifts.iter().find(|s| s.name == "Night").ok_or("Night shift not defined")?;
-        let normal_shift = all_shifts.iter().find(|s| s.name == "Normal").ok_or("Normal shift not defined")?;
+        let morning_shift = all_shifts
+            .iter()
+            .find(|s| s.name == "Morning")
+            .ok_or("Morning shift not defined")?;
+        let night_shift = all_shifts
+            .iter()
+            .find(|s| s.name == "Night")
+            .ok_or("Night shift not defined")?;
+        let normal_shift = all_shifts
+            .iter()
+            .find(|s| s.name == "Normal")
+            .ok_or("Normal shift not defined")?;
 
         // Replacement priority: Pull from Utility first, then Ambulance, etc.
         let replacement_priority = vec![
-            "UTILITY", 
-            "AMBULANCE 1", "AMBULANCE 2", 
-            "NURSE TENDER 1", "NURSE TENDER 2", 
-            "FOAM TENDER 5", "FOAM TENDER 4", "FOAM TENDER 3"
+            "UTILITY",
+            "AMBULANCE 1",
+            "AMBULANCE 2",
+            "NURSE TENDER 1",
+            "NURSE TENDER 2",
+            "FOAM TENDER 5",
+            "FOAM TENDER 4",
+            "FOAM TENDER 3",
         ];
 
         let num_days = self.days_in_month(month, year);
@@ -59,7 +80,7 @@ impl RosterService {
         for day_idx in 1..=num_days {
             let current_date = NaiveDate::from_ymd_opt(year, month, day_idx).unwrap();
             let delta = (current_date - baseline_date).num_days();
-            
+
             // Calculate Teams based on 6-day cycle pattern provided by user:
             // Day 0 (April 12): (A, C)
             // Day 1: (B, A)
@@ -67,7 +88,11 @@ impl RosterService {
             // Day 3: (C, B)
             // Day 4: (C, B)
             // Day 5: (A, C)
-            let cycle_idx = if delta >= 0 { delta % 6 } else { (6 + (delta % 6)) % 6 };
+            let cycle_idx = if delta >= 0 {
+                delta % 6
+            } else {
+                (6 + (delta % 6)) % 6
+            };
             let (m_team, n_team) = match cycle_idx {
                 0 => ("Alpha", "Charlie"),
                 1 => ("Bravo", "Alpha"),
@@ -79,15 +104,37 @@ impl RosterService {
             };
 
             // Generate assignments for Morning Shift
-            self.generate_slot_roster(current_date, m_team, morning_shift, &vehicle_map, &replacement_priority).await?;
-            
+            self.generate_slot_roster(
+                current_date,
+                m_team,
+                morning_shift,
+                &vehicle_map,
+                &replacement_priority,
+            )
+            .await?;
+
             // Generate assignments for Night Shift
-            self.generate_slot_roster(current_date, n_team, night_shift, &vehicle_map, &replacement_priority).await?;
+            self.generate_slot_roster(
+                current_date,
+                n_team,
+                night_shift,
+                &vehicle_map,
+                &replacement_priority,
+            )
+            .await?;
 
             // Generate assignments for Normal Shift (Mon-Fri, not Holiday)
-            let is_weekend = current_date.weekday() == Weekday::Sat || current_date.weekday() == Weekday::Sun;
+            let is_weekend =
+                current_date.weekday() == Weekday::Sat || current_date.weekday() == Weekday::Sun;
             if !is_weekend && !holidays.contains(&current_date) {
-                self.generate_slot_roster(current_date, "Normal", normal_shift, &vehicle_map, &replacement_priority).await?;
+                self.generate_slot_roster(
+                    current_date,
+                    "Normal",
+                    normal_shift,
+                    &vehicle_map,
+                    &replacement_priority,
+                )
+                .await?;
             }
         }
 
@@ -95,23 +142,41 @@ impl RosterService {
     }
 
     async fn generate_slot_roster(
-        &self, 
-        date: NaiveDate, 
-        team: &str, 
+        &self,
+        date: NaiveDate,
+        team: &str,
         shift: &Shift,
         vehicle_map: &HashMap<Uuid, String>,
-        replacement_priority: &[&str]
+        replacement_priority: &[&str],
     ) -> Result<(), String> {
-        let personnels = self.roster_repo.get_personnel_by_team(team).await.map_err(|e| e.to_string())?;
-        if personnels.is_empty() { return Ok(()); }
+        let personnels = self
+            .roster_repo
+            .get_personnel_by_team(team)
+            .await
+            .map_err(|e| e.to_string())?;
+        if personnels.is_empty() {
+            return Ok(());
+        }
 
-        let _pns_list: Vec<Uuid> = personnels.iter().filter(|(_, status)| status == "PNS").map(|(id, _)| *id).collect();
-        let pkwt_list: Vec<Uuid> = personnels.iter().filter(|(_, status)| status == "PKWT").map(|(id, _)| *id).collect();
+        let _pns_list: Vec<Uuid> = personnels
+            .iter()
+            .filter(|(_, status, _)| status == "PNS")
+            .map(|(id, _, _)| *id)
+            .collect();
+        let pkwt_list: Vec<Uuid> = personnels
+            .iter()
+            .filter(|(_, status, _)| status == "PKWT")
+            .map(|(id, _, _)| *id)
+            .collect();
 
         // Baseline: To avoid chaotic shuffling, we fetch the previous assigned roster for this team.
         // If not found, we use a global sequence logic.
-        let baseline = self.roster_repo.get_last_roster_baseline().await.map_err(|e| e.to_string())?;
-        
+        let baseline = self
+            .roster_repo
+            .get_last_roster_baseline()
+            .await
+            .map_err(|e| e.to_string())?;
+
         // Pick PKWT for Watchroom (simplistic rotation: based on day of year % pkwt count)
         // Adjust logic if user wants strict sequential tracking.
         let mut daily_assignments: HashMap<Uuid, DutyAssignment> = HashMap::new();
@@ -119,12 +184,20 @@ impl RosterService {
         let w_id = pkwt_list[watchroom_idx];
 
         // 1. Process Assignments
-        for (p_id, _) in &personnels {
-            let mut assignment = if let Some(base) = baseline.iter().find(|b| b.personnel_id == *p_id) {
-                self.create_assignment(p_id, shift, base, date)
-            } else {
-                self.empty_assignment(p_id, shift, date)
-            };
+        for (p_id, _, job_title) in &personnels {
+            let is_leader = job_title.contains("Leader");
+            
+            let mut assignment =
+                if let Some(base) = baseline.iter().find(|b| b.personnel_id == *p_id) {
+                    let mut a = self.create_assignment(p_id, shift, base, date);
+                    // If they are a leader but stuck in RESCUEMAN from previous bad data, upgrade them
+                    if is_leader && a.position == "RESCUEMAN" {
+                        a.position = "OSC".to_string();
+                    }
+                    a
+                } else {
+                    self.empty_assignment(p_id, shift, date, job_title)
+                };
 
             if *p_id == w_id {
                 assignment.vehicle_id = None;
@@ -134,40 +207,57 @@ impl RosterService {
         }
 
         // 2. FT Replacement Logic
-        let w_original_vehicle_id = baseline.iter().find(|b| b.personnel_id == w_id).and_then(|b| b.vehicle_id);
+        let w_original_vehicle_id = baseline
+            .iter()
+            .find(|b| b.personnel_id == w_id)
+            .and_then(|b| b.vehicle_id);
         let w_original_code = w_original_vehicle_id.and_then(|id| vehicle_map.get(&id));
 
-        if let Some(code) = w_original_code {
-            if code == "FOAM TENDER 1" || code == "FOAM TENDER 2" {
-                let mut replacement_found = false;
-                for &prio_code in replacement_priority {
-                    if replacement_found { break; }
-                    let replacement_candidate = daily_assignments.values().find(|a| {
-                        if let Some(v_id) = a.vehicle_id {
-                            if let Some(v_code) = vehicle_map.get(&v_id) {
-                                return v_code == prio_code && a.personnel_id != w_id;
-                            }
+        if let Some(code) = w_original_code
+            && (code == "FOAM TENDER 1" || code == "FOAM TENDER 2")
+        {
+            let mut replacement_found = false;
+            for &prio_code in replacement_priority {
+                if replacement_found {
+                    break;
+                }
+                let replacement_candidate = daily_assignments
+                    .values()
+                    .find(|a| {
+                        if let Some(v_id) = a.vehicle_id
+                            && let Some(v_code) = vehicle_map.get(&v_id)
+                        {
+                            return v_code == prio_code && a.personnel_id != w_id;
                         }
                         false
-                    }).map(|a| a.personnel_id);
+                    })
+                    .map(|a| a.personnel_id);
 
-                    if let Some(r_id) = replacement_candidate {
-                        if let Some(r_assignment) = daily_assignments.get_mut(&r_id) {
-                            r_assignment.vehicle_id = w_original_vehicle_id;
-                            replacement_found = true;
-                        }
-                    }
+                if let Some(r_id) = replacement_candidate
+                    && let Some(r_assignment) = daily_assignments.get_mut(&r_id)
+                {
+                    r_assignment.vehicle_id = w_original_vehicle_id;
+                    replacement_found = true;
                 }
             }
         }
 
         let final_list: Vec<DutyAssignment> = daily_assignments.into_values().collect();
-        self.roster_repo.batch_insert_assignments(&final_list).await.map_err(|e| e.to_string())?;
+        self.roster_repo
+            .batch_insert_assignments(&final_list)
+            .await
+            .map_err(|e| e.to_string())?;
 
         Ok(())
     }
 
-    fn create_assignment(&self, p_id: &Uuid, shift: &Shift, base: &DutyAssignment, date: NaiveDate) -> DutyAssignment {
+    fn create_assignment(
+        &self,
+        p_id: &Uuid,
+        shift: &Shift,
+        base: &DutyAssignment,
+        date: NaiveDate,
+    ) -> DutyAssignment {
         DutyAssignment {
             id: Uuid::new_v4(),
             personnel_id: *p_id,
@@ -181,13 +271,26 @@ impl RosterService {
         }
     }
 
-    fn empty_assignment(&self, p_id: &Uuid, shift: &Shift, date: NaiveDate) -> DutyAssignment {
+    fn empty_assignment(
+        &self,
+        p_id: &Uuid,
+        shift: &Shift,
+        date: NaiveDate,
+        job_title: &str,
+    ) -> DutyAssignment {
+        // Robust check for leaders (handling "Team Leader", "Squad Leader", "OperationTeam Leader", etc)
+        let default_position = if job_title.contains("Leader") {
+            "OSC"
+        } else {
+            "RESCUEMAN"
+        };
+
         DutyAssignment {
             id: Uuid::new_v4(),
             personnel_id: *p_id,
             shift_id: Some(shift.id),
             vehicle_id: None,
-            position: "RESCUEMAN".to_string(),
+            position: default_position.to_string(),
             status: Some("ACTIVE".to_string()),
             assignment_date: date,
             created_at: None,
@@ -195,18 +298,29 @@ impl RosterService {
         }
     }
 
-    pub async fn get_monthly_view(&self, month: u32, year: i32) -> Result<Vec<crate::domain::models::RosterView>, String> {
+    pub async fn get_monthly_view(
+        &self,
+        month: u32,
+        year: i32,
+    ) -> Result<Vec<crate::domain::models::RosterView>, String> {
         let start_date = NaiveDate::from_ymd_opt(year, month, 1).ok_or("Invalid date")?;
         let num_days = self.days_in_month(month, year);
         let end_date = NaiveDate::from_ymd_opt(year, month, num_days).ok_or("Invalid date")?;
 
-        self.roster_repo.get_monthly_view(start_date, end_date)
+        self.roster_repo
+            .get_monthly_view(start_date, end_date)
             .await
             .map_err(|e| e.to_string())
     }
 
-    pub async fn update_assignment(&self, id: Uuid, vehicle_id: Option<Uuid>, position: String) -> Result<(), String> {
-        self.roster_repo.update_assignment(id, vehicle_id, position)
+    pub async fn update_assignment(
+        &self,
+        id: Uuid,
+        vehicle_id: Option<Uuid>,
+        position: String,
+    ) -> Result<(), String> {
+        self.roster_repo
+            .update_assignment(id, vehicle_id, position)
             .await
             .map_err(|e| e.to_string())
     }
@@ -215,7 +329,13 @@ impl RosterService {
         match month {
             1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
             4 | 6 | 9 | 11 => 30,
-            2 => if (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) { 29 } else { 28 },
+            2 => {
+                if (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) {
+                    29
+                } else {
+                    28
+                }
+            }
             _ => 30,
         }
     }
@@ -228,16 +348,24 @@ mod tests {
     #[test]
     fn test_rotation_cycle() {
         let baseline_date = NaiveDate::from_ymd_opt(2026, 4, 12).unwrap();
-        
+
         println!("\n=== BUKTI ROTASI SHIFT (Mulai 12 April 2026) ===");
-        println!("{:<12} | {:<7} | {:<7} | {:<7}", "Tanggal", "Pagi", "Malam", "Libur");
+        println!(
+            "{:<12} | {:<7} | {:<7} | {:<7}",
+            "Tanggal", "Pagi", "Malam", "Libur"
+        );
         println!("{:-<45}", "");
 
-        for day_idx in 12..=26 { // Test for 15 days
+        for day_idx in 12..=26 {
+            // Test for 15 days
             let current_date = NaiveDate::from_ymd_opt(2026, 4, day_idx).unwrap();
             let delta = (current_date - baseline_date).num_days();
-            
-            let cycle_idx = if delta >= 0 { delta % 6 } else { (6 + (delta % 6)) % 6 };
+
+            let cycle_idx = if delta >= 0 {
+                delta % 6
+            } else {
+                (6 + (delta % 6)) % 6
+            };
             let (m_team, n_team) = match cycle_idx {
                 0 => ("Alpha", "Charlie"),
                 1 => ("Bravo", "Alpha"),
@@ -247,7 +375,7 @@ mod tests {
                 5 => ("Alpha", "Charlie"),
                 _ => unreachable!(),
             };
-            
+
             let off_team = match (m_team, n_team) {
                 ("Alpha", "Charlie") => "Bravo",
                 ("Bravo", "Alpha") => "Charlie",
@@ -255,8 +383,13 @@ mod tests {
                 _ => "Unknown",
             };
 
-            println!("{:<12} | {:<7} | {:<7} | {:<7}", 
-                     current_date.format("%Y-%m-%d").to_string(), m_team, n_team, off_team);
+            println!(
+                "{:<12} | {:<7} | {:<7} | {:<7}",
+                current_date.format("%Y-%m-%d").to_string(),
+                m_team,
+                n_team,
+                off_team
+            );
         }
         println!("================================================\n");
     }

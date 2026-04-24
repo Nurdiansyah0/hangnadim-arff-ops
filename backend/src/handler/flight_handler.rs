@@ -1,7 +1,7 @@
 use crate::{domain::models::FlightRoute, handler::middleware::RequireAuth, state::AppState};
-use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
-use serde::Deserialize;
+use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
 use chrono::{DateTime, Utc};
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct CreateFlightPayload {
@@ -33,13 +33,17 @@ async fn create_flight(
     RequireAuth(_): RequireAuth,
     Json(payload): Json<CreateFlightPayload>,
 ) -> Result<Json<FlightRoute>, (StatusCode, String)> {
-    match state.flight_service.create_flight(
-        &payload.flight_number, 
-        payload.origin.as_deref(), 
-        payload.destination.as_deref(), 
-        &payload.runway, 
-        payload.actual_time
-    ).await {
+    match state
+        .flight_service
+        .create_flight(
+            &payload.flight_number,
+            payload.origin.as_deref(),
+            payload.destination.as_deref(),
+            &payload.runway,
+            payload.actual_time,
+        )
+        .await
+    {
         Ok(f) => Ok(Json(f)),
         Err(e) => Err((StatusCode::BAD_REQUEST, e)),
     }

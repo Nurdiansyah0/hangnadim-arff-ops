@@ -1,9 +1,8 @@
 use crate::domain::models::MaintenanceRecord;
-use crate::repository::maintenance_repository::MaintenanceRepository;
-use crate::repository::vehicle_repository::VehicleRepoTrait;
+use crate::repository::maintenance_repository::{CreateMaintenanceParams, MaintenanceRepository};
+use crate::repository::vehicle_repository::{UpdateVehicleParams, VehicleRepoTrait};
 use std::sync::Arc;
 use uuid::Uuid;
-use bigdecimal::BigDecimal;
 
 #[derive(Clone)]
 pub struct MaintenanceService {
@@ -12,60 +11,66 @@ pub struct MaintenanceService {
 }
 
 impl MaintenanceService {
-    pub fn new(repo: Arc<dyn MaintenanceRepository>, vehicle_repo: Arc<dyn VehicleRepoTrait>) -> Self {
+    pub fn new(
+        repo: Arc<dyn MaintenanceRepository>,
+        vehicle_repo: Arc<dyn VehicleRepoTrait>,
+    ) -> Self {
         Self { repo, vehicle_repo }
     }
 
     pub async fn create_maintenance_record(
         &self,
-        vehicle_id: Uuid,
-        maintenance_type: Option<String>,
-        description: &str,
-        performed_by: Uuid,
-        performed_at: Option<chrono::NaiveDate>,
-        cost: Option<BigDecimal>,
-        next_due: Option<chrono::NaiveDate>,
-        photo_url: Option<&str>,
+        params: CreateMaintenanceParams<'_>,
     ) -> Result<MaintenanceRecord, String> {
+        let is_repair_or_scheduled = params
+            .maintenance_type
+            .is_some_and(|m_type| m_type == "REPAIR" || m_type == "SCHEDULED");
+        let vehicle_id = params.vehicle_id;
+
         // 1. Create maintenance record
-        let record = self.repo
-            .create_record(
-                vehicle_id, 
-                maintenance_type.as_deref(), 
-                description, 
-                performed_by, 
-                performed_at, 
-                cost, 
-                next_due,
-                photo_url
-            )
+        let record = self
+            .repo
+            .create_record(params)
             .await
             .map_err(|e| e.to_string())?;
 
         // 2. Automatically update vehicle status if it's REPAIR or SCHEDULED
         // If it's just a request from staff, maintenance_type is None, so this doesn't fire.
-        if let Some(m_type) = &maintenance_type {
-            if m_type == "REPAIR" || m_type == "SCHEDULED" {
-                self.vehicle_repo
-                    .update_vehicle(
-                        vehicle_id, 
-                        None, None, None, 
-                        Some("MAINTENANCE"), 
-                        None, None, None, None, None
-                    )
-                    .await
-                    .map_err(|e| format!("Failed to update vehicle status: {}", e))?;
-            }
+        if is_repair_or_scheduled {
+            self.vehicle_repo
+                .update_vehicle(UpdateVehicleParams {
+                    id: vehicle_id,
+                    code: None,
+                    name: None,
+                    vehicle_type: None,
+                    status: Some("MAINTENANCE"),
+                    water_capacity_l: None,
+                    foam_capacity_l: None,
+                    powder_capacity_kg: None,
+                    last_service_date: None,
+                    next_service_due: None,
+                })
+                .await
+                .map_err(|e| format!("Failed to update vehicle status: {}", e))?;
         }
 
         Ok(record)
     }
 
-    pub async fn get_vehicle_maintenance_history(&self, vehicle_id: Uuid) -> Result<Vec<MaintenanceRecord>, String> {
-        self.repo.get_by_vehicle_id(vehicle_id).await.map_err(|e| e.to_string())
+    pub async fn get_vehicle_maintenance_history(
+        &self,
+        vehicle_id: Uuid,
+    ) -> Result<Vec<MaintenanceRecord>, String> {
+        self.repo
+            .get_by_vehicle_id(vehicle_id)
+            .await
+            .map_err(|e| e.to_string())
     }
 
-    pub async fn get_maintenance_record_by_id(&self, id: Uuid) -> Result<MaintenanceRecord, String> {
+    pub async fn get_maintenance_record_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<MaintenanceRecord, String> {
         self.repo.get_by_id(id).await.map_err(|e| e.to_string())
     }
 }
